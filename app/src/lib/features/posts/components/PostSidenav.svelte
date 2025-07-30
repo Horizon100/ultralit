@@ -13,8 +13,8 @@
 		type AttachmentFilterType
 	} from '$lib/stores/attachmentFilterStore';
 	import { filterStatus } from '$lib/stores/combinedFilterStore';
+	import { t } from '$lib/stores/translationStore';
 
-	// Simple reactive statements
 	$: selectedTagsList = $selectedTags;
 	$: tagCountsList = $tagCounts;
 	$: hasSelectedTags = selectedTagsList.length > 0;
@@ -24,8 +24,6 @@
 		console.log('🏷️ Sidenav became visible, updating tag counts...');
 		tagFilterStore.updateTagCounts();
 	}
-
-	// Watch for posts to be loaded and update tag counts
 	$: if ($postStore.posts && $postStore.posts.length > 0 && !$postStore.loading) {
 		console.log('🏷️ Posts loaded, updating tag counts...');
 		console.log('🏷️ Posts count:', $postStore.posts.length);
@@ -38,20 +36,16 @@
 			}))
 		);
 
-		// Update tag counts after posts are loaded
 		tagFilterStore.updateTagCounts();
 	}
 
-	// Component mount logic
 	onMount(() => {
 		console.log('🏷️ PostSidenav mounted');
 		console.log('🏷️ Initial posts in store:', $postStore.posts.length);
 
-		// Force update tag counts when component mounts
 		console.log('🏷️ Force updating tag counts on mount...');
 		tagFilterStore.updateTagCounts();
 
-		// Also set up a retry mechanism
 		if ($postStore.posts.length === 0) {
 			console.log('🏷️ No posts loaded yet, setting up retry...');
 			let retryCount = 0;
@@ -136,7 +130,7 @@
 								title="Clear all filters"
 							>
 								<Icon name="X" size={14} />
-								<span>Clear All</span>
+								<span>{$t('generic.clear')} {$t('generic.all')}</span>
 							</button>
 						</div>
 					{/if}
@@ -168,7 +162,7 @@
 				<div class="filter-header">
 					<h3>
 						<Icon name="Tag" size={20} />
-						<span>Tags</span>
+						<span>{$t('generic.tags')}</span>
 					</h3>
 
 					{#if hasSelectedTags}
@@ -178,15 +172,14 @@
 							title="Clear tag filters"
 						>
 							<Icon name="X" size={16} />
-							<span>Clear ({selectedTagsList.length})</span>
+							<span>{$t('generic.clear')} ({selectedTagsList.length})</span>
 						</button>
 					{/if}
 				</div>
 
 				{#if $postStore.loading}
-					<div class="loading-tags">
-						<Icon name="Loader2" size={20} />
-						<p>Loading posts...</p>
+					<div class="spinner-container">
+						<div class="spinner"></div>
 					</div>
 				{:else if tagCountsList.length > 0}
 					<div class="filter-container">
@@ -218,8 +211,11 @@
 
 				{#if hasSelectedTags}
 					<div class="filter-info">
-						<Icon name="Filter" size={14} />
-						<span>Tags: {selectedTagsList.join(', ')}</span>
+						<!-- <Icon name="Filter" size={14} /> -->
+						<span>{$t('status.active')}:</span>
+						<span class="tags">
+							{selectedTagsList.join(', ')}
+						</span>
 					</div>
 				{/if}
 			</div>
@@ -232,22 +228,21 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
 	.left-sidebar {
 		width: 100%;
-		max-width: 400px;
+		// max-width: 400px;
 		height: auto;
 		position: relative;
-		background-color: var(--bg-color);
+		background-color: var(--primary-color);
 		top: 0;
 		bottom: 0;
 		left: 0;
-		padding-left: 3rem;
+		padding-left: 1rem;
 		overflow-y: hidden;
-		border-right: 1px solid var(--line-color);
 		transition: width 0.1s cubic-bezier(0.075, 0.82, 0.165, 1);
 		z-index: 1;
 	}
@@ -336,14 +331,14 @@
 	}
 
 	@media (max-width: 1000px) {
-		.left-sidebar {
-			height: 80vh;
-			width: 100%;
-			margin: 2rem;
-			border-radius: 0.5rem;
-			border-right: none;
-			transition: all 0.3s ease;
-		}
+		// .left-sidebar {
+		// 	height: 80vh;
+		// 	width: 100%;
+		// 	margin: 2rem;
+		// 	border-radius: 0.5rem;
+		// 	border-right: none;
+		// 	transition: all 0.3s ease;
+		// }
 	}
 
 	.left-sidebar.drawer-visible {
@@ -355,24 +350,35 @@
 	.filter-header {
 		display: flex;
 		align-items: center;
+
 		justify-content: space-between;
-		gap: 12px;
-		padding: 0.5rem;
+		margin-top: 1rem;
 		border-radius: 8px;
 		font-size: 14px;
+		& h3 {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 0.5rem;
+			font-size: 1rem;
+		}
 	}
 
 	.filter-info {
 		display: flex;
 		align-items: center;
-		gap: 8px;
+		gap: 0.5rem;
+		padding: 1rem 0 !important;
 		flex: 1;
 		color: var(--tertiary-color) !important;
 		background: var(--primary-color) !important;
 		& span {
-			color: var(--tertiary-color);
-			font-style: italic;
-			letter-spacing: 0.1rem;
+			color: var(--text-color);
+
+			&.tags {
+				color: var(--tertiary-color);
+				font-style: italic;
+			}
 		}
 	}
 
@@ -479,6 +485,7 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		padding: 0 0.25rem;
 	}
 
 	.filter-button {
@@ -513,7 +520,8 @@
 
 	.tag-name {
 		font-weight: 500;
-		font-size: 14px;
+		font-size: 0.8rem;
+		padding: 0 0.25rem;
 	}
 
 	.filter-count {

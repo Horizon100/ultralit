@@ -164,27 +164,13 @@ export function createThreadsStore() {
 				this.pendingThreadRequests.delete(id);
 			}
 		}
-
+		static async safeLoadMessages(threadId: string): Promise<Messages[]> {
+			return await this.safeSetCurrentThread(threadId);
+		}
 		private static async executeThreadSet(id: string): Promise<Messages[]> {
 			try {
 				console.log(`Fetching messages for thread ${id}`);
-				const messagesResult = await fetchMessagesForThread(id);
-
-				let messages: Messages[];
-
-				if (messagesResult && typeof messagesResult === 'object' && 'success' in messagesResult) {
-					const resultType = messagesResult as {
-						success: boolean;
-						data: Messages[];
-						error?: string;
-					};
-					if (!resultType.success) {
-						throw new Error(String(resultType.error || 'Failed to fetch messages'));
-					}
-					messages = resultType.data || [];
-				} else {
-					messages = Array.isArray(messagesResult) ? messagesResult : [];
-				}
+				const messages = await fetchMessagesForThread(id);
 
 				console.log(`Loaded ${messages.length} messages for thread ${id}`);
 
@@ -374,55 +360,47 @@ export function createThreadsStore() {
 		},
 
 		loadThreads: async (): Promise<Threads[]> => {
-			const result = await clientTryCatch(
-				(async () => {
-					update((state) => ({
-						...state,
-						isLoading: true,
-						error: null
-					}));
+			try {
+				update((state) => ({
+					...state,
+					isLoading: true,
+					error: null
+				}));
 
-					// Make sure to handle authentication properly
-					const authResult = await clientTryCatch(ensureAuthenticated(), 'Authentication check');
-					if (isFailure(authResult)) {
-						console.warn('Authentication check failed:', authResult.error);
-						// Don't throw here, continue and let the fetch handle it
-					}
+				const authResult = await clientTryCatch(ensureAuthenticated(), 'Authentication check');
+				if (isFailure(authResult)) {
+					console.warn('Authentication check failed:', authResult.error);
+				}
 
-					const user = get(currentUser);
-					if (!user?.token) {
-						console.warn('No user token available, attempting to fetch threads anyway');
-					}
+				const user = get(currentUser);
+				if (!user?.token) {
+					console.warn('No user token available, attempting to fetch threads anyway');
+				}
 
-					const threads = await fetchThreads();
+				const threads = await fetchThreads();
 
-					update((state) => ({
-						...state,
-						threads,
-						isThreadsLoaded: true,
-						updateStatus: 'Threads loaded successfully',
-						isLoading: false
-					}));
+				update((state) => ({
+					...state,
+					threads,
+					isThreadsLoaded: true,
+					updateStatus: 'Threads loaded successfully',
+					isLoading: false
+				}));
 
-					return threads;
-				})(),
-				'Loading threads'
-			);
+				return threads;
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				console.error('Error loading threads:', errorMessage);
 
-			if (isFailure(result)) {
-				console.error('Error loading threads:', result.error);
 				update((state) => ({
 					...state,
 					isLoading: false,
-					error: result.error,
+					error: errorMessage,
 					updateStatus: 'Failed to load threads'
 				}));
 
-				// Return the existing threads instead of throwing
 				return get(store).threads;
 			}
-
-			return result.data;
 		},
 
 		loadMessages: async (threadId: string): Promise<Messages[]> => {
@@ -437,7 +415,7 @@ export function createThreadsStore() {
 				return [];
 			}
 
-			const messages = result.data;
+			const messages = result.data as Messages[];
 			update((state) => ({ ...state, messages, currentThreadId: threadId }));
 			return messages;
 		},

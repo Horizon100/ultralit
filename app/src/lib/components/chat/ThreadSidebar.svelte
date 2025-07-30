@@ -257,7 +257,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -346,7 +346,6 @@
 			width: 100%;
 
 			&.selected {
-				backdrop-filter: blur(8px);
 				font-weight: bold;
 				animation: pulsate 0.5s 0.5s initial;
 			}
@@ -668,10 +667,10 @@
 			// box-shadow: -5px -1px 5px 4px rgba(255, 255, 255, 0.2);
 		}
 		&.selected {
-			backdrop-filter: blur(30px);
 			background: var(--bg-color);
-			border-radius: 0;
-			border-radius: 0 1rem 1rem 0;
+			border-radius: 2rem;
+			margin: 0 1rem;
+			width: calc(100% - 2rem);
 		}
 	}
 
@@ -856,6 +855,7 @@
 		align-items: center;
 		padding: 2rem 0 0 1rem;
 		margin: 0;
+		margin-bottom: 0.5rem;
 		user-select: none;
 		.time-label {
 			font-size: 0.9rem;

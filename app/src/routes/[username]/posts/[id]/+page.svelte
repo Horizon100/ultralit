@@ -60,149 +60,147 @@
 	$: username = $page.params.username;
 	$: postId = $page.params.id;
 
+	async function fetchPostData() {
+		if (!postId) {
+			console.log('❌ No postId provided');
+			return;
+		}
 
-async function fetchPostData() {
-	if (!postId) {
-		console.log('❌ No postId provided');
-		return;
-	}
-	
-	console.log('🔍 fetchPostData called:', { 
-		postId, 
-		username, 
-		currentUser: $currentUser?.id || 'not authenticated',
-		mounted 
-	});
-
-	const result = await clientTryCatch(
-		(async () => {
-			loading = true;
-			error = '';
-
-			const apiUrl = `/api/posts/${postId}`;
-			console.log('🌐 Making fetch request to:', apiUrl);
-			
-			const fetchResult = await fetchTryCatch<{
-				post: PostWithInteractions;
-				comments: CommentWithInteractions[];
-				user: User;
-				error?: string;
-			}>(apiUrl);
-
-			console.log('🌐 Fetch result:', {
-				success: fetchResult.success,
-				hasData: !!fetchResult.data,
-				error: fetchResult.error
-			});
-
-			if (isFailure(fetchResult)) {
-				console.error('❌ Fetch failed:', fetchResult.error);
-				throw new Error(`Failed to load post: ${fetchResult.error}`);
-			}
-
-			const data = fetchResult.data;
-			
-			// ENHANCED debugging - log the actual response structure
-			console.log('📦 Raw API response:', data);
-			console.log('📦 Data received breakdown:', {
-				hasPost: !!data.post,
-				hasUser: !!data.user,
-				hasComments: !!data.comments,
-				commentsLength: data.comments?.length || 0,
-				dataError: data.error,
-				// Log actual data structure
-				postKeys: data.post ? Object.keys(data.post) : 'no post',
-				userKeys: data.user ? Object.keys(data.user) : 'no user',
-				commentsType: Array.isArray(data.comments) ? 'array' : typeof data.comments,
-				firstCommentSample: data.comments?.[0] ? {
-					id: data.comments[0].id,
-					parent: data.comments[0].parent,
-					content: data.comments[0].content?.substring(0, 50)
-				} : 'no first comment'
-			});
-
-			if (data.error) {
-				console.error('❌ Data error:', data.error);
-				throw new Error(data.error);
-			}
-
-			// Ensure we have the required data
-			if (!data.post) {
-				console.error('❌ No post in response');
-				throw new Error('Post not found');
-			}
-
-			if (!data.user) {
-				console.error('❌ No user in response');
-				throw new Error('Post author not found');
-			}
-
-			// Assignment with detailed logging
-			console.log('📝 Assigning data to variables...');
-			console.log('📝 Before assignment:', {
-				currentPost: post?.id || 'none',
-				currentComments: comments?.length || 0,
-				currentUser: user?.id || 'none'
-			});
-
-			post = data.post;
-			comments = data.comments || [];
-			user = data.user;
-
-			console.log('📝 After assignment:', {
-				newPost: post?.id || 'none',
-				newComments: comments?.length || 0,
-				newUser: user?.id || 'none',
-				commentsArray: comments.map(c => ({
-					id: c.id,
-					parent: c.parent,
-					content: c.content?.substring(0, 30)
-				}))
-			});
-
-			console.log('✅ Post data loaded successfully:', {
-				postId: post.id,
-				authorUsername: user.username,
-				commentsCount: comments.length,
-				commentIds: comments.map(c => c.id)
-			});
-
-			// Verify the username matches the post's author (only if username is provided in URL)
-			if (username && user && user.username !== username && user.username !== 'user') {
-				console.error('❌ Username mismatch:', { expected: username, actual: user.username });
-				throw new Error('Post not found');
-			}
-
-			return { post, comments, user };
-		})(),
-		`Fetching post data for ${postId}`
-	);
-
-	if (isFailure(result)) {
-		console.error('💥 Final error in fetchPostData:', result.error);
-		error = result.error;
-		// Reset state on error
-		post = null;
-		comments = [];
-		user = null;
-	} else {
-		console.log('✅ fetchPostData completed successfully');
-		console.log('✅ Final state:', {
-			postExists: !!post,
-			commentsCount: comments?.length || 0,
-			userExists: !!user
+		console.log('🔍 fetchPostData called:', {
+			postId,
+			username,
+			currentUser: $currentUser?.id || 'not authenticated',
+			mounted
 		});
-	}
 
-	loading = false;
-}
+		const result = await clientTryCatch(
+			(async () => {
+				loading = true;
+				error = '';
+
+				const apiUrl = `/api/posts/${postId}`;
+				console.log('🌐 Making fetch request to:', apiUrl);
+
+				const fetchResult = await fetchTryCatch<{
+					post: PostWithInteractions;
+					comments: CommentWithInteractions[];
+					user: User;
+					error?: string;
+				}>(apiUrl);
+
+				console.log('🌐 Fetch result:', {
+					success: fetchResult.success,
+					hasData: !!fetchResult.data,
+					error: fetchResult.error
+				});
+
+				if (isFailure(fetchResult)) {
+					console.error('❌ Fetch failed:', fetchResult.error);
+					throw new Error(`Failed to load post: ${fetchResult.error}`);
+				}
+
+				const data = fetchResult.data;
+
+				// ENHANCED debugging - log the actual response structure
+				console.log('📦 Raw API response:', data);
+				console.log('📦 Data received breakdown:', {
+					hasPost: !!data.post,
+					hasUser: !!data.user,
+					hasComments: !!data.comments,
+					commentsLength: data.comments?.length || 0,
+					dataError: data.error,
+					// Log actual data structure
+					postKeys: data.post ? Object.keys(data.post) : 'no post',
+					userKeys: data.user ? Object.keys(data.user) : 'no user',
+					commentsType: Array.isArray(data.comments) ? 'array' : typeof data.comments,
+					firstCommentSample: data.comments?.[0]
+						? {
+								id: data.comments[0].id,
+								parent: data.comments[0].parent,
+								content: data.comments[0].content?.substring(0, 50)
+							}
+						: 'no first comment'
+				});
+
+				if (data.error) {
+					console.error('❌ Data error:', data.error);
+					throw new Error(data.error);
+				}
+
+				// Ensure we have the required data
+				if (!data.post) {
+					console.error('❌ No post in response');
+					throw new Error('Post not found');
+				}
+
+				if (!data.user) {
+					console.error('❌ No user in response');
+					throw new Error('Post author not found');
+				}
+
+				// Assignment with detailed logging
+				console.log('📝 Assigning data to variables...');
+				console.log('📝 Before assignment:', {
+					currentPost: post?.id || 'none',
+					currentComments: comments?.length || 0,
+					currentUser: user?.id || 'none'
+				});
+
+				post = data.post;
+				comments = data.comments || [];
+				user = data.user;
+
+				console.log('📝 After assignment:', {
+					newPost: post?.id || 'none',
+					newComments: comments?.length || 0,
+					newUser: user?.id || 'none',
+					commentsArray: comments.map((c) => ({
+						id: c.id,
+						parent: c.parent,
+						content: c.content?.substring(0, 30)
+					}))
+				});
+
+				console.log('✅ Post data loaded successfully:', {
+					postId: post.id,
+					authorUsername: user.username,
+					commentsCount: comments.length,
+					commentIds: comments.map((c) => c.id)
+				});
+
+				// Verify the username matches the post's author (only if username is provided in URL)
+				if (username && user && user.username !== username && user.username !== 'user') {
+					console.error('❌ Username mismatch:', { expected: username, actual: user.username });
+					throw new Error('Post not found');
+				}
+
+				return { post, comments, user };
+			})(),
+			`Fetching post data for ${postId}`
+		);
+
+		if (isFailure(result)) {
+			console.error('💥 Final error in fetchPostData:', result.error);
+			error = result.error;
+			// Reset state on error
+			post = null;
+			comments = [];
+			user = null;
+		} else {
+			console.log('✅ fetchPostData completed successfully');
+			console.log('✅ Final state:', {
+				postExists: !!post,
+				commentsCount: comments?.length || 0,
+				userExists: !!user
+			});
+		}
+
+		loading = false;
+	}
 
 	// Handle scroll detection
 	let showPDFReader = false;
 	let currentPDFUrl = '';
-
-
-
 
 	function handleScroll() {
 		// Don't handle scroll when PDF reader is open
@@ -481,64 +479,64 @@ async function fetchPostData() {
 		}
 	}
 	// Handle comment button clicks
-function handleComment(event: CustomEvent<{ postId: string }>) {
-    const { postId } = event.detail;
+	function handleComment(event: CustomEvent<{ postId: string }>) {
+		const { postId } = event.detail;
 
-    if (!$currentUser) {
-        showAuthModal = true;
-        authAction = 'comment';
-        return;
-    }
+		if (!$currentUser) {
+			showAuthModal = true;
+			authAction = 'comment';
+			return;
+		}
 
-    // If it's the main post, show composer
-    if (postId === post?.id) {
-        showComposer = !showComposer;
-    } else {
-        // For comments, navigate to that comment's page
-        console.log('Comment on comment:', postId);
-        
-        // Find the comment in the comments array to get the author info
-        const targetComment = comments.find(c => c.id === postId);
-        
-        if (targetComment && targetComment.author_username) {
-            // Navigate to the comment's page using its author's username and the comment ID
-            const commentUrl = `/${targetComment.author_username}/posts/${postId}`;
-            console.log('Navigating to comment page:', commentUrl);
-            goto(commentUrl);
-        } else {
-            // Fallback: if we can't find the comment or author info, 
-            // we could fetch it or show an error
-            console.error('Could not find comment or author info for comment:', postId);
-            
-            // Alternative: You could fetch the comment details here
-            fetchCommentAndNavigate(postId);
-        }
-    }
-}
-async function fetchCommentAndNavigate(commentId: string) {
-    try {
-        const response = await fetch(`/api/posts/${commentId}`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const commentData = await response.json();
-            if (commentData.success && commentData.post) {
-                const comment = commentData.post;
-                // Navigate using the fetched comment's author username
-                const commentUrl = `/${comment.author_username}/posts/${commentId}`;
-                console.log('Navigating to fetched comment page:', commentUrl);
-                goto(commentUrl);
-            } else {
-                console.error('Failed to fetch comment data');
-            }
-        } else {
-            console.error('Failed to fetch comment:', response.status);
-        }
-    } catch (error) {
-        console.error('Error fetching comment for navigation:', error);
-    }
-}
+		// If it's the main post, show composer
+		if (postId === post?.id) {
+			showComposer = !showComposer;
+		} else {
+			// For comments, navigate to that comment's page
+			console.log('Comment on comment:', postId);
+
+			// Find the comment in the comments array to get the author info
+			const targetComment = comments.find((c) => c.id === postId);
+
+			if (targetComment && targetComment.author_username) {
+				// Navigate to the comment's page using its author's username and the comment ID
+				const commentUrl = `/${targetComment.author_username}/posts/${postId}`;
+				console.log('Navigating to comment page:', commentUrl);
+				goto(commentUrl);
+			} else {
+				// Fallback: if we can't find the comment or author info,
+				// we could fetch it or show an error
+				console.error('Could not find comment or author info for comment:', postId);
+
+				// Alternative: You could fetch the comment details here
+				fetchCommentAndNavigate(postId);
+			}
+		}
+	}
+	async function fetchCommentAndNavigate(commentId: string) {
+		try {
+			const response = await fetch(`/api/posts/${commentId}`, {
+				credentials: 'include'
+			});
+
+			if (response.ok) {
+				const commentData = await response.json();
+				if (commentData.success && commentData.post) {
+					const comment = commentData.post;
+					// Navigate using the fetched comment's author username
+					const commentUrl = `/${comment.author_username}/posts/${commentId}`;
+					console.log('Navigating to fetched comment page:', commentUrl);
+					goto(commentUrl);
+				} else {
+					console.error('Failed to fetch comment data');
+				}
+			} else {
+				console.error('Failed to fetch comment:', response.status);
+			}
+		} catch (error) {
+			console.error('Error fetching comment for navigation:', error);
+		}
+	}
 	// Handle quote submissions
 	async function handleQuote(
 		event: CustomEvent<{ content: string; attachments: File[]; quotedPostId: string }>
@@ -590,216 +588,220 @@ async function fetchCommentAndNavigate(commentId: string) {
 			alert(`Failed to quote post: ${result.error}`);
 		}
 	}
-$: if (mounted && postId) {
-    console.log('🔄 Reactive fetchPostData triggered by postId change');
-    console.log('🔄 Values:', { mounted, username, postId });
-    
-    // Check if we just added a comment - if so, don't refetch
-    if (Date.now() - lastCommentTime < 5000) {
-        console.log('⏸️ Skipping fetchPostData - comment was just added');
-    } else {
-        console.log('📡 Fetching post data...');
-        fetchPostData();
-    }
-}
+	$: if (mounted && postId) {
+		console.log('🔄 Reactive fetchPostData triggered by postId change');
+		console.log('🔄 Values:', { mounted, username, postId });
 
+		// Check if we just added a comment - if so, don't refetch
+		if (Date.now() - lastCommentTime < 5000) {
+			console.log('⏸️ Skipping fetchPostData - comment was just added');
+		} else {
+			console.log('📡 Fetching post data...');
+			fetchPostData();
+		}
+	}
 
+	// Replace the logging with these versions that show actual values instead of collapsed Objects
 
+	$: if (comments) {
+		console.log('📊 Comments array changed. Length:', comments.length);
+		console.log(
+			'📝 Comment IDs:',
+			comments.map((c) => c.id)
+		);
 
-// Replace the logging with these versions that show actual values instead of collapsed Objects
+		// Log each comment individually to see the actual values
+		comments.forEach((comment, index) => {
+			console.log(`📝 Comment ${index + 1}:`, {
+				id: comment.id,
+				parent: comment.parent,
+				content: comment.content?.substring(0, 50),
+				type: comment.type || 'user_comment',
+				author: comment.author_username,
+				agent: comment.agent || null
+			});
+		});
 
-$: if (comments) {
-    console.log('📊 Comments array changed. Length:', comments.length);
-    console.log('📝 Comment IDs:', comments.map(c => c.id));
-    
-    // Log each comment individually to see the actual values
-    comments.forEach((comment, index) => {
-        console.log(`📝 Comment ${index + 1}:`, {
-            id: comment.id,
-            parent: comment.parent,
-            content: comment.content?.substring(0, 50),
-            type: comment.type || 'user_comment',
-            author: comment.author_username,
-            agent: comment.agent || null
-        });
-    });
-    
-    console.log('📝 Main post ID for comparison:', post?.id);
-}
+		console.log('📝 Main post ID for comparison:', post?.id);
+	}
 
-// Enhanced children count map with detailed logging
-$: childrenCountMap = comments.reduce((map, comment) => {
-    const parentId = comment.parent;
-    const isDirectReply = parentId === post?.id;
-    const isNestedReply = parentId && parentId !== post?.id;
-    
-    console.log(`🔍 Processing comment ${comment.id}:`, {
-        commentId: comment.id,
-        parentId: parentId,
-        mainPostId: post?.id,
-        isDirectReplyToMainPost: isDirectReply,
-        isReplyToAnotherComment: isNestedReply
-    });
-    
-    if (isNestedReply) { 
-        map[parentId] = (map[parentId] || 0) + 1;
-        console.log(`✅ Added child to ${parentId}, new count: ${map[parentId]}`);
-    }
-    return map;
-}, {} as Record<string, number>);
+	// Enhanced children count map with detailed logging
+	$: childrenCountMap = comments.reduce(
+		(map, comment) => {
+			const parentId = comment.parent;
+			const isDirectReply = parentId === post?.id;
+			const isNestedReply = parentId && parentId !== post?.id;
 
-// Log the final map with actual values
-$: {
-    console.log('📊 Final Children count map keys:', Object.keys(childrenCountMap));
-    console.log('📊 Final Children count map values:', Object.values(childrenCountMap));
-    Object.entries(childrenCountMap).forEach(([parentId, count]) => {
-        console.log(`📊 Parent ${parentId} has ${count} children`);
-    });
-}
+			console.log(`🔍 Processing comment ${comment.id}:`, {
+				commentId: comment.id,
+				parentId: parentId,
+				mainPostId: post?.id,
+				isDirectReplyToMainPost: isDirectReply,
+				isReplyToAnotherComment: isNestedReply
+			});
 
-// Enhanced comment breakdown
-$: if (post && comments) {
-    const directReplies = comments.filter(c => c.parent === post.id);
-    const nestedReplies = comments.filter(c => c.parent && c.parent !== post.id);
-    
-    console.log('📊 Comment breakdown:');
-    console.log('  Total comments:', comments.length);
-    console.log('  Direct replies to main post:', directReplies.length);
-    console.log('  Direct reply IDs:', directReplies.map(c => c.id));
-    console.log('  Nested replies:', nestedReplies.length);
-    console.log('  Nested reply details:', nestedReplies.map(c => ({ id: c.id, parent: c.parent })));
-}
+			if (isNestedReply) {
+				map[parentId] = (map[parentId] || 0) + 1;
+				console.log(`✅ Added child to ${parentId}, new count: ${map[parentId]}`);
+			}
+			return map;
+		},
+		{} as Record<string, number>
+	);
 
+	// Log the final map with actual values
+	$: {
+		console.log('📊 Final Children count map keys:', Object.keys(childrenCountMap));
+		console.log('📊 Final Children count map values:', Object.values(childrenCountMap));
+		Object.entries(childrenCountMap).forEach(([parentId, count]) => {
+			console.log(`📊 Parent ${parentId} has ${count} children`);
+		});
+	}
 
+	// Enhanced comment breakdown
+	$: if (post && comments) {
+		const directReplies = comments.filter((c) => c.parent === post.id);
+		const nestedReplies = comments.filter((c) => c.parent && c.parent !== post.id);
 
+		console.log('📊 Comment breakdown:');
+		console.log('  Total comments:', comments.length);
+		console.log('  Direct replies to main post:', directReplies.length);
+		console.log(
+			'  Direct reply IDs:',
+			directReplies.map((c) => c.id)
+		);
+		console.log('  Nested replies:', nestedReplies.length);
+		console.log(
+			'  Nested reply details:',
+			nestedReplies.map((c) => ({ id: c.id, parent: c.parent }))
+		);
+	}
 
+	function getChildrenCount(commentId: string): number {
+		const count = childrenCountMap[commentId] || 0;
+		console.log(`📊 Children count for comment ${commentId}:`, count);
+		return count;
+	}
+	$: console.log('📊 Children count map:', childrenCountMap);
 
+	$: if (post && comments && Array.isArray(comments)) {
+		const directReplies = comments.filter((c) => c.parent === post.id);
+		const oldCount = post.commentCount;
+		post.commentCount = directReplies.length;
+		console.log('📊 Main post comment count updated:', {
+			oldCount,
+			newCount: post.commentCount,
+			directRepliesIds: directReplies.map((c) => c.id)
+		});
+	}
+	async function handleCommentSubmit(
+		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
+	) {
+		if (!$currentUser) {
+			console.error($t('generic.userNotLoggedIn'));
+			return;
+		}
 
-function getChildrenCount(commentId: string): number {
-    const count = childrenCountMap[commentId] || 0;
-    console.log(`📊 Children count for comment ${commentId}:`, count);
-    return count;
-}
-$: console.log('📊 Children count map:', childrenCountMap);
+		if (!post) {
+			console.error('No post available for commenting');
+			return;
+		}
 
-$: if (post && comments && Array.isArray(comments)) {
-    const directReplies = comments.filter(c => c.parent === post.id);
-    const oldCount = post.commentCount;
-    post.commentCount = directReplies.length;
-    console.log('📊 Main post comment count updated:', {
-        oldCount,
-        newCount: post.commentCount,
-        directRepliesIds: directReplies.map(c => c.id)
-    });
-}
-async function handleCommentSubmit(
-    event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
-) {
-    if (!$currentUser) {
-        console.error($t('generic.userNotLoggedIn'));
-        return;
-    }
+		console.log('🚀 Starting comment submission...');
 
-    if (!post) {
-        console.error('No post available for commenting');
-        return;
-    }
+		const result = await clientTryCatch(
+			(async () => {
+				const fetchResult = await fetchTryCatch<{
+					success: boolean;
+					comment: CommentWithInteractions;
+					autoRepliesCreated?: string[];
+					message?: string;
+				}>(`/api/posts/${post.id}/comments`, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify({
+						content: event.detail.content,
+						user: $currentUser.id
+					}),
+					credentials: 'include'
+				});
 
-    console.log('🚀 Starting comment submission...');
-
-    const result = await clientTryCatch(
-        (async () => {
-            const fetchResult = await fetchTryCatch<{
-                success: boolean;
-                comment: CommentWithInteractions;
-                autoRepliesCreated?: string[];
-                message?: string;
-            }>(`/api/posts/${post.id}/comments`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    content: event.detail.content,
-                    user: $currentUser.id
-                }),
-                credentials: 'include'
-            });
-
-            if (isFailure(fetchResult)) {
-                throw new Error(`Failed to create comment: ${fetchResult.error}`);
-            }
-
-            const result = fetchResult.data;
-
-            if (result.success && result.comment) {
-                console.log('📝 New comment received from API:', result.comment);
-
-                lastCommentTime = Date.now();
-                commentSubmitted = true;
-
-                const existingIds = new Set(comments.map((c) => c.id));
-                if (!existingIds.has(result.comment.id)) {
-                    const newComments = [...comments, result.comment];
-                    comments = newComments;
-                    console.log('✅ Comment added to array. New length:', comments.length);
-                } else {
-                    console.log('⚠️ Comment already exists in array');
-                }
-
-				if (post) {
-					post = {
-						...post,
-						commentCount: comments.length 
-					};
-					console.log('📈 Updated post comment count:', post.commentCount);
+				if (isFailure(fetchResult)) {
+					throw new Error(`Failed to create comment: ${fetchResult.error}`);
 				}
-                if (result.autoRepliesCreated && result.autoRepliesCreated.length > 0) {
-                    console.log('🤖 Auto-replies created:', result.autoRepliesCreated.length);
-                }
 
-                showComposer = false;
+				const result = fetchResult.data;
 
-                setTimeout(() => {
-                    commentSubmitted = false;
-                }, 1000);
-            }
+				if (result.success && result.comment) {
+					console.log('📝 New comment received from API:', result.comment);
 
-            return result;
-        })(),
-        `Creating comment for post ${post.id}`
-    );
+					lastCommentTime = Date.now();
+					commentSubmitted = true;
 
-    if (isFailure(result)) {
-        console.error($t('posts.errorComment'), result.error);
-        alert(`Failed to add comment: ${result.error}`);
-    }
-}
+					const existingIds = new Set(comments.map((c) => c.id));
+					if (!existingIds.has(result.comment.id)) {
+						const newComments = [...comments, result.comment];
+						comments = newComments;
+						console.log('✅ Comment added to array. New length:', comments.length);
+					} else {
+						console.log('⚠️ Comment already exists in array');
+					}
+
+					if (post) {
+						post = {
+							...post,
+							commentCount: comments.length
+						};
+						console.log('📈 Updated post comment count:', post.commentCount);
+					}
+					if (result.autoRepliesCreated && result.autoRepliesCreated.length > 0) {
+						console.log('🤖 Auto-replies created:', result.autoRepliesCreated.length);
+					}
+
+					showComposer = false;
+
+					setTimeout(() => {
+						commentSubmitted = false;
+					}, 1000);
+				}
+
+				return result;
+			})(),
+			`Creating comment for post ${post.id}`
+		);
+
+		if (isFailure(result)) {
+			console.error($t('posts.errorComment'), result.error);
+			alert(`Failed to add comment: ${result.error}`);
+		}
+	}
 	function handleFollowUser(event: CustomEvent) {
 		console.log($t('posts.followUser'), event.detail.userId);
 	}
 
 	$: replyPlaceholder = $t('posts.replyToThis') as string;
 
-$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
-	setTimeout(async () => {
-		if (!post || !$currentUser) return;
+	$: if (post && $currentUser && !loading && post.user !== $currentUser.id && !post.hasRead) {
+		setTimeout(async () => {
+			if (!post || !$currentUser) return;
 
-		const result = await clientTryCatch(
-			(async () => {
-				await postStore.markAsRead(post.id);
-				// Don't refetch the entire post, just update the local state
-				post = { ...post, hasRead: true };
-				return true;
-			})(),
-			`Marking post ${post.id} as read`
-		);
+			const result = await clientTryCatch(
+				(async () => {
+					await postStore.markAsRead(post.id);
+					// Don't refetch the entire post, just update the local state
+					post = { ...post, hasRead: true };
+					return true;
+				})(),
+				`Marking post ${post.id} as read`
+			);
 
-		if (isFailure(result)) {
-			console.error('Error marking post as read:', result.error);
-		}
-	}, 2000);
-}
+			if (isFailure(result)) {
+				console.error('Error marking post as read:', result.error);
+			}
+		}, 2000);
+	}
 
 	onMount(() => {
 		console.log('🏗️ Component mounted');
@@ -1058,10 +1060,11 @@ $: if (post && $currentUser && !loading && post.user !== $currentUser.id && !pos
 								/>
 							{:else}
 								<PostCard
-        post={{
-            ...comment,
-            commentCount: getChildrenCount(comment.id)
-        }}									showActions={true}
+									post={{
+										...comment,
+										commentCount: getChildrenCount(comment.id)
+									}}
+									showActions={true}
 									isComment={true}
 									on:interact={handlePostInteraction}
 									on:comment={handleComment}
@@ -1110,7 +1113,7 @@ $: if (post && $currentUser && !loading && post.user !== $currentUser.id && !pos
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

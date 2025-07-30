@@ -145,11 +145,7 @@
 					<li><code>ledger_categories</code></li>
 					<li><code>ledger_transactions</code></li>
 				</ul>
-				<p>
-					Visit your
-					PocketBase Admin Panel
-					to set up collections.
-				</p>
+				<p>Visit your PocketBase Admin Panel to set up collections.</p>
 			</div>
 		</div>
 	{:else}
@@ -445,7 +441,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	.ledger-container {
 		min-height: 100vh;

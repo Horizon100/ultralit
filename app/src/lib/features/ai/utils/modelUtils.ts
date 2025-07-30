@@ -1,4 +1,3 @@
-
 import type { AIModel } from '$lib/types/types';
 
 export interface ModelData {
@@ -13,9 +12,9 @@ export interface ModelData {
 // Function to ensure models exist in the models collection
 export async function ensureModelsExist(modelNames: string[], userId: string): Promise<string[]> {
 	console.log('🔍 Ensuring models exist in database:', modelNames);
-	
+
 	const modelIds: string[] = [];
-	
+
 	for (const modelName of modelNames) {
 		try {
 			// First, check if model already exists in the models collection
@@ -23,42 +22,40 @@ export async function ensureModelsExist(modelNames: string[], userId: string): P
 				method: 'GET',
 				credentials: 'include'
 			});
-			
+
 			if (searchResponse.ok) {
 				const searchData = await searchResponse.json();
 				const existingModels = searchData.data?.models || searchData.models || [];
-				
+
 				// Look for exact match by name or api_type
-				const existingModel = existingModels.find((m: AIModel) => 
-					m.name === modelName || 
-					m.api_type === modelName ||
-					m.id === modelName
+				const existingModel = existingModels.find(
+					(m: AIModel) => m.name === modelName || m.api_type === modelName || m.id === modelName
 				);
-				
+
 				if (existingModel) {
 					console.log('✅ Found existing model:', existingModel.id, existingModel.name);
 					modelIds.push(existingModel.id);
 					continue;
 				}
 			}
-			
+
 			// Model doesn't exist, create it
 			console.log('➕ Creating new model in database:', modelName);
-			
+
 			// Determine model details based on name
 			const modelData = createModelFromName(modelName, userId);
-			
+
 			const createResponse = await fetch('/api/ai/models', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				credentials: 'include',
 				body: JSON.stringify({ model: modelData, userId })
 			});
-			
+
 			if (createResponse.ok) {
 				const createData = await createResponse.json();
 				let newModel;
-				
+
 				// Handle different response structures
 				if (createData.data?.model) {
 					newModel = createData.data.model;
@@ -67,7 +64,7 @@ export async function ensureModelsExist(modelNames: string[], userId: string): P
 				} else if (createData.data) {
 					newModel = createData.data;
 				}
-				
+
 				if (newModel?.id) {
 					console.log('✅ Created new model:', newModel.id, newModel.name);
 					modelIds.push(newModel.id);
@@ -81,14 +78,13 @@ export async function ensureModelsExist(modelNames: string[], userId: string): P
 				// Fallback: use the model name as-is (might cause relation error)
 				modelIds.push(modelName);
 			}
-			
 		} catch (error) {
 			console.error('❌ Error processing model:', modelName, error);
 			// Fallback: use the model name as-is (might cause relation error)
 			modelIds.push(modelName);
 		}
 	}
-	
+
 	console.log('✅ Final model IDs:', modelIds);
 	return modelIds;
 }
@@ -99,7 +95,7 @@ export function createModelFromName(modelName: string, userId: string): ModelDat
 	let provider = 'local';
 	let apiType = modelName;
 	const displayName = modelName;
-	
+
 	// Detect provider from model name patterns
 	if (modelName.includes('gpt-') || modelName.includes('openai')) {
 		provider = 'openai';
@@ -118,7 +114,7 @@ export function createModelFromName(modelName: string, userId: string): ModelDat
 		apiType = modelName.replace('grok/', '');
 	}
 	// Default to 'local' for models like 'llama2', 'mistral', etc.
-	
+
 	return {
 		name: displayName,
 		api_type: apiType,

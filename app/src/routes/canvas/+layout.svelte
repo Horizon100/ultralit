@@ -27,11 +27,11 @@
 	} from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { toast } from '$lib/utils/toastUtils';
-import { goto } from '$app/navigation';
-import { browser } from '$app/environment';
+	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
 
-let isAuthenticated = false;
-let isLoading = true;
+	let isAuthenticated = false;
+	let isLoading = true;
 	interface ShapeWithAnimation extends Shape {
 		opacity: Tweened<number>;
 	}
@@ -627,43 +627,43 @@ let isLoading = true;
 		showImportDocs = false;
 	}
 
-onMount(async () => {
-   if (!browser) return;
+	onMount(async () => {
+		if (!browser) return;
 
-   // Check authentication first
-   const {
-   	success,
-   	error: err,
-   	data: user
-   } = await clientTryCatch(Promise.resolve($currentUser), 'Authentication check failed');
+		// Check authentication first
+		const {
+			success,
+			error: err,
+			data: user
+		} = await clientTryCatch(Promise.resolve($currentUser), 'Authentication check failed');
 
-   if (!success || !user) {
-   	toast.error('Access denied. Please log in to access the canvas.');
-   	await goto('/welcome');
-   	return;
-   }
+		if (!success || !user) {
+			toast.error('Access denied. Please log in to access the canvas.');
+			await goto('/welcome');
+			return;
+		}
 
-   isAuthenticated = true;
-   isLoading = false;
+		isAuthenticated = true;
+		isLoading = false;
 
-   updateDimensions();
-   window.addEventListener('resize', updateDimensions);
+		updateDimensions();
+		window.addEventListener('resize', updateDimensions);
 
-   if (!svgElement) {
-   	console.error('SVG element is not defined after mounting');
-   } else {
-   	console.log('SVG element is properly defined');
-   }
-   const unsubscribe = agentStore.subscribe(
-   	(value: { agents: AIAgent[]; updateStatus: string }) => {
-   		agents = Array.isArray(value.agents) ? value.agents : [];
-   	}
-   );
+		if (!svgElement) {
+			console.error('SVG element is not defined after mounting');
+		} else {
+			console.log('SVG element is properly defined');
+		}
+		const unsubscribe = agentStore.subscribe(
+			(value: { agents: AIAgent[]; updateStatus: string }) => {
+				agents = Array.isArray(value.agents) ? value.agents : [];
+			}
+		);
 
-   return () => {
-   	unsubscribe();
-   };
-});
+		return () => {
+			unsubscribe();
+		};
+	});
 </script>
 
 <ConfigWrapper />
@@ -829,7 +829,7 @@ onMount(async () => {
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;

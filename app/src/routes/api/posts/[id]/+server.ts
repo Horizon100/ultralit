@@ -7,18 +7,18 @@ import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
 export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 	try {
-		      if (locals.user && cookies) {
-            const authCookie = cookies.get('pb_auth');
-            if (authCookie) {
-                try {
-                    const authData = JSON.parse(authCookie);
-                    pb.authStore.save(authData.token, authData.model);
-                    console.log('✅ Server authenticated with user session');
-                } catch (e) {
-                    console.error('Failed to parse auth cookie:', e);
-                }
-            }
-        }
+		if (locals.user && cookies) {
+			const authCookie = cookies.get('pb_auth');
+			if (authCookie) {
+				try {
+					const authData = JSON.parse(authCookie);
+					pb.authStore.save(authData.token, authData.model);
+					console.log('✅ Server authenticated with user session');
+				} catch (e) {
+					console.error('Failed to parse auth cookie:', e);
+				}
+			}
+		}
 		const postId = params.id;
 		console.log('Testing post ID:', postId);
 
@@ -45,25 +45,25 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 		console.log('Post retrieved:', { id: post.id, user: post.user });
 
 		// Test 3: Try to get the user separately
-let user;
-try {
-    user = await pb.collection('users').getOne(post.user);
-    console.log('User retrieved:', { id: user.id, username: user.username });
-} catch (error) {
-    console.error('Error fetching user:', error);
-    if (error.status === 404 || error.status === 403 || error.status === 401) {
-        // Create minimal user data for non-authenticated access
-        user = {
-            id: post.user,
-            username: 'user',
-            name: 'User',
-            avatar: null
-        };
-        console.log('Using fallback user data for non-authenticated access');
-    } else {
-        throw error; // Re-throw other errors
-    }
-}
+		let user;
+		try {
+			user = await pb.collection('users').getOne(post.user);
+			console.log('User retrieved:', { id: user.id, username: user.username });
+		} catch (error) {
+			console.error('Error fetching user:', error);
+			if (error.status === 404 || error.status === 403 || error.status === 401) {
+				// Create minimal user data for non-authenticated access
+				user = {
+					id: post.user,
+					username: 'user',
+					name: 'User',
+					avatar: null
+				};
+				console.log('Using fallback user data for non-authenticated access');
+			} else {
+				throw error; // Re-throw other errors
+			}
+		}
 
 		// Get post attachments
 		const postAttachments = await pb.collection('posts_attachments').getFullList({
@@ -71,73 +71,73 @@ try {
 		});
 		console.log('Post attachments found:', postAttachments.length);
 
-console.log('Fetching ALL comments in thread for post:', postId);
+		console.log('Fetching ALL comments in thread for post:', postId);
 
-// STEP 1: Get direct comments
-const directComments = await pb.collection('posts').getList(1, 100, {
-    filter: `parent = "${postId}"`,
-    sort: 'created'
-});
+		// STEP 1: Get direct comments
+		const directComments = await pb.collection('posts').getList(1, 100, {
+			filter: `parent = "${postId}"`,
+			sort: 'created'
+		});
 
-console.log('Direct comments found:', directComments.items.length);
+		console.log('Direct comments found:', directComments.items.length);
 
-// STEP 2: Get nested replies (replies to comments)
-let allComments = [...directComments.items];
+		// STEP 2: Get nested replies (replies to comments)
+		let allComments = [...directComments.items];
 
-if (directComments.items.length > 0) {
-    const directCommentIds = directComments.items.map(c => c.id);
-    
-    // Get replies to any of the direct comments
-    const nestedReplies = await pb.collection('posts').getList(1, 200, {
-        filter: directCommentIds.map(id => `parent = "${id}"`).join(' || '),
-        sort: 'created'
-    });
-    
-    console.log('Nested replies found:', nestedReplies.items.length);
-    allComments = [...allComments, ...nestedReplies.items];
-    
-    // STEP 3: Get deeper nesting if needed (replies to replies)
-    if (nestedReplies.items.length > 0) {
-        const nestedCommentIds = nestedReplies.items.map(c => c.id);
-        
-        const deepNested = await pb.collection('posts').getList(1, 100, {
-            filter: nestedCommentIds.map(id => `parent = "${id}"`).join(' || '),
-            sort: 'created'
-        });
-        
-        if (deepNested.items.length > 0) {
-            console.log('Deep nested replies found:', deepNested.items.length);
-            allComments = [...allComments, ...deepNested.items];
-        }
-    }
-}
+		if (directComments.items.length > 0) {
+			const directCommentIds = directComments.items.map((c) => c.id);
 
-const comments = { items: allComments };
-console.log('Total comments in thread:', comments.items.length);
+			// Get replies to any of the direct comments
+			const nestedReplies = await pb.collection('posts').getList(1, 200, {
+				filter: directCommentIds.map((id) => `parent = "${id}"`).join(' || '),
+				sort: 'created'
+			});
 
-const commentUserIds = [...new Set(allComments.map((c) => c.user))];
+			console.log('Nested replies found:', nestedReplies.items.length);
+			allComments = [...allComments, ...nestedReplies.items];
+
+			// STEP 3: Get deeper nesting if needed (replies to replies)
+			if (nestedReplies.items.length > 0) {
+				const nestedCommentIds = nestedReplies.items.map((c) => c.id);
+
+				const deepNested = await pb.collection('posts').getList(1, 100, {
+					filter: nestedCommentIds.map((id) => `parent = "${id}"`).join(' || '),
+					sort: 'created'
+				});
+
+				if (deepNested.items.length > 0) {
+					console.log('Deep nested replies found:', deepNested.items.length);
+					allComments = [...allComments, ...deepNested.items];
+				}
+			}
+		}
+
+		const comments = { items: allComments };
+		console.log('Total comments in thread:', comments.items.length);
+
+		const commentUserIds = [...new Set(allComments.map((c) => c.user))];
 		const commentUsers = new Map();
-for (const userId of commentUserIds) {
-    try {
-        const commentUser = await pb.collection('users').getOne(userId);
-        commentUsers.set(userId, commentUser);
-    } catch (error) {
-        console.error('Error fetching comment user:', userId, error);
-        if (error.status === 404 || error.status === 403 || error.status === 401) {
-            // Create minimal user data for comment
-            const fallbackUser = {
-                id: userId,  // ✅ Use the comment userId, not post.user
-                username: 'user',
-                name: 'User',
-                avatar: null
-            };
-            commentUsers.set(userId, fallbackUser);  // ✅ Set the fallback user in the map
-            console.log('Using fallback user data for comment user:', userId);
-        } else {
-            throw error;
-        }
-    }
-}
+		for (const userId of commentUserIds) {
+			try {
+				const commentUser = await pb.collection('users').getOne(userId);
+				commentUsers.set(userId, commentUser);
+			} catch (error) {
+				console.error('Error fetching comment user:', userId, error);
+				if (error.status === 404 || error.status === 403 || error.status === 401) {
+					// Create minimal user data for comment
+					const fallbackUser = {
+						id: userId, // ✅ Use the comment userId, not post.user
+						username: 'user',
+						name: 'User',
+						avatar: null
+					};
+					commentUsers.set(userId, fallbackUser); // ✅ Set the fallback user in the map
+					console.log('Using fallback user data for comment user:', userId);
+				} else {
+					throw error;
+				}
+			}
+		}
 
 		// Get comment attachments
 		const commentIds = comments.items.map((c) => c.id);
@@ -361,35 +361,38 @@ export const PATCH: RequestHandler = async ({ params, locals, url, request }) =>
 					console.log('🔗 Not a tag update request, proceeding to vote handling');
 				}
 				// Handle assignedAgents updates
-if (requestData.assignedAgents !== undefined) {
-    console.log('🔗 This is an assignedAgents update request');
-    console.log('Updating post assignedAgents:', { postId, assignedAgents: requestData.assignedAgents });
+				if (requestData.assignedAgents !== undefined) {
+					console.log('🔗 This is an assignedAgents update request');
+					console.log('Updating post assignedAgents:', {
+						postId,
+						assignedAgents: requestData.assignedAgents
+					});
 
-    if (!Array.isArray(requestData.assignedAgents)) {
-        throw new Error('assignedAgents must be an array');
-    }
+					if (!Array.isArray(requestData.assignedAgents)) {
+						throw new Error('assignedAgents must be an array');
+					}
 
-    // Update the post with new assigned agents
-    const updatedPost = unwrap(
-        await pbTryCatch(
-            pb.collection('posts').update(postId, {
-                assignedAgents: requestData.assignedAgents
-            }),
-            'update post assignedAgents'
-        )
-    );
+					// Update the post with new assigned agents
+					const updatedPost = unwrap(
+						await pbTryCatch(
+							pb.collection('posts').update(postId, {
+								assignedAgents: requestData.assignedAgents
+							}),
+							'update post assignedAgents'
+						)
+					);
 
-    console.log('Successfully updated post assignedAgents:', postId);
-    console.log('Updated post assignedAgents field:', updatedPost.assignedAgents);
+					console.log('Successfully updated post assignedAgents:', postId);
+					console.log('Updated post assignedAgents field:', updatedPost.assignedAgents);
 
-    const response = {
-        success: true,
-        data: updatedPost
-    };
+					const response = {
+						success: true,
+						data: updatedPost
+					};
 
-    console.log('Returning assignedAgents update response:', response);
-    return json(response);
-}
+					console.log('Returning assignedAgents update response:', response);
+					return json(response);
+				}
 			} catch (jsonError) {
 				console.error('🔗 JSON parsing failed:', jsonError);
 				console.log('No JSON body found, treating as vote request');

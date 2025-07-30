@@ -43,7 +43,7 @@
 <path d={path} stroke="black" stroke-width="2" fill="none" marker-end="url(#arrowhead)" />
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

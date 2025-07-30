@@ -1,18 +1,16 @@
 // src/lib/stores/combinedFilterStore.ts
 import { derived } from 'svelte/store';
-import { filteredPosts } from './tagFilterStore';
 import { attachmentFilteredPosts, selectedAttachmentFilter } from './attachmentFilterStore';
-import { selectedTags } from './tagFilterStore';
 import type { PostWithInteractions } from '$lib/types/types.posts';
 import type { AttachmentFilterType } from './attachmentFilterStore';
+import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilterStore';
+import { postStore } from '$lib/stores/postStore';
 
-// Helper function to determine attachment types (same as in attachmentFilterStore)
 function getAttachmentTypes(post: PostWithInteractions): Set<string> {
 	const types = new Set<string>();
 
 	if (post.attachments && post.attachments.length > 0) {
 		post.attachments.forEach((attachment) => {
-			// Use the file_type field directly from your PostAttachment interface
 			const fileType = attachment.file_type;
 
 			if (fileType) {
@@ -34,10 +32,9 @@ function getAttachmentTypes(post: PostWithInteractions): Set<string> {
 						types.add('document');
 						break;
 					case 'archive':
-						types.add('document'); // Treat archives as documents
+						types.add('document');
 						break;
 					default:
-						// Fallback to mime_type if file_type is not recognized
 						const mimeType = attachment.mime_type;
 						if (mimeType) {
 							if (mimeType.startsWith('image/')) {
@@ -100,7 +97,16 @@ function filterPostsByAttachmentType(
 			return posts;
 	}
 }
+export function syncPostsForTags(homePosts: PostWithInteractions[]) {
+	console.log('🔄 Syncing posts for tags:', homePosts.length);
 
+	postStore.setPosts(homePosts);
+
+	setTimeout(() => {
+		console.log('🏷️ Force updating tag counts after sync...');
+		tagFilterStore.updateTagCounts();
+	}, 100);
+}
 // Combined filtered posts - applies both tag and attachment filters
 export const combinedFilteredPosts = derived(
 	[filteredPosts, selectedAttachmentFilter],

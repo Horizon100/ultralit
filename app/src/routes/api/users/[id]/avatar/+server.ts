@@ -15,7 +15,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		if (!user || !user.avatar || user.avatar === 'uploaded' || user.avatar === '') {
 			// Generate identicon as fallback
 			const identicon = generateUserIdenticon(getUserIdentifier(user), 120);
-			
+
 			return new Response(identicon, {
 				headers: {
 					'Content-Type': 'image/svg+xml',
@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 
 		// Get the avatar file URL
 		let avatarUrl = pb.files.getUrl(user, user.avatar);
-		
+
 		// Add timestamp for cache busting if provided
 		if (timestamp) {
 			avatarUrl = `${avatarUrl}?t=${timestamp}`;
@@ -43,7 +43,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		});
 	} catch (err) {
 		console.error('Error fetching user avatar:', err);
-		
+
 		// Generate identicon for unknown/error users
 		const identicon = generateUserIdenticon(userId, 120);
 		return new Response(identicon, {

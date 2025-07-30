@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type { AIModel, ProviderType, SelectableAIModel} from '$lib/types/types';
+	import type { AIModel, AIProviderType, SelectableAIModel } from '$lib/types/types';
 	import { fly } from 'svelte/transition';
 	import { defaultModel, getRuntimeDefaultModel } from '$lib/features/ai/utils/models';
 	import APIKeyInput from '$lib/features/ai/components/models/APIKeyInput.svelte';
@@ -16,21 +16,21 @@
 
 	export let provider: string;
 
-	export let expandedModelList: ProviderType | null = null;
+	export let expandedModelList: AIProviderType | null = null;
 
-export let selectedModel: SelectableAIModel | null = null;
+	export let selectedModel: SelectableAIModel | null = null;
 
 	let isInitialized = false;
 	let isLoadingPreferences = true;
 	let isLoadingModels = false;
 	let key = '';
-let favoriteModels: SelectableAIModel[] = [];
+	let favoriteModels: SelectableAIModel[] = [];
 	let userModelPreferences: string[] = [];
 	let favoritesInitialized = false;
-	let currentProvider: ProviderType | null = null;
+	let currentProvider: AIProviderType | null = null;
 	let showAPIKeyInput = false;
 	let isOffline = false;
-	let availableProviderModels: Record<ProviderType, SelectableAIModel[]> = {
+	let availableProviderModels: Record<AIProviderType, SelectableAIModel[]> = {
 		openai: [],
 		anthropic: [],
 		google: [],
@@ -38,28 +38,35 @@ let favoriteModels: SelectableAIModel[] = [];
 		deepseek: [],
 		local: []
 	};
-let localModels: SelectableAIModel[] = [];
-let localServerStatus: 'online' | 'offline' | 'unknown' = 'unknown';
-let isLoadingLocalModels = false;
+	let localModels: SelectableAIModel[] = [];
+	let localServerStatus: 'online' | 'offline' | 'unknown' = 'unknown';
+	let isLoadingLocalModels = false;
 
+	$: localizedProviders = {
+		...providers,
+		local: {
+			...providers.local,
+			name: $t('chat.locals')
+		}
+	};
 	const dispatch = createEventDispatcher<{
 		submit: string;
 		close: void;
-	select: SelectableAIModel;
+		select: SelectableAIModel;
 		toggleFavorite: { modelId: string; isFavorite: boolean };
 	}>();
 	modelStore.subscribe((state) => {
 		isOffline = state.isOffline;
 	});
-const enhancedProviders = {
-	...providers,
-	local: {
-		name: $t('chat.local') + ' ' + $t('chat.models'),
-		icon: '/icons/server.svg', // or any existing icon path
-		baseURL: 'http://localhost:11434',
-		fetchModels: async () => []
-	}
-};
+	// const enhancedProviders = {
+	// 	...providers,
+	// 	local: {
+	// 		name: $t('chat.local') + ' ' + $t('chat.models'),
+	// 		icon: '/icons/server.svg', // or any existing icon path
+	// 		baseURL: 'http://localhost:11434',
+	// 		fetchModels: async () => []
+	// 	}
+	// };
 	function handleSubmit(e: Event) {
 		e.preventDefault();
 		if (key.trim()) {
@@ -75,7 +82,7 @@ const enhancedProviders = {
 		}
 	}
 
-	async function handleDeleteAPIKey(provider: ProviderType) {
+	async function handleDeleteAPIKey(provider: AIProviderType) {
 		if (!$currentUser) return;
 
 		const confirmed = confirm(
@@ -103,152 +110,213 @@ const enhancedProviders = {
 		}
 	}
 
-async function handleProviderClick(key: string) {
-	const provider = key as ProviderType;
-	
-	// Handle local provider separately
-	if (isLocalProvider(key)) {
-		await handleLocalProviderClick();
-		return;
+	async function handleProviderClick(key: string) {
+		const provider = key as AIProviderType;
+
+		// Handle local provider separately
+		if (isLocalProvider(key)) {
+			await handleLocalProviderClick();
+			return;
+		}
+
+		// Rest of your existing logic for other providers
+		const currentKey = get(apiKey)[provider];
+
+		console.log(`Clicked provider: ${provider}, has key: ${Boolean(currentKey)}`);
+
+		if (currentProvider === provider) {
+			currentProvider = null;
+			expandedModelList = null;
+			return;
+		}
+
+		currentProvider = provider;
+		expandedModelList = provider;
+
+		if (!currentKey) {
+			console.log(`No API key found for ${provider}, showing input form`);
+			showAPIKeyInput = true;
+		} else if ($currentUser) {
+			isLoadingModels = true;
+			try {
+				await clientTryCatch(modelStore.setSelectedProvider($currentUser.id, provider));
+				await loadProviderModels(provider);
+				showAPIKeyInput = false;
+			} catch (error) {
+				console.warn('Error setting provider:', error);
+			} finally {
+				isLoadingModels = false;
+			}
+		}
 	}
-	
-	// Rest of your existing logic for other providers
-	const currentKey = get(apiKey)[provider];
 
-	console.log(`Clicked provider: ${provider}, has key: ${Boolean(currentKey)}`);
+	function createAIModelFromSelectable(selectableModel: SelectableAIModel): AIModel {
+		if (selectableModel.provider === 'local') {
+			return {
+				id: `local-${selectableModel.id}`,
+				name: selectableModel.name,
+				provider: selectableModel.provider,
+				api_key: '',
+				base_url: 'http://localhost:11434',
+				api_type: selectableModel.api_type || selectableModel.id,
+				api_version: 'v1',
+				description: selectableModel.description || '',
+				user: [],
+				created: new Date().toISOString(),
+				updated: new Date().toISOString(),
+				collectionId: 'local',
+				collectionName: 'local_models'
+			} as AIModel;
+		}
 
-	if (currentProvider === provider) {
-		currentProvider = null;
+		return selectableModel as AIModel;
+	}
+
+	async function handleModelSelection(model: SelectableAIModel) {
+		const enrichedModel: SelectableAIModel = {
+			...model,
+			provider: model.provider
+		};
+
+		console.log('Selected model with provider:', enrichedModel.provider);
+
+		if ($currentUser) {
+			try {
+				if (model.provider === 'local') {
+					selectedModel = enrichedModel;
+					currentProvider = model.provider as AIProviderType;
+
+					try {
+						await modelStore.setSelectedProvider($currentUser.id, 'local');
+						await saveLocalModelPreference($currentUser.id, model.api_type || model.id);
+
+						// ADD THIS: Create AIModel and update the store
+						const localAIModel: AIModel = {
+							id: `local-${model.api_type || model.id}`,
+							name: model.name,
+							provider: 'local',
+							api_key: '',
+							base_url: 'http://localhost:11434',
+							api_type: model.api_type || model.id,
+							api_version: 'v1',
+							description: model.description || '',
+							user: [],
+							created: new Date().toISOString(),
+							updated: new Date().toISOString(),
+							collectionId: 'local',
+							collectionName: 'local_models'
+						};
+
+						// This is the missing piece - update the selected model in store
+						await modelStore.setSelectedModel($currentUser.id, localAIModel);
+
+						console.log('Set selected provider to local and saved model preference');
+					} catch (error) {
+						console.warn('Error setting local provider:', error);
+					}
+				} else {
+					const aiModel = createAIModelFromSelectable(enrichedModel);
+					const success = await modelStore.setSelectedModel($currentUser.id, aiModel);
+					if (success) {
+						selectedModel = enrichedModel;
+						console.log('Saved model selection to model store');
+						currentProvider = model.provider as AIProviderType;
+					}
+				}
+			} catch (error) {
+				console.warn('Error selecting model:', error);
+			}
+		} else {
+			selectedModel = enrichedModel;
+			currentProvider = model.provider as AIProviderType;
+		}
+
 		expandedModelList = null;
-		return;
+		dispatch('select', enrichedModel);
 	}
+	async function saveLocalModelPreference(userId: string, modelId: string) {
+		try {
+			// Use the correct API endpoint
+			const response = await fetch(`/api/verify/users/${userId}`, {
+				method: 'PATCH',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					local_model_preference: modelId
+				})
+			});
 
-	currentProvider = provider;
-	expandedModelList = provider;
-
-	if (!currentKey) {
-		console.log(`No API key found for ${provider}, showing input form`);
-		showAPIKeyInput = true;
-	} else if ($currentUser) {
+			const data = await response.json();
+			if (!response.ok || !data.success) {
+				console.error('Failed to update local model preference:', data.error || 'Unknown error');
+			} else {
+				console.log('Successfully updated local model preference to:', modelId);
+			}
+		} catch (error) {
+			console.error('Error saving local model preference:', error);
+		}
+	}
+	async function loadProviderModels(provider: AIProviderType) {
 		isLoadingModels = true;
 		try {
-			await clientTryCatch(modelStore.setSelectedProvider($currentUser.id, provider));
-			await loadProviderModels(provider);
-			showAPIKeyInput = false;
+			console.log(`Loading models for ${provider}`);
+
+			if (provider === 'local') {
+				console.log('Loading local models - no API key required');
+				const providerModelList = await providers[provider].fetchModels('');
+
+				availableProviderModels[provider] = (providerModelList || []).map(
+					(model): SelectableAIModel => ({
+						id: model.api_type,
+						name: model.name,
+						provider: provider,
+						description: model.description,
+						context_length: model.context_length,
+						api_type: model.api_type,
+						size: model.size,
+						parameters: model.parameters,
+						families: model.families || [],
+						available: true
+					})
+				);
+
+				console.log(`Loaded ${availableProviderModels[provider].length} local models`);
+			} else {
+				const currentKey = get(apiKey)[provider];
+				console.log(`Loading models for ${provider}, has key: ${Boolean(currentKey)}`);
+
+				if (currentKey) {
+					const providerModelList = await providers[provider].fetchModels(currentKey);
+
+					availableProviderModels[provider] = (providerModelList || []).map(
+						(model): SelectableAIModel => ({
+							id: model.id,
+							name: model.name,
+							provider: provider,
+							description: model.description,
+							context_length: model.context_length,
+							api_type: model.api_type,
+							size: model.size,
+							parameters: model.parameters,
+							families: model.families || [],
+							available: true
+						})
+					);
+
+					console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
+				} else {
+					availableProviderModels[provider] = [];
+					console.warn(`No API key available for ${provider}`);
+				}
+			}
 		} catch (error) {
-			console.warn('Error setting provider:', error);
+			console.error(`Error fetching models for ${provider}:`, error);
+			availableProviderModels[provider] = [];
 		} finally {
 			isLoadingModels = false;
 		}
 	}
-}
-
-function createAIModelFromSelectable(selectableModel: SelectableAIModel): AIModel {
-	// For local models, we don't save them to the database, just create a minimal AIModel structure
-	if (selectableModel.provider === 'local') {
-		return {
-			id: selectableModel.id,
-			name: selectableModel.name,
-			provider: selectableModel.provider,
-			api_key: '', // Local models don't need API keys
-			base_url: 'http://localhost:11434',
-			api_type: selectableModel.api_type || selectableModel.id,
-			api_version: 'v1',
-			description: selectableModel.description || '',
-			user: [],
-			created: new Date().toISOString(),
-			updated: new Date().toISOString(),
-			collectionId: '',
-			collectionName: 'local_models'
-		} as AIModel;
-	}
-	
-	// For non-local models, they should already be proper AIModels from the providers
-	return selectableModel as AIModel;
-}
-
-// Update your handleModelSelection function
-async function handleModelSelection(model: SelectableAIModel) {
-	const enrichedModel: SelectableAIModel = {
-		...model,
-		provider: model.provider
-	};
-
-	console.log('Selected model with provider:', enrichedModel.provider);
-
-	if ($currentUser) {
-		try {
-			// Special handling for local models - don't save to database
-			if (model.provider === 'local') {
-				// For local models, just update the local state
-				selectedModel = enrichedModel;
-				currentProvider = model.provider as ProviderType;
-				
-				// You might want to save the selection preference without saving the model itself
-				try {
-					await modelStore.setSelectedProvider($currentUser.id, 'local');
-					console.log('Set selected provider to local');
-				} catch (error) {
-					console.warn('Error setting local provider:', error);
-				}
-			} else {
-				// For non-local models, use the existing store logic
-				const aiModel = createAIModelFromSelectable(enrichedModel);
-				const success = await modelStore.setSelectedModel($currentUser.id, aiModel);
-				if (success) {
-					selectedModel = enrichedModel;
-					console.log('Saved model selection to model store');
-					currentProvider = model.provider as ProviderType;
-				}
-			}
-		} catch (error) {
-			console.warn('Error selecting model:', error);
-		}
-	} else {
-		selectedModel = enrichedModel;
-		currentProvider = model.provider as ProviderType;
-	}
-
-	expandedModelList = null;
-	dispatch('select', enrichedModel);
-}
-
-async function loadProviderModels(provider: ProviderType) {
-	isLoadingModels = true;
-	try {
-		const currentKey = get(apiKey)[provider];
-		console.log(`Loading models for ${provider}, has key: ${Boolean(currentKey)}`);
-
-		if (currentKey) {
-			const providerModelList = await providers[provider].fetchModels(currentKey);
-			
-			// Convert to SelectableAIModel format
-			availableProviderModels[provider] = (providerModelList || []).map((model): SelectableAIModel => ({
-				id: model.id,
-				name: model.name,
-				provider: provider,
-				description: model.description,
-				context_length: model.context_length,
-				// description: model.description || `Local model: ${model.name}`,
-				api_type: model.api_type,
-				size: model.size,
-				parameters: model.parameters,
-				families: model.families || [],
-				available: true
-			}));
-			
-			console.log(`Loaded ${availableProviderModels[provider].length} models for ${provider}`);
-		} else {
-			availableProviderModels[provider] = [];
-			console.warn(`No API key available for ${provider}`);
-		}
-	} catch (error) {
-		console.error(`Error fetching models for ${provider}:`, error);
-		availableProviderModels[provider] = [];
-	} finally {
-		isLoadingModels = false;
-	}
-}
 
 	async function handleAPIKeySubmit(event: CustomEvent<string>) {
 		if (currentProvider) {
@@ -268,7 +336,7 @@ async function loadProviderModels(provider: ProviderType) {
 				if (userModelPreferences.includes(modelKey)) {
 					const favoriteModel = {
 						...model,
-						provider: providerKey as ProviderType
+						provider: providerKey as AIProviderType
 					};
 					favoriteModels.push(favoriteModel);
 				}
@@ -281,7 +349,7 @@ async function loadProviderModels(provider: ProviderType) {
 			favoriteModels.map((m) => `${m.provider}:${m.name}`)
 		);
 	}
-async function toggleFavorite(model: SelectableAIModel, event: MouseEvent) {
+	async function toggleFavorite(model: SelectableAIModel, event: MouseEvent) {
 		event.stopPropagation();
 
 		if (!$currentUser) return;
@@ -377,7 +445,7 @@ async function toggleFavorite(model: SelectableAIModel, event: MouseEvent) {
 	function loadAllAvailableProviderModels() {
 		return Promise.all(
 			Object.keys(providers).map(async (providerKey) => {
-				const provider = providerKey as ProviderType;
+				const provider = providerKey as AIProviderType;
 				const currentKey = get(apiKey)[provider];
 				if (currentKey) {
 					await loadProviderModels(provider);
@@ -386,526 +454,540 @@ async function toggleFavorite(model: SelectableAIModel, event: MouseEvent) {
 		);
 	}
 
-async function loadLocalModels() {
-	isLoadingLocalModels = true;
-	try {
-		console.log('Loading local models...');
-		
-		const result = await clientTryCatch(
-			fetch('/api/ai/local/models').then((r) => r.json()),
-			'Failed to fetch local AI models'
-		);
+	async function loadLocalModels() {
+		isLoadingLocalModels = true;
+		try {
+			console.log('Loading local models...');
 
-		if (result.success && result.data.success) {
-			const data = result.data.data;
-			localServerStatus = data.server_info?.status === 'connected' ? 'online' : 'offline';
-			
-			// Convert local models to AIModel format
-			localModels = (data.models || []).map((model: any) => ({
-				id: model.api_type,
-				name: model.name,
-				provider: 'local' as ProviderType,
-				context_length: model.context_length || 4096,
-				description: model.description || `Local model: ${model.name}`,
-				api_type: model.api_type,
-				size: model.size,
-				parameters: model.parameters,
-				families: model.families || [],
-				available: true
-				// Add any other properties you need
-			}));
-			
-			// Update the available models for local provider
-			availableProviderModels.local = localModels;
-			
-			console.log(`Loaded ${localModels.length} local models, status: ${localServerStatus}`);
-		} else {
-			console.warn('Failed to load local models:', result.error || 'Unknown error');
+			const result = await clientTryCatch(
+				fetch('/api/ai/local/models').then((r) => r.json()),
+				'Failed to fetch local AI models'
+			);
+
+			if (result.success && result.data.success) {
+				const data = result.data.data;
+				localServerStatus = data.server_info?.status === 'connected' ? 'online' : 'offline';
+
+				localModels = (data.models || []).map((model: SelectableAIModel) => ({
+					id: model.api_type,
+					name: model.name,
+					provider: 'local' as AIProviderType,
+					context_length: model.context_length || 4096,
+					description: model.description || `Local model: ${model.name}`,
+					api_type: model.api_type,
+					size: model.size,
+					parameters: model.parameters,
+					families: model.families || [],
+					available: true
+				}));
+
+				availableProviderModels.local = localModels;
+
+				console.log(`Loaded ${localModels.length} local models, status: ${localServerStatus}`);
+			} else {
+				console.warn('Failed to load local models:', result.error || 'Unknown error');
+				localServerStatus = 'offline';
+				localModels = [];
+				availableProviderModels.local = [];
+			}
+		} catch (error) {
+			console.error('Error loading local models:', error);
 			localServerStatus = 'offline';
 			localModels = [];
 			availableProviderModels.local = [];
-		}
-	} catch (error) {
-		console.error('Error loading local models:', error);
-		localServerStatus = 'offline';
-		localModels = [];
-		availableProviderModels.local = [];
-	} finally {
-		isLoadingLocalModels = false;
-	}
-}
-// Handle local provider click (no API key needed)
-async function handleLocalProviderClick() {
-	console.log('Clicked local provider');
-	
-	if (currentProvider === 'local') {
-		currentProvider = null;
-		expandedModelList = null;
-		return;
-	}
-
-	currentProvider = 'local';
-	expandedModelList = 'local';
-	showAPIKeyInput = false; // Local doesn't need API key
-	
-	// Load local models
-	await loadLocalModels();
-	
-	// Set selected provider in store if user is logged in
-	if ($currentUser) {
-		try {
-			await clientTryCatch(modelStore.setSelectedProvider($currentUser.id, 'local'));
-		} catch (error) {
-			console.warn('Error setting local provider:', error);
+		} finally {
+			isLoadingLocalModels = false;
 		}
 	}
-}
+	async function handleLocalProviderClick() {
+		console.log('Clicked local provider');
 
-// Check if provider is local
-function isLocalProvider(providerKey: string): boolean {
-	return providerKey === 'local';
-}
-
-// Get provider status icon for local
-function getLocalProviderStatus(): 'success' | 'error' | 'loading' {
-	if (isLoadingLocalModels) return 'loading';
-	if (localServerStatus === 'online') return 'success';
-	return 'error';
-}
-$: {
-	console.log('🔍 DEBUG - Providers object keys:', Object.keys(providers));
-	console.log('🔍 DEBUG - "local" in providers:', 'local' in providers);
-	console.log('🔍 DEBUG - providers.local:', providers.local);
-}
-
-$: {
-	console.log('🔍 DEBUG - localServerStatus:', localServerStatus);
-	console.log('🔍 DEBUG - localModels length:', localModels.length);
-	console.log('🔍 DEBUG - availableProviderModels.local length:', availableProviderModels.local?.length);
-}
-
-$: {
-	console.log('🔍 DEBUG - currentProvider:', currentProvider);
-	console.log('🔍 DEBUG - expandedModelList:', expandedModelList);
-	console.log('🔍 DEBUG - isLocalProvider("local"):', isLocalProvider('local'));
-}
-
-$: {
-	console.log('🔍 DEBUG - isLoadingLocalModels:', isLoadingLocalModels);
-	console.log('🔍 DEBUG - getLocalProviderStatus():', getLocalProviderStatus());
-}
-
-$: {
-	console.log('🔍 DEBUG - Object.entries(providers) includes local:', 
-		Object.entries(providers).some(([key]) => key === 'local'));
-	console.log('🔍 DEBUG - All provider keys:', 
-		Object.entries(providers).map(([key]) => key));
-}
-$: {
-	if (expandedModelList === 'local') {
-		console.log('🔍 DEBUG - Local model template should render');
-		console.log('🔍 DEBUG - availableProviderModels.local:', availableProviderModels.local);
-		console.log('🔍 DEBUG - localServerStatus:', localServerStatus);
-		console.log('🔍 DEBUG - isLoadingLocalModels:', isLoadingLocalModels);
-	}
-}
-$: {
-	console.log('🔍 DEBUG - Full providers object structure:');
-	console.log(JSON.stringify(providers, null, 2));
-	console.log('🔍 DEBUG - Provider keys:', Object.keys(providers));
-	console.log('🔍 DEBUG - Object.entries(providers):');
-	Object.entries(providers).forEach(([key, provider]) => {
-		console.log(`  ${key}:`, provider.name);
-	});
-}
-
-onMount(async () => {
-	// Set runtime default model first
-	if (!selectedModel) {
-		try {
-			selectedModel = await getRuntimeDefaultModel();
-			console.log('🎯 Set runtime default model:', selectedModel);
-		} catch (error) {
-			console.error('Error setting runtime default:', error);
-			// Fallback to static default converted to SelectableAIModel
-			selectedModel = {
-				id: defaultModel.id,
-				name: defaultModel.name,
-				provider: defaultModel.provider,
-				api_type: defaultModel.api_type,
-				description: defaultModel.description
-			};
+		if (currentProvider === 'local') {
+			currentProvider = null;
+			expandedModelList = null;
+			return;
 		}
-	}
 
-	if ($currentUser) {
-		console.log('Loading API keys and preferences on component mount...');
+		currentProvider = 'local';
+		expandedModelList = 'local';
+		showAPIKeyInput = false; // Local doesn't need API key
 
-		await loadUserModelPreferences();
-		await apiKey.ensureLoaded();
-
-		// Load local models (no API key required)
 		await loadLocalModels();
 
-		const availableKeys = get(apiKey);
-		const availableProviders = Object.entries(availableKeys)
-			.filter(([_, key]) => !!key)
-			.map(([provider]) => provider);
+		if ($currentUser) {
+			try {
+				await clientTryCatch(modelStore.setSelectedProvider($currentUser.id, 'local'));
+			} catch (error) {
+				console.warn('Error setting local provider:', error);
+			}
+		}
+	}
 
-		// Add local to available providers if server is online
-		if (localServerStatus === 'online') {
-			availableProviders.push('local');
+	function isLocalProvider(providerKey: string): boolean {
+		return providerKey === 'local';
+	}
+
+	function getLocalProviderStatus(): 'success' | 'error' | 'loading' {
+		if (isLoadingLocalModels) return 'loading';
+		if (localServerStatus === 'online') return 'success';
+		return 'error';
+	}
+	// $: {
+	// 	console.log('🔍 DEBUG - Providers object keys:', Object.keys(providers));
+	// 	console.log('🔍 DEBUG - "local" in providers:', 'local' in providers);
+	// 	console.log('🔍 DEBUG - providers.local:', providers.local);
+	// }
+
+	// $: {
+	// 	console.log('🔍 DEBUG - localServerStatus:', localServerStatus);
+	// 	console.log('🔍 DEBUG - localModels length:', localModels.length);
+	// 	console.log(
+	// 		'🔍 DEBUG - availableProviderModels.local length:',
+	// 		availableProviderModels.local?.length
+	// 	);
+	// }
+
+	// $: {
+	// 	console.log('🔍 DEBUG - currentProvider:', currentProvider);
+	// 	console.log('🔍 DEBUG - expandedModelList:', expandedModelList);
+	// 	console.log('🔍 DEBUG - isLocalProvider("local"):', isLocalProvider('local'));
+	// }
+
+	// $: {
+	// 	console.log('🔍 DEBUG - isLoadingLocalModels:', isLoadingLocalModels);
+	// 	console.log('🔍 DEBUG - getLocalProviderStatus():', getLocalProviderStatus());
+	// }
+
+	// $: {
+	// 	console.log(
+	// 		'🔍 DEBUG - Object.entries(providers) includes local:',
+	// 		Object.entries(providers).some(([key]) => key === 'local')
+	// 	);
+	// 	console.log(
+	// 		'🔍 DEBUG - All provider keys:',
+	// 		Object.entries(providers).map(([key]) => key)
+	// 	);
+	// }
+	// $: {
+	// 	if (expandedModelList === 'local') {
+	// 		console.log('🔍 DEBUG - Local model template should render');
+	// 		console.log('🔍 DEBUG - availableProviderModels.local:', availableProviderModels.local);
+	// 		console.log('🔍 DEBUG - localServerStatus:', localServerStatus);
+	// 		console.log('🔍 DEBUG - isLoadingLocalModels:', isLoadingLocalModels);
+	// 	}
+	// }
+	// $: {
+	// 	console.log('🔍 DEBUG - Full providers object structure:');
+	// 	console.log(JSON.stringify(providers, null, 2));
+	// 	console.log('🔍 DEBUG - Provider keys:', Object.keys(providers));
+	// 	console.log('🔍 DEBUG - Object.entries(providers):');
+	// 	Object.entries(providers).forEach(([key, provider]) => {
+	// 		console.log(`  ${key}:`, provider.name);
+	// 	});
+	// }
+
+	onMount(async () => {
+		// Set runtime default model first
+		if (!selectedModel) {
+			try {
+				selectedModel = await getRuntimeDefaultModel();
+				console.log('🎯 Set runtime default model:', selectedModel);
+			} catch (error) {
+				console.error('Error setting runtime default:', error);
+				// Fallback to static default converted to SelectableAIModel
+				selectedModel = {
+					id: defaultModel.id,
+					name: defaultModel.name,
+					provider: defaultModel.provider,
+					api_type: defaultModel.api_type,
+					description: defaultModel.description
+				};
+			}
 		}
 
-		if (availableProviders.length > 0) {
-			await Promise.all(
-				availableProviders
-					.filter(provider => provider !== 'local') // Skip local, already loaded
-					.map(async (providerKey) => {
-						try {
-							await loadProviderModels(providerKey as ProviderType);
-						} catch (error) {
-							console.error(`Error loading models for ${providerKey}:`, error);
+		if ($currentUser) {
+			console.log('Loading API keys and preferences on component mount...');
+
+			await loadUserModelPreferences();
+			await apiKey.ensureLoaded();
+
+			// Load local models (no API key required)
+			await loadLocalModels();
+
+			const availableKeys = get(apiKey);
+			const availableProviders = Object.entries(availableKeys)
+				.filter(([_, key]) => !!key)
+				.map(([provider]) => provider);
+
+			// Add local to available providers if server is online
+			if (localServerStatus === 'online') {
+				availableProviders.push('local');
+			}
+
+			if (availableProviders.length > 0) {
+				await Promise.all(
+					availableProviders
+						.filter((provider) => provider !== 'local') // Skip local, already loaded
+						.map(async (providerKey) => {
+							try {
+								await loadProviderModels(providerKey as AIProviderType);
+							} catch (error) {
+								console.error(`Error loading models for ${providerKey}:`, error);
+							}
+						})
+				);
+
+				updateFavoriteModels();
+
+				// FIXED: Prioritize local models in auto-selection
+				if (
+					!selectedModel ||
+					(!availableKeys[selectedModel.provider] && selectedModel.provider !== 'local')
+				) {
+					const workingProviders = ['local', 'deepseek', 'anthropic', 'grok']; // LOCAL FIRST!
+					let modelToSelect: SelectableAIModel | null = null;
+
+					// Try to find a model from working providers in priority order
+					for (const providerKey of workingProviders) {
+						const provider = providerKey as AIProviderType;
+						if (
+							(provider === 'local' &&
+								localServerStatus === 'online' &&
+								availableProviderModels[provider]?.length > 0) ||
+							(provider !== 'local' &&
+								availableKeys[provider] &&
+								availableProviderModels[provider]?.length > 0)
+						) {
+							modelToSelect = availableProviderModels[provider][0];
+							console.log(
+								`🎯 Auto-selecting model from preferred provider ${provider}:`,
+								modelToSelect
+							);
+							break;
 						}
-					})
-			);
-
-			updateFavoriteModels();
-
-			// FIXED: Prioritize local models in auto-selection
-			if (!selectedModel || (!availableKeys[selectedModel.provider] && selectedModel.provider !== 'local')) {
-				const workingProviders = ['local', 'deepseek', 'anthropic', 'grok']; // LOCAL FIRST!
-				let modelToSelect: SelectableAIModel | null = null;
-
-				// Try to find a model from working providers in priority order
-				for (const providerKey of workingProviders) {
-					const provider = providerKey as ProviderType;
-					if (
-						(provider === 'local' && localServerStatus === 'online' && availableProviderModels[provider]?.length > 0) ||
-						(provider !== 'local' && availableKeys[provider] && availableProviderModels[provider]?.length > 0)
-					) {
-						modelToSelect = availableProviderModels[provider][0];
-						console.log(
-							`🎯 Auto-selecting model from preferred provider ${provider}:`,
-							modelToSelect
-						);
-						break;
 					}
-				}
 
-				// Enhanced fallback logic
-				if (!modelToSelect) {
-					// First try local even if not in availableProviders
-					if (localServerStatus === 'online' && availableProviderModels.local?.length > 0) {
-						modelToSelect = availableProviderModels.local[0];
-						console.log('🎯 Fallback to local model:', modelToSelect);
-					} else {
-						// Then try other available providers
-						for (const providerKey of availableProviders) {
-							const provider = providerKey as ProviderType;
-							if (availableProviderModels[provider]?.length > 0) {
-								modelToSelect = availableProviderModels[provider][0];
-								console.log(
-									`🎯 Auto-selecting fallback model from provider ${provider}:`,
-									modelToSelect
-								);
-								break;
+					// Enhanced fallback logic
+					if (!modelToSelect) {
+						// First try local even if not in availableProviders
+						if (localServerStatus === 'online' && availableProviderModels.local?.length > 0) {
+							modelToSelect = availableProviderModels.local[0];
+							console.log('🎯 Fallback to local model:', modelToSelect);
+						} else {
+							// Then try other available providers
+							for (const providerKey of availableProviders) {
+								const provider = providerKey as AIProviderType;
+								if (availableProviderModels[provider]?.length > 0) {
+									modelToSelect = availableProviderModels[provider][0];
+									console.log(
+										`🎯 Auto-selecting fallback model from provider ${provider}:`,
+										modelToSelect
+									);
+									break;
+								}
 							}
 						}
 					}
-				}
 
-				// If we found a model to select, use it
-				if (modelToSelect) {
-					console.log('🎯 Final auto-selected model:', modelToSelect);
-					selectedModel = modelToSelect;
-					currentProvider = modelToSelect.provider as ProviderType;
+					// If we found a model to select, use it
+					if (modelToSelect) {
+						console.log('🎯 Final auto-selected model:', modelToSelect);
+						selectedModel = modelToSelect;
+						currentProvider = modelToSelect.provider as AIProviderType;
 
-					// FIXED: Handle local models differently in model store
-					try {
-						if (modelToSelect.provider === 'local') {
-							// For local models, just set the provider
-							await modelStore.setSelectedProvider($currentUser.id, 'local');
-							console.log('🎯 Set selected provider to local');
-						} else {
-							// For API models, save the full model
-							const aiModel = createAIModelFromSelectable(modelToSelect);
-							await modelStore.setSelectedModel($currentUser.id, aiModel);
-							console.log('🎯 Saved API model to store');
+						// FIXED: Handle local models differently in model store
+						try {
+							if (modelToSelect.provider === 'local') {
+								// For local models, just set the provider
+								await modelStore.setSelectedProvider($currentUser.id, 'local');
+								console.log('🎯 Set selected provider to local');
+							} else {
+								// For API models, save the full model
+								const aiModel = createAIModelFromSelectable(modelToSelect);
+								await modelStore.setSelectedModel($currentUser.id, aiModel);
+								console.log('🎯 Saved API model to store');
+							}
+						} catch (error) {
+							console.warn('Error saving auto-selected model:', error);
 						}
-					} catch (error) {
-						console.warn('Error saving auto-selected model:', error);
-					}
 
-					// Dispatch selection to parent
-					dispatch('select', modelToSelect);
+						// Dispatch selection to parent
+						dispatch('select', modelToSelect);
+					}
+				}
+			} else {
+				// ADDED: No API keys available, try local as primary option
+				console.log('🎯 No API keys available, checking local models...');
+				if (localServerStatus === 'online' && availableProviderModels.local?.length > 0) {
+					selectedModel = availableProviderModels.local[0];
+					currentProvider = 'local';
+					console.log('🎯 No API keys, using local model:', selectedModel);
+					dispatch('select', selectedModel);
 				}
 			}
+
+			// FIXED: Set initial provider (prioritize local)
+			let initialProvider: string = selectedModel?.provider || 'local'; // Default to local first!
+			if (initialProvider === 'local' && localServerStatus !== 'online') {
+				// Local preferred but not available, find alternative
+				if (availableProviders.length > 0) {
+					initialProvider = availableProviders[0];
+				} else {
+					initialProvider = 'deepseek'; // Last resort (not anthropic)
+				}
+			} else if (
+				initialProvider !== 'local' &&
+				!availableKeys[initialProvider] &&
+				availableProviders.length > 0
+			) {
+				initialProvider = availableProviders[0];
+			}
+
+			currentProvider = initialProvider as AIProviderType;
+			isInitialized = true;
 		} else {
-			// ADDED: No API keys available, try local as primary option
-			console.log('🎯 No API keys available, checking local models...');
+			// Load local models even when not logged in
+			await loadLocalModels();
+
+			// ADDED: Set local model as default for non-logged users if available
 			if (localServerStatus === 'online' && availableProviderModels.local?.length > 0) {
 				selectedModel = availableProviderModels.local[0];
 				currentProvider = 'local';
-				console.log('🎯 No API keys, using local model:', selectedModel);
+				console.log('🎯 Guest user using local model:', selectedModel);
 				dispatch('select', selectedModel);
 			}
-		}
 
-		// FIXED: Set initial provider (prioritize local)
-		let initialProvider: string = selectedModel?.provider || 'local'; // Default to local first!
-		if (initialProvider === 'local' && localServerStatus !== 'online') {
-			// Local preferred but not available, find alternative
-			if (availableProviders.length > 0) {
-				initialProvider = availableProviders[0];
-			} else {
-				initialProvider = 'deepseek'; // Last resort (not anthropic)
-			}
-		} else if (initialProvider !== 'local' && !availableKeys[initialProvider] && availableProviders.length > 0) {
-			initialProvider = availableProviders[0];
+			favoritesInitialized = true;
+			isInitialized = true;
 		}
-
-		currentProvider = initialProvider as ProviderType;
-		isInitialized = true;
-	} else {
-		// Load local models even when not logged in
-		await loadLocalModels();
-		
-		// ADDED: Set local model as default for non-logged users if available
-		if (localServerStatus === 'online' && availableProviderModels.local?.length > 0) {
-			selectedModel = availableProviderModels.local[0];
-			currentProvider = 'local';
-			console.log('🎯 Guest user using local model:', selectedModel);
-			dispatch('select', selectedModel);
-		}
-		
-		favoritesInitialized = true;
-		isInitialized = true;
-	}
-});
-
+	});
 </script>
 
 <div class="model-wrapper">
-{#if expandedModelList}
-	<div
-		class="model-overlay"
-		on:click={handleClickOutside}
-		transition:fly={{ y: -20, duration: 200 }}
-	>
-		<div class="model-list-container">
-			<div class="model-header">
-				<h3>
-					{expandedModelList ? enhancedProviders[expandedModelList].name : ''} Models 
-					{#if isLoadingModels || (expandedModelList === 'local' && isLoadingLocalModels)}
-						<!-- Show loading -->
-					{:else}
-						({expandedModelList ? availableProviderModels[expandedModelList]?.length || 0 : 0})
-					{/if}
-				</h3>
+	{#if expandedModelList}
+		<div
+			class="model-overlay"
+			on:click={handleClickOutside}
+			transition:fly={{ y: -20, duration: 200 }}
+		>
+			<div class="model-list-container">
+				<div class="model-header">
+					<h3>
+						{expandedModelList ? providers[expandedModelList].name : ''} Models
+						{#if isLoadingModels || (expandedModelList === 'local' && isLoadingLocalModels)}
+							<!-- Show loading -->
+						{:else}
+							({expandedModelList ? availableProviderModels[expandedModelList]?.length || 0 : 0})
+						{/if}
+					</h3>
 
-				<div class="header-actions">
-					<!-- Only show delete button for non-local providers that have API keys -->
-					{#if expandedModelList && expandedModelList !== 'local' && get(apiKey)[expandedModelList]}
-						<button
-							class="header-btn"
-							on:click|stopPropagation={() =>
-								expandedModelList && handleDeleteAPIKey(expandedModelList)}
-							title="Delete {expandedModelList ? enhancedProviders[expandedModelList].name : ''} API key"
-						>
-							<Icon name="Trash2" size={20} />
+					<div class="header-actions">
+						<!-- Only show delete button for non-local providers that have API keys -->
+						{#if expandedModelList && expandedModelList !== 'local' && get(apiKey)[expandedModelList]}
+							<button
+								class="header-btn"
+								on:click|stopPropagation={() =>
+									expandedModelList && handleDeleteAPIKey(expandedModelList)}
+								title="Delete {expandedModelList ? providers[expandedModelList].name : ''} API key"
+							>
+								<Icon name="Trash2" size={20} />
+							</button>
+						{/if}
+
+						<!-- Close button -->
+						<button class="header-btn" on:click={() => (expandedModelList = null)}>
+							<Icon name="XCircle" size={35} />
 						</button>
+					</div>
+				</div>
+				<div class="model-wrap">
+					<!-- Handle loading states -->
+					{#if (expandedModelList === 'local' && isLoadingLocalModels) || (expandedModelList !== 'local' && isLoadingModels)}
+						<div class="spinner-container">
+							<div class="spinner"></div>
+							<p>Loading models...</p>
+						</div>
+						<!-- Handle API key input for non-local providers -->
+					{:else if expandedModelList !== 'local' && showAPIKeyInput}
+						<div class="api-key-container">
+							<h4>Enter {providers[expandedModelList].name} API Key</h4>
+							<APIKeyInput provider={expandedModelList} on:submit={handleAPIKeySubmit} />
+						</div>
+						<!-- Show models if available -->
+					{:else if availableProviderModels[expandedModelList]?.length > 0}
+						<div class="model-list">
+							{#each availableProviderModels[expandedModelList] as model}
+								<button
+									class="model-button"
+									class:model-selected={selectedModel &&
+										selectedModel.id === model.id &&
+										selectedModel.provider === model.provider}
+									on:click={() => handleModelSelection(model)}
+								>
+									<span
+										class="star-button"
+										class:star-active={userModelPreferences.includes(
+											`${model.provider}-${model.id}`
+										)}
+										on:click={(e) => toggleFavorite(model, e)}
+									>
+										<Icon name="Star" size={16} />
+									</span>
+									<div class="model-info">
+										<span class="model-name">{model.name}</span>
+										{#if model.provider === 'local' && model.parameters}
+											<span class="model-details">{model.parameters}</span>
+										{/if}
+										{#if model.provider === 'local' && model.size}
+											<span class="model-size"
+												>{(model.size / 1024 / 1024 / 1024).toFixed(1)} GB</span
+											>
+										{/if}
+									</div>
+								</button>
+							{/each}
+						</div>
+						<!-- Handle empty states -->
+					{:else if expandedModelList === 'local' && localServerStatus === 'offline'}
+						<div class="no-models">
+							<Icon name="Server" size={48} />
+							<p>Local server is offline</p>
+							<p class="text-sm">Make sure Ollama is running on localhost:11434</p>
+							<button class="retry-button" on:click={loadLocalModels}>
+								<Icon name="RefreshCw" size={16} />
+								Retry Connection
+							</button>
+						</div>
+					{:else if expandedModelList === 'local' && localServerStatus === 'online'}
+						<div class="no-models">
+							<Icon name="Download" size={48} />
+							<p>No local models found</p>
+							<p class="text-sm">Pull some models with: <code>ollama pull llama3.2</code></p>
+						</div>
+					{:else}
+						<div class="no-models">
+							<p>No models available for this provider</p>
+						</div>
 					{/if}
-
-					<!-- Close button -->
-					<button class="header-btn" on:click={() => (expandedModelList = null)}>
-						<Icon name="XCircle" size={35} />
-					</button>
 				</div>
 			</div>
-			<div class="model-wrap">
-
-			<!-- Handle loading states -->
-			{#if (expandedModelList === 'local' && isLoadingLocalModels) || (expandedModelList !== 'local' && isLoadingModels)}
-				<div class="spinner-container">
-					<div class="spinner"></div>
-					<p>Loading models...</p>
-				</div>
-			<!-- Handle API key input for non-local providers -->
-			{:else if expandedModelList !== 'local' && showAPIKeyInput}
-				<div class="api-key-container">
-					<h4>Enter {enhancedProviders[expandedModelList].name} API Key</h4>
-					<APIKeyInput provider={expandedModelList} on:submit={handleAPIKeySubmit} />
-				</div>
-			<!-- Show models if available -->
-			{:else if availableProviderModels[expandedModelList]?.length > 0}
-				<div class="model-list">
-					{#each availableProviderModels[expandedModelList] as model}
-						<button
-							class="model-button"
-							class:model-selected={selectedModel && selectedModel.id === model.id && selectedModel.provider === model.provider}
-							on:click={() => handleModelSelection(model)}
-						>
-							<span
-								class="star-button"
-								class:star-active={userModelPreferences.includes(`${model.provider}-${model.id}`)}
-								on:click={(e) => toggleFavorite(model, e)}
+		</div>
+	{/if}
+	<div class="model-column">
+		{#if favoritesInitialized}
+			<div class="favorites-container">
+				<h4>{$t('profile.favorite')} {$t('agents.models')}</h4>
+				{#if favoriteModels.length > 0}
+					<div class="favorites-list">
+						{#each favoriteModels as model}
+							<button
+								class="model-button favorite-model"
+								class:model-selected={selectedModel &&
+									selectedModel.id === model.id &&
+									selectedModel.provider === model.provider}
+								on:click={() => handleModelSelection(model)}
 							>
-								<Icon name="Star" size={16} />
-							</span>
-							<div class="model-info">
-								<span class="model-name">{model.name}</span>
-								{#if model.provider === 'local' && model.parameters}
-									<span class="model-details">{model.parameters}</span>
+								<span class="provider-badge">{providers[model.provider]?.name}</span>
+								<span class="model-name-wrapper">
+									<span class="star-button star-active" on:click={(e) => toggleFavorite(model, e)}>
+										<Icon name="Star" size={16} />
+									</span>
+									<span class="model-name">{model.name}</span>
+								</span>
+							</button>
+						{/each}
+					</div>
+				{:else}
+					<div class="no-favorites">
+						<div class="small-spinner-container">
+							<div class="small-spinner">
+								<Icon name="Bot" />
+							</div>
+						</div>
+						<p>Star your favorite models to see them here</p>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		<div class="selector-container">
+			<div class="providers-list">
+				{#each Object.entries(providers) as [key, provider]}
+					<div class="provider-item">
+						<button
+							class="provider-button"
+							class:provider-selected={currentProvider === key}
+							on:click={() => handleProviderClick(key)}
+						>
+							<div class="provider-info">
+								{#if key === 'local'}
+									<div class="provider-icon-lucide">
+										<Icon name="Bot" size={24} />
+									</div>
+								{:else}
+									<img src={provider.icon} alt={provider.name} class="provider-icon" />
 								{/if}
-								{#if model.provider === 'local' && model.size}
-									<span class="model-size">{(model.size / 1024 / 1024 / 1024).toFixed(1)} GB</span>
+								<span class="provider-name" class:visible={currentProvider === key}>
+									{#if key === 'local' && selectedModel?.provider === 'local' && selectedModel?.name}
+										{selectedModel.name}
+									{:else}
+										{provider.name}
+									{/if}
+								</span>
+							</div>
+							<div class="provider-status">
+								{#if key === 'local'}
+									{#if isLoadingLocalModels}
+										<div class="icon-wrapper loading">
+											<div class="spinner"></div>
+										</div>
+									{:else if localServerStatus === 'online' && availableProviderModels.local?.length > 0}
+										<div class="icon-wrapper success">
+											<Icon name="CheckCircle2" size={35} />
+										</div>
+									{:else if localServerStatus === 'online' && availableProviderModels.local?.length === 0}
+										<div class="icon-wrapper warning">
+											<Icon name="AlertCircle" size={35} />
+										</div>
+									{:else}
+										<div class="icon-wrapper error">
+											<Icon name="XCircle" size={35} />
+										</div>
+									{/if}
+								{:else if get(apiKey)[key]}
+									<div class="icon-wrapper success">
+										<Icon name="CheckCircle2" size={35} />
+									</div>
+								{:else}
+									<div class="icon-wrapper error">
+										<Icon name="XCircle" size={35} />
+									</div>
 								{/if}
 							</div>
 						</button>
-					{/each}
-				</div>
-			<!-- Handle empty states -->
-			{:else if expandedModelList === 'local' && localServerStatus === 'offline'}
-				<div class="no-models">
-					<Icon name="Server" size={48} />
-					<p>Local server is offline</p>
-					<p class="text-sm">Make sure Ollama is running on localhost:11434</p>
-					<button class="retry-button" on:click={loadLocalModels}>
-						<Icon name="RefreshCw" size={16} />
-						Retry Connection
-					</button>
-				</div>
-			{:else if expandedModelList === 'local' && localServerStatus === 'online'}
-				<div class="no-models">
-					<Icon name="Download" size={48} />
-					<p>No local models found</p>
-					<p class="text-sm">Pull some models with: <code>ollama pull llama3.2</code></p>
-				</div>
-			{:else}
-				<div class="no-models">
-					<p>No models available for this provider</p>
-				</div>
-			{/if}
-						</div>
-
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
-{/if}
-<div class="model-column">
-	{#if favoritesInitialized}
-		<div class="favorites-container">
-			<h4>Favorite Models</h4>
-			{#if favoriteModels.length > 0}
-				<div class="favorites-list">
-					{#each favoriteModels as model}
-						<button
-							class="model-button favorite-model"
-							class:model-selected={selectedModel &&
-								selectedModel.id === model.id &&
-								selectedModel.provider === model.provider}
-							on:click={() => handleModelSelection(model)}
-						>
-								<span class="provider-badge">{providers[model.provider]?.name}</span>
-								<span class="model-name-wrapper">
-								<span class="star-button star-active" on:click={(e) => toggleFavorite(model, e)}>
-								<Icon name="Star" size={16} />
-								</span>
-							<span class="model-name">{model.name}</span>
-								</span>
 
-
-						</button>
-					{/each}
-				</div>
-			{:else}
-				<div class="no-favorites">
-					<div class="small-spinner-container">
-						<div class="small-spinner">
-							<Icon name="Bot" />
-						</div>
-					</div>
-					<p>Star your favorite models to see them here</p>
-				</div>
-			{/if}
+	{#if isOffline}
+		<div class="offline-indicator">
+			<Icon name="XCircle" size={16} color="orange" />
+			<span>Offline</span>
 		</div>
 	{/if}
 
-	<div class="selector-container">
-<div class="providers-list">
-	{#each Object.entries(enhancedProviders) as [key, provider]}
-		<div class="provider-item">
-			<button
-				class="provider-button"
-				class:provider-selected={currentProvider === key}
-				on:click={() => handleProviderClick(key)}
-			>
-				<div class="provider-info">
-					{#if key === 'local'}
-						<div class="provider-icon-lucide">
-							<Icon name="Bot" size={24} />
-						</div>
-					{:else}
-						<img src={provider.icon} alt={provider.name} class="provider-icon" />
-					{/if}
-					<span class="provider-name" class:visible={currentProvider === key}>
-						{provider.name}
-					</span>
-				</div>
-				<div class="provider-status">
-					{#if key === 'local'}
-						{#if isLoadingLocalModels}
-							<div class="icon-wrapper loading">
-								<div class="spinner"></div>
-							</div>
-						{:else if localServerStatus === 'online' && availableProviderModels.local?.length > 0}
-							<div class="icon-wrapper success">
-								<Icon name="CheckCircle2" size={35} />
-							</div>
-						{:else if localServerStatus === 'online' && availableProviderModels.local?.length === 0}
-							<div class="icon-wrapper warning">
-								<Icon name="AlertCircle" size={35} />
-							</div>
-						{:else}
-							<div class="icon-wrapper error">
-								<Icon name="XCircle" size={35} />
-							</div>
-						{/if}
-					{:else if get(apiKey)[key]}
-						<div class="icon-wrapper success">
-							<Icon name="CheckCircle2" size={35} />
-						</div>
-					{:else}
-						<div class="icon-wrapper error">
-							<Icon name="XCircle" size={35} />
-						</div>
-					{/if}
-				</div>
-			</button>
+	{#if isOffline}
+		<div class="offline-indicator">
+			<Icon name="XCircle" size={16} color="orange" />
+			<span>Offline</span>
 		</div>
-	{/each}
-</div>
-	</div>
+	{/if}
 </div>
 
-{#if isOffline}
-	<div class="offline-indicator">
-		<Icon name="XCircle" size={16} color="orange" />
-		<span>Offline</span>
-	</div>
-{/if}
-
-{#if isOffline}
-	<div class="offline-indicator">
-		<Icon name="XCircle" size={16} color="orange" />
-		<span>Offline</span>
-	</div>
-{/if}
-
-
-</div>
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1002,13 +1084,13 @@ onMount(async () => {
 		}
 
 		&.provider-selected {
+			box-shadow: var(--tertiary-color) 0 0 8px 1px;
+			color: var(--tertiary-color);
 			background-color: var(--primary-color);
-			color: white;
+			font-weight: bold;
 			justify-content: center;
 
-
-
-			box-shadow: var(--tertiary-color) 0 0 10px 1px;
+			// box-shadow: var(--tertiary-color) 0 0 10px 1px;
 			.provider-name {
 				opacity: 1;
 				width: auto;
@@ -1023,7 +1105,6 @@ onMount(async () => {
 		align-items: center;
 		justify-content: left;
 		gap: 0.5rem;
-		
 	}
 
 	.provider-icon,
@@ -1067,7 +1148,6 @@ onMount(async () => {
 		justify-content: center;
 		align-items: center;
 		z-index: 9999;
-
 	}
 
 	.model-list-container {
@@ -1080,8 +1160,6 @@ onMount(async () => {
 		display: flex;
 		flex-wrap: wrap;
 		flex-direction: column;
-
-
 	}
 
 	.model-header {
@@ -1104,12 +1182,11 @@ onMount(async () => {
 				margin: 0;
 				height: 2rem;
 				background: transparent;
-				border: none !important; 
+				border: none !important;
 				cursor: pointer;
-
 			}
 		}
-		
+
 		h3 {
 			margin: 0;
 			font-size: 1.2rem;
@@ -1333,8 +1410,9 @@ onMount(async () => {
 
 		& h4 {
 			margin-bottom: 0.5rem;
-			text-align: left;
-			padding-inline-start: 2rem;
+			margin-right: 1rem;
+			padding: 1rem;
+			text-align: right;
 			font-size: 1.2rem;
 		}
 	}
@@ -1342,7 +1420,7 @@ onMount(async () => {
 	.favorites-list {
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: flex-start;
+		justify-content: flex-end;
 		gap: 0.5rem;
 		padding: 0.5rem 2rem;
 	}
@@ -1351,8 +1429,9 @@ onMount(async () => {
 		display: flex;
 		align-items: center;
 		position: relative;
-		padding: 0 0.5rem;
+		padding: 0.5rem;
 		width: auto !important;
+		height: auto;
 		border-radius: 1rem;
 		background-color: var(--secondary-color);
 	}
@@ -1364,7 +1443,7 @@ onMount(async () => {
 		border-radius: 1rem 1rem 0 0;
 		position: absolute;
 		justify-content: flex-end;
-		display: flex;
+		display: none;
 		right: 0;
 		left: 0;
 		top: 0;
@@ -1377,8 +1456,6 @@ onMount(async () => {
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
-		margin-top: 1rem;
-
 	}
 	.star-button {
 		border: none;
@@ -1446,208 +1523,200 @@ onMount(async () => {
 			justify-content: center;
 			width: 100%;
 		}
-			.provider-info {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 0.25rem;
-		// padding: 0 0.15rem;
-		
-	}
-
-	.providers-list {
-		display: flex;
-		flex-direction: row;
-		align-items: flex-end;
-		justify-content: flex-end;
-		gap: var(--spacing-sm);
-		width: 100%;
-		height: calc(100% - 2rem);
-		position: relative;
-		margin-top: 1rem;
-		margin-right: 2rem;
-	}
-
-	.provider-icon {
-		width: 1.3rem;
-		height: 1.3rem;
-		padding: 0 0.25rem;
-	}
-
-	.provider-button {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-		padding: 0;
-		background: var(--secondary-color);
-		border: 1px solid transparent;
-		color: var(--text-color);
-		transition: all 0.2s ease;
-		z-index: 3000;
-		height: 2rem;
-		width: 2rem;
-
-		&:hover {
-			background: var(--bg-color);
-			cursor: pointer;
-			transform: translateX(0);
-			width: auto;
-				padding: 0 0.5rem;
-		justify-content: center;
- 
-			.provider-name {
-				opacity: 1;
-				width: auto;
-				max-width: 200px;
-				margin-left: 0;
-				font-weight: 700;
-				font-size: 0.8rem;
-			}
-		}
-
-		&.provider-selected {
-			transition: all 0.2s ease;
-			&:hover {
-				.provider-name {
-					display: flex;
-				}
-			}
-			.provider-name {
-				display: none;
-				opacity: 1;
-				width: auto;
-				max-width: 200px;
-				margin-left: 0;
-				font-size: 0.8rem;
-				transition: all 0.2s ease;
-			}
-		}
-	}
-		.offline-indicator {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.25rem 0.5rem;
-		background-color: rgba(255, 165, 0, 0.1);
-		border-radius: 4px;
-		font-size: 0.75rem;
-		color: orange;
-	}
-
-	.provider-status {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		position: absolute;
-		right: -0.5rem;
-		top: -0.25rem;
-
-		.icon-wrapper {
+		.provider-info {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			height: 1rem;
-			width: 1rem;
-			&.success :global(svg) {
-				color: rgb(0, 200, 0);
-				stroke: var(--bg-color);
-				background-color: rgb(0, 200, 0);
-				border-radius: 50%;
-				fill: none;
-				height: 1rem;
-				width: 1rem;
+			gap: 0.25rem;
+			// padding: 0 0.15rem;
+		}
+
+		.providers-list {
+			display: flex;
+			flex-direction: row;
+			align-items: flex-end;
+			justify-content: flex-end;
+			gap: var(--spacing-sm);
+			width: 100%;
+			height: calc(100% - 2rem);
+			position: relative;
+			margin-top: 1rem;
+			margin-right: 2rem;
+		}
+
+		.provider-icon {
+			width: 1.3rem;
+			height: 1.3rem;
+			padding: 0 0.25rem;
+		}
+
+		.provider-button {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 0.5rem;
+			padding: 0;
+			background: var(--secondary-color);
+			border: 1px solid transparent;
+			color: var(--text-color);
+			transition: all 0.2s ease;
+			z-index: 3000;
+			height: 2rem;
+			width: 2rem;
+
+			&:hover {
+				background: var(--bg-color);
+				cursor: pointer;
+				transform: translateX(0);
+				width: auto;
+				padding: 0 0.5rem;
+				justify-content: center;
+
+				.provider-name {
+					opacity: 1;
+					width: auto;
+					max-width: 200px;
+					margin-left: 0;
+					font-weight: 700;
+					font-size: 0.8rem;
+				}
 			}
 
-			&.error :global(svg) {
-				color: rgb(255, 0, 0);
-				stroke: var(--bg-color);
-				border-radius: 50%;
-				background-color: rgb(255, 0, 0);
+			&.provider-selected {
+				transition: all 0.2s ease;
 
-				fill: none;
-				height: 1rem;
-				width: 1rem;
+				&:hover {
+					.provider-name {
+						display: flex;
+					}
+				}
+				.provider-name {
+					display: none;
+					opacity: 1;
+					width: auto;
+					max-width: 200px;
+					margin-left: 0;
+					font-size: 0.8rem;
+					transition: all 0.2s ease;
+				}
 			}
 		}
-	}
-
-
-	.provider-item {
-		width: auto;
-		height: auto;
-		position: relative;
-		justify-content: center !important;
-		align-items: center;
-		margin: 0;
-		background: var(--primary-color);
-		border-radius: var(--radius-xl);
-		&.active {
-			background: var(--primary-color);
+		.offline-indicator {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			padding: 0.25rem 0.5rem;
+			background-color: rgba(255, 165, 0, 0.1);
+			border-radius: 4px;
+			font-size: 0.75rem;
+			color: orange;
 		}
-	}
 
-		.model-name {
-		text-align: left;
-		font-size: 0.8rem;
-		// padding-right: 1rem;
-	}
-	.favorites-list {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: center;
-		gap: 0.5rem;
-		padding: 0.5rem;
-	}
+		.provider-status {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+			position: absolute;
+			right: -0.5rem;
+			top: -0.25rem;
 
-	.favorite-model {
-		display: flex;
-		align-items: center;
-		position: relative;
-		padding: 0 0.5rem;
-		width: auto !important;
-		border-radius: 1rem;
-		background-color: var(--secondary-color);
-	}
+			.icon-wrapper {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 1rem;
+				width: 1rem;
+				&.success :global(svg) {
+					color: rgb(0, 200, 0);
+					stroke: var(--bg-color);
+					background-color: rgb(0, 200, 0);
+					border-radius: 50%;
+					fill: none;
+					height: 1rem;
+					width: 1rem;
+				}
 
+				&.error :global(svg) {
+					color: rgb(255, 0, 0);
+					stroke: var(--bg-color);
+					border-radius: 50%;
+					background-color: rgb(255, 0, 0);
 
-	.model-button {
-		padding: 0.5rem;
-		height: auto;
-	}
-
-	.star-button {
-		padding: 0;
-		
-	}
-
-	.favorites-container {
-		// border: 1px solid var(--line-color);
-		border-radius: 1rem;
-		// background: var(--primary-color);
-		padding: 0.5rem;
-		overflow-y: auto;
-		height: auto;
-		width: calc(100% - 1rem);
-
-		& h4 {
-			margin-bottom: 0;
-			text-align: left;
-			padding-inline-start: 1rem;
-			font-size: 1.2rem;
+					fill: none;
+					height: 1rem;
+					width: 1rem;
+				}
+			}
 		}
-	}
-
-	}
-
-	@media (max-width: 450px) {
-
-
 
 		.provider-item {
+			width: auto;
+			height: auto;
+			position: relative;
+			justify-content: center !important;
+			align-items: center;
+			margin: 0;
+			background: var(--primary-color);
+			border-radius: var(--radius-xl);
+			&.active {
+				background: var(--primary-color);
+			}
+		}
+
+		.model-name {
+			text-align: left;
+			font-size: 0.8rem;
+			// padding-right: 1rem;
+		}
+		.favorites-list {
+			display: flex;
+			flex-wrap: wrap;
+			justify-content: center;
+			gap: 0.5rem;
+			padding: 0.5rem;
+		}
+
+		.favorite-model {
+			display: flex;
+			align-items: center;
+			position: relative;
+			padding: 0 0.5rem;
+			width: auto !important;
+			border-radius: 1rem;
+			background-color: var(--secondary-color);
+		}
+
+		.model-button {
+			padding: 0.5rem;
 			height: auto;
 		}
 
+		.star-button {
+			padding: 0;
+		}
+
+		.favorites-container {
+			// border: 1px solid var(--line-color);
+			border-radius: 1rem;
+			// background: var(--primary-color);
+			padding: 0.5rem;
+			overflow-y: auto;
+			height: auto;
+			width: calc(100% - 1rem);
+
+			& h4 {
+				margin-bottom: 0;
+				text-align: left;
+				padding-inline-start: 1rem;
+				font-size: 1.2rem;
+			}
+		}
+	}
+
+	@media (max-width: 450px) {
+		.provider-item {
+			height: auto;
+		}
 
 		// .provider-button {
 		// 	width: auto;

@@ -9,9 +9,8 @@ import crypto from 'crypto';
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const contentType = request.headers.get('content-type');
-		let tempPath: string;
 		const tempId = crypto.randomUUID();
-		tempPath = join('/tmp', `${tempId}.pdf`);
+		const tempPath = join('/tmp', `${tempId}.pdf`);
 
 		if (contentType?.includes('multipart/form-data')) {
 			const formData = await request.formData();

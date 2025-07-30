@@ -45,9 +45,9 @@
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 	import UsersList from '$lib/features/users/components/UsersList.svelte';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
-import MediaGrid from '$lib/features/posts/components/MediaGrid.svelte';
-  import { getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
-  import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
+	import MediaGrid from '$lib/features/posts/components/MediaGrid.svelte';
+	import { getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
+	import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 
 	export let data;
 
@@ -82,7 +82,7 @@ import MediaGrid from '$lib/features/posts/components/MediaGrid.svelte';
 	let activeOverlay: 'followers' | 'following' = 'followers';
 	let followerCount = 0;
 	let followingCount = 0;
-let totalMediaCount = 0;
+	let totalMediaCount = 0;
 
 	const PROFILE_POSTS_PER_PAGE = 10;
 	const SCROLL_THRESHOLD = 20;
@@ -90,62 +90,60 @@ let totalMediaCount = 0;
 
 	$: username = $page.params.username;
 
+	function switchTab(tab: 'posts' | 'media') {
+		activeTab = tab;
 
-function switchTab(tab: 'posts' | 'media') {
-	activeTab = tab;
-	
-	if ($showInput) {
-		sidenavStore.hideInput();
+		if ($showInput) {
+			sidenavStore.hideInput();
+		}
+		if ($showOverlay) {
+			sidenavStore.hideOverlay();
+			activeOverlay = 'followers';
+		}
 	}
-	if ($showOverlay) {
-		sidenavStore.hideOverlay();
-		activeOverlay = 'followers'; 
+	function switchOverlay(overlay: 'followers' | 'following') {
+		// Close main tab selection when opening overlay
+		activeTab = 'posts'; // Reset to default main tab
 
+		if ($showInput) {
+			sidenavStore.hideInput();
+		}
+
+		if ($showOverlay && activeOverlay === overlay) {
+			// If same overlay is open, close it
+			sidenavStore.hideOverlay();
+		} else {
+			// Open the overlay
+			activeOverlay = overlay;
+			sidenavStore.showOverlay();
+		}
 	}
-}
-function switchOverlay(overlay: 'followers' | 'following') {
-    // Close main tab selection when opening overlay
-    activeTab = 'posts'; // Reset to default main tab
-    
-    if ($showInput) {
-        sidenavStore.hideInput();
-    }
-    
-    if ($showOverlay && activeOverlay === overlay) {
-        // If same overlay is open, close it
-        sidenavStore.hideOverlay();
-    } else {
-        // Open the overlay
-        activeOverlay = overlay;
-        sidenavStore.showOverlay();
-    }
-}
-$: if (username && browser) {
-	activeTab = 'posts'; 
-	fetchUserData();
-}
+	$: if (username && browser) {
+		activeTab = 'posts';
+		fetchUserData();
+	}
 
-async function fetchMediaCount() {
-    if (!username) return;
-    
-    try {
-        // Use your existing media API but only get 1 item to get the count
-        const response = await fetch(`/api/users/username/${username}/media?limit=1&offset=0`);
-        const data = await response.json();
-        
-        if (data.success && data.data) {
-            totalMediaCount = data.data.totalItems || 0;
-        }
-    } catch (error) {
-        console.error('Error fetching media count:', error);
-        totalMediaCount = 0;
-    }
-}
+	async function fetchMediaCount() {
+		if (!username) return;
 
-// Call it when user data loads
-$: if (user?.username) {
-    fetchMediaCount();
-}
+		try {
+			// Use your existing media API but only get 1 item to get the count
+			const response = await fetch(`/api/users/username/${username}/media?limit=1&offset=0`);
+			const data = await response.json();
+
+			if (data.success && data.data) {
+				totalMediaCount = data.data.totalItems || 0;
+			}
+		} catch (error) {
+			console.error('Error fetching media count:', error);
+			totalMediaCount = 0;
+		}
+	}
+
+	// Call it when user data loads
+	$: if (user?.username) {
+		fetchMediaCount();
+	}
 	async function fetchUserProfiles(userIds: string[]): Promise<void> {
 		const result = await clientTryCatch(
 			(async () => {
@@ -855,7 +853,6 @@ $: if (user?.username) {
 		isScrolled = scrollY > SCROLL_THRESHOLD;
 		// console.log('Scroll update:', { scrollY, isScrolled, threshold: SCROLL_THRESHOLD });
 	}
-	$: username = $page.params.username;
 	$: isCurrentUser = !!($currentUser && user && $currentUser.id === user.id);
 	$: if (user && user.id) {
 		console.log(
@@ -880,25 +877,22 @@ $: if (user?.username) {
 		console.log('👤 Calculated status:', userStatus);
 	}
 
- $: userAvatarUrl = getAvatarUrl(user);
-  $: userIdentifier = user ? getUserIdentifier(user) : null;
-  $: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
-  $: finalAvatarUrl = (userAvatarUrl && userAvatarUrl.trim() !== '') 
-    ? userAvatarUrl 
-    : identiconUrl;
+	$: userAvatarUrl = getAvatarUrl(user);
+	$: userIdentifier = user ? getUserIdentifier(user) : null;
+	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
+	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
 
-
-	 $: if (user) {
-    console.log('🔍 Avatar Debug:');
-    console.log('- user exists:', !!user);
-    console.log('- user.email:', user.email);
-    console.log('- user.username:', user.username);
-    console.log('- userAvatarUrl:', userAvatarUrl);
-    console.log('- userIdentifier:', userIdentifier);
-    console.log('- identiconUrl:', identiconUrl);
-    console.log('- finalAvatarUrl:', finalAvatarUrl);
-    console.log('---');
-  }
+	$: if (user) {
+		console.log('🔍 Avatar Debug:');
+		console.log('- user exists:', !!user);
+		console.log('- user.email:', user.email);
+		console.log('- user.username:', user.username);
+		console.log('- userAvatarUrl:', userAvatarUrl);
+		console.log('- userIdentifier:', userIdentifier);
+		console.log('- identiconUrl:', identiconUrl);
+		console.log('- finalAvatarUrl:', finalAvatarUrl);
+		console.log('---');
+	}
 	onMount(() => {
 		console.log('=== USERNAME PAGE MOUNT START ===');
 
@@ -1021,9 +1015,7 @@ $: if (user?.username) {
 					{$t('generic.back')}
 				</button>
 			</div>
-			{:else if !user}
-			
-		{:else if user}
+		{:else if !user}{:else if user}
 			{#if isScrolled || $showInput || $showOverlay}
 				<div
 					class="profile-sticky-header"
@@ -1034,11 +1026,11 @@ $: if (user?.username) {
 					<div class="avatar-header">
 						<div class="status-indicator" class:online={userStatus === 'online'}></div>
 
-<img
-  src={finalAvatarUrl || '/api/placeholder/120/120'}
-  alt="{user?.name || user?.username || 'User'}'s avatar"
-  class="profile-avatar"
-/>
+						<img
+							src={finalAvatarUrl || '/api/placeholder/120/120'}
+							alt="{user?.name || user?.username || 'User'}'s avatar"
+							class="profile-avatar"
+						/>
 					</div>
 					<div class="header-username">
 						<span class="username-text">{user.name || user.username}</span>
@@ -1086,7 +1078,7 @@ $: if (user?.username) {
 
 							<button
 								class="tab"
-    class:active={activeTab === 'posts' && !$showOverlay && !$showInput}
+								class:active={activeTab === 'posts' && !$showOverlay && !$showInput}
 								on:click={(event) => {
 									event.preventDefault();
 									switchTab('posts');
@@ -1099,7 +1091,7 @@ $: if (user?.username) {
 									}
 								}}
 							>
-							<Icon name="MessageSquare" size={16} />
+								<Icon name="MessageSquare" size={16} />
 
 								<span>{totalPosts}</span>
 								<!-- <span>{$t('posts.posts')}</span> -->
@@ -1107,7 +1099,7 @@ $: if (user?.username) {
 
 							<button
 								class="tab"
-    class:active={activeTab === 'media' && !$showOverlay && !$showInput} 
+								class:active={activeTab === 'media' && !$showOverlay && !$showInput}
 								on:click={(event) => {
 									event.preventDefault();
 									switchTab('media');
@@ -1119,11 +1111,11 @@ $: if (user?.username) {
 									}
 								}}
 							>
-							    {#if totalMediaCount > 0}
+								{#if totalMediaCount > 0}
 									<Icon name="Image" size={16} />
 									<span>{totalMediaCount}</span>
 								{/if}
-							<!-- <span class="capitalize">{$t('posts.media')}</span> -->
+								<!-- <span class="capitalize">{$t('posts.media')}</span> -->
 							</button>
 
 							<!-- <button
@@ -1143,40 +1135,40 @@ $: if (user?.username) {
 							>
 							<span class="capitalize">{$t('posts.likes')}</span>
 							</button> -->
-<button
-    class="tab"
-    class:active={$showOverlay && activeOverlay === 'followers'}
-    on:click={(event) => {
-        event.preventDefault();
-        if (innerWidth <= 450) {
-            sidenavStore.hideLeft();
-            sidenavStore.hideRight();
-        }
-        switchOverlay('followers'); // Use new function
-    }}
->
-<Icon name="TrendingUp" size={16} />
-    <span>{followerCount}</span>
-    <!-- <span>{$t('profile.followers')}</span> -->
-</button>
+							<button
+								class="tab"
+								class:active={$showOverlay && activeOverlay === 'followers'}
+								on:click={(event) => {
+									event.preventDefault();
+									if (innerWidth <= 450) {
+										sidenavStore.hideLeft();
+										sidenavStore.hideRight();
+									}
+									switchOverlay('followers'); // Use new function
+								}}
+							>
+								<Icon name="TrendingUp" size={16} />
+								<span>{followerCount}</span>
+								<!-- <span>{$t('profile.followers')}</span> -->
+							</button>
 
-<button
-    class="tab"
-    class:active={$showOverlay && activeOverlay === 'following'}
-    on:click={(event) => {
-        event.preventDefault();
-        if (innerWidth <= 450) {
-            sidenavStore.hideLeft();
-            sidenavStore.hideRight();
-        }
-        switchOverlay('following'); // Use new function
-    }}
->
-<Icon name="EyeIcon" size={16} />
+							<button
+								class="tab"
+								class:active={$showOverlay && activeOverlay === 'following'}
+								on:click={(event) => {
+									event.preventDefault();
+									if (innerWidth <= 450) {
+										sidenavStore.hideLeft();
+										sidenavStore.hideRight();
+									}
+									switchOverlay('following'); // Use new function
+								}}
+							>
+								<Icon name="EyeIcon" size={16} />
 
-    <span>{followingCount}</span>
-    <!-- <span>{$t('profile.following')}</span> -->
-</button>
+								<span>{followingCount}</span>
+								<!-- <span>{$t('profile.following')}</span> -->
+							</button>
 						</nav>
 					</div>
 				</div>
@@ -1227,15 +1219,11 @@ $: if (user?.username) {
 
 						<div class="profile-info">
 							<div class="avatar-section">
-<img
-	src="/api/users/{user?.id}/avatar"
-	alt="{user?.name || user?.username || 'User'}'s avatar"
-	class="profile-avatar"
-	on:error={(e) => {
-		console.log('🖼️ Server avatar failed, using identicon');
-		if (identiconUrl) e.target.src = identiconUrl;
-	}}
-/>
+								<img
+									src="/api/users/{user?.id}/avatar"
+									alt="{user?.name || user?.username || 'User'}'s avatar"
+									class="profile-avatar"
+								/>
 							</div>
 
 							<div class="user-details">
@@ -1328,8 +1316,7 @@ $: if (user?.username) {
 									<nav class="tab-nav">
 										<button
 											class="tab"
-    class:active={activeTab === 'posts' && !$showOverlay}
-
+											class:active={activeTab === 'posts' && !$showOverlay}
 											on:click={(event) => {
 												event.preventDefault();
 												switchTab('posts');
@@ -1343,11 +1330,10 @@ $: if (user?.username) {
 										>
 											<span class="capitalize">{$t('posts.posts')}</span>
 											({totalPosts})
-
 										</button>
 										<button
 											class="tab"
-    class:active={activeTab === 'media' && !$showOverlay}
+											class:active={activeTab === 'media' && !$showOverlay}
 											on:click={(event) => {
 												event.preventDefault();
 												switchTab('media');
@@ -1359,11 +1345,10 @@ $: if (user?.username) {
 												}
 											}}
 										>
-
-							<span class="capitalize">{$t('posts.media')}</span>
-																								    {#if totalMediaCount > 0}
-									<span> ({totalMediaCount})</span>
-								{/if}
+											<span class="capitalize">{$t('posts.media')}</span>
+											{#if totalMediaCount > 0}
+												<span> ({totalMediaCount})</span>
+											{/if}
 										</button>
 										<!-- <button
 											class="tab"
@@ -1382,37 +1367,37 @@ $: if (user?.username) {
 										>
 							<span class="capitalize">{$t('posts.likes')}</span>
 										</button> -->
-<button
-    class="tab"
-    class:active={$showOverlay && activeOverlay === 'followers'}
-    on:click={(event) => {
-        event.preventDefault();
-        if (innerWidth <= 450) {
-            sidenavStore.hideLeft();
-            sidenavStore.hideRight();
-        }
-        switchOverlay('followers'); // Use new function
-    }}
->
-    <span>{followerCount}</span>
-    <span>{$t('profile.followers')}</span>
-</button>
+										<button
+											class="tab"
+											class:active={$showOverlay && activeOverlay === 'followers'}
+											on:click={(event) => {
+												event.preventDefault();
+												if (innerWidth <= 450) {
+													sidenavStore.hideLeft();
+													sidenavStore.hideRight();
+												}
+												switchOverlay('followers'); // Use new function
+											}}
+										>
+											<span>{followerCount}</span>
+											<span>{$t('profile.followers')}</span>
+										</button>
 
-<button
-    class="tab"
-    class:active={$showOverlay && activeOverlay === 'following'}
-    on:click={(event) => {
-        event.preventDefault();
-        if (innerWidth <= 450) {
-            sidenavStore.hideLeft();
-            sidenavStore.hideRight();
-        }
-        switchOverlay('following'); // Use new function
-    }}
->
-    <span>{followingCount}</span>
-    <span>{$t('profile.following')}</span>
-</button>
+										<button
+											class="tab"
+											class:active={$showOverlay && activeOverlay === 'following'}
+											on:click={(event) => {
+												event.preventDefault();
+												if (innerWidth <= 450) {
+													sidenavStore.hideLeft();
+													sidenavStore.hideRight();
+												}
+												switchOverlay('following'); // Use new function
+											}}
+										>
+											<span>{followingCount}</span>
+											<span>{$t('profile.following')}</span>
+										</button>
 										{#if $currentUser}
 											{#if !isCurrentUser}
 												<button
@@ -1476,151 +1461,148 @@ $: if (user?.username) {
 				{/if}
 				<!-- Profile Content -->
 				<main class="profile-content">
-						{#if activeTab === 'posts'}
-
-					<!-- Posts Feed -->
-					<section
-						class="posts-section"
-						in:fly={{ y: 200, duration: 300 }}
-						out:fly={{ y: -200, duration: 200 }}
-					>
-						{#if $currentUser}
-							<!-- Full post list for authenticated users -->
-							{#if userPosts.length > 0}
-								{#each enhancedUserPosts as post (post._displayKey || post.id)}
-									{#if post._isRepost}
-										<RepostCard
-											{post}
-											repostedBy={post.repostedBy_id
-												? {
-														id: post.repostedBy_id,
-														username: post.repostedBy_username ?? 'unknown',
-														name: post.repostedBy_name,
-														avatar: post.repostedBy_avatar
-													}
-												: null}
-											on:interact={handlePostInteraction}
-											on:comment={handleComment}
-											on:quote={handleQuote}
-										/>
-									{:else if post.quotedPost}
-										<PostQuoteCard
-											{post}
-											on:interact={handlePostInteraction}
-											on:comment={handleComment}
-											on:quote={handleQuote}
-										/>
-									{:else}
-										<PostCard
-											{post}
-											on:interact={handlePostInteraction}
-											on:comment={handleComment}
-											on:quote={handleQuote}
-											hideHeaderOnScroll={isScrolled}
-										/>
-									{/if}
-								{/each}
-
-								<!-- FIXED: Loading trigger for authenticated users with more posts -->
-								{#if profileHasMore}
-									<div id="profile-loading-trigger" class="loading-trigger">
-										{#if profileLoadingMore}
-											<div class="loading-trigger">
-												<div class="loading-indicator">
-													<div
-														class="trigger-loader"
-														in:fly={{ y: 50, duration: 300 }}
-														out:fly={{ y: -50, duration: 200 }}
-													></div>
-													<!-- <span>Loading more posts...</span> -->
-												</div>
-											</div>
-										{:else}
-											<div class="loading-trigger">
-												<div class="loading-indicator">
-													<div
-														class="trigger-loader"
-														in:fly={{ y: 50, duration: 300 }}
-														out:fly={{ y: -50, duration: 200 }}
-													></div>
-													<!-- <span>Loading more posts...</span> -->
-												</div>
-											</div>
-										{/if}
-									</div>
-								{:else if userPosts.length > 0}
-									<div
-										class="end-of-posts"
-										style="text-center: center; padding: 20px; color: #666;"
-									>
-										<p>No more posts to load</p>
-										<p>Total posts: {userPosts.length}</p>
-									</div>
-								{/if}
-							{:else if !$showInput}
-								<div class="empty-state">
-									<p>{user?.username || 'This user'} hasn't posted anything yet.</p>
-								</div>
-							{/if}
-						{:else}
-							<!-- Limited preview for non-authenticated users -->
-							<div class="auth-required-posts">
+					{#if activeTab === 'posts'}
+						<!-- Posts Feed -->
+						<section
+							class="posts-section"
+							in:fly={{ y: 200, duration: 300 }}
+							out:fly={{ y: -200, duration: 200 }}
+						>
+							{#if $currentUser}
+								<!-- Full post list for authenticated users -->
 								{#if userPosts.length > 0}
-									<!-- Show just 2 posts as a preview -->
-									{#each userPosts.slice(0, 2) as post (post.id)}
-										<PostCard
-											{post}
-											isRepost={post.isRepost || false}
-											isPreview={true}
-											on:upvote={handlePostInteraction}
-											on:downvote={handlePostInteraction}
-											on:repost={handlePostInteraction}
-											on:comment={handleComment}
-											on:share={handlePostInteraction}
-											on:quote={handleQuote}
-											on:read={handlePostInteraction}
-											on:follow={handleFollowUser}
-										/>
+									{#each enhancedUserPosts as post (post._displayKey || post.id)}
+										{#if post._isRepost}
+											<RepostCard
+												{post}
+												repostedBy={post.repostedBy_id
+													? {
+															id: post.repostedBy_id,
+															username: post.repostedBy_username ?? 'unknown',
+															name: post.repostedBy_name,
+															avatar: post.repostedBy_avatar
+														}
+													: null}
+												on:interact={handlePostInteraction}
+												on:comment={handleComment}
+												on:quote={handleQuote}
+											/>
+										{:else if post.quotedPost}
+											<PostQuoteCard
+												{post}
+												on:interact={handlePostInteraction}
+												on:comment={handleComment}
+												on:quote={handleQuote}
+											/>
+										{:else}
+											<PostCard
+												{post}
+												on:interact={handlePostInteraction}
+												on:comment={handleComment}
+												on:quote={handleQuote}
+												hideHeaderOnScroll={isScrolled}
+											/>
+										{/if}
 									{/each}
 
-									<!-- Authentication wall -->
-									<div class="auth-wall">
-										<div class="blur-overlay"></div>
-										<div class="auth-prompt">
-											<h3>
-												{$t('posts.seeAll')}
-												{totalPosts}
-												{$t('posts.postsFrom')}
-												{user?.name || user?.username}
-											</h3>
-											<p>{$t('posts.historySignin')}</p>
+									<!-- FIXED: Loading trigger for authenticated users with more posts -->
+									{#if profileHasMore}
+										<div id="profile-loading-trigger" class="loading-trigger">
+											{#if profileLoadingMore}
+												<div class="loading-trigger">
+													<div class="loading-indicator">
+														<div
+															class="trigger-loader"
+															in:fly={{ y: 50, duration: 300 }}
+															out:fly={{ y: -50, duration: 200 }}
+														></div>
+														<!-- <span>Loading more posts...</span> -->
+													</div>
+												</div>
+											{:else}
+												<div class="loading-trigger">
+													<div class="loading-indicator">
+														<div
+															class="trigger-loader"
+															in:fly={{ y: 50, duration: 300 }}
+															out:fly={{ y: -50, duration: 200 }}
+														></div>
+														<!-- <span>Loading more posts...</span> -->
+													</div>
+												</div>
+											{/if}
 										</div>
-									</div>
-								{:else}
+									{:else if userPosts.length > 0}
+										<div
+											class="end-of-posts"
+											style="text-center: center; padding: 20px; color: #666;"
+										>
+											<p>{$t('posts.noMorePosts')}</p>
+											<p>{$t('status.total')} {$t('posts.posts')}: {userPosts.length}</p>
+										</div>
+									{/if}
+								{:else if !$showInput}
 									<div class="empty-state">
-										<p>{user?.username || 'This user'} hasn't posted anything yet.</p>
+										<p>{user?.username || 'This user'} {$t('posts.hasntPosted')}</p>
 									</div>
 								{/if}
-							</div>
-						{/if}
-					</section>
+							{:else}
+								<!-- Limited preview for non-authenticated users -->
+								<div class="auth-required-posts">
+									{#if userPosts.length > 0}
+										<!-- Show just 2 posts as a preview -->
+										{#each userPosts.slice(0, 2) as post (post.id)}
+											<PostCard
+												{post}
+												isRepost={post.isRepost || false}
+												isPreview={true}
+												on:upvote={handlePostInteraction}
+												on:downvote={handlePostInteraction}
+												on:repost={handlePostInteraction}
+												on:comment={handleComment}
+												on:share={handlePostInteraction}
+												on:quote={handleQuote}
+												on:read={handlePostInteraction}
+												on:follow={handleFollowUser}
+											/>
+										{/each}
+
+										<!-- Authentication wall -->
+										<div class="auth-wall">
+											<div class="blur-overlay"></div>
+											<div class="auth-prompt">
+												<h3>
+													{$t('posts.seeAll')}
+													{totalPosts}
+													{$t('posts.postsFrom')}
+													{user?.name || user?.username}
+												</h3>
+												<p>{$t('posts.historySignin')}</p>
+											</div>
+										</div>
+									{:else}
+										<div class="empty-state">
+											<p>{user?.username || $t('generic.user')} {$t('posts.hasntPosted')}.</p>
+										</div>
+									{/if}
+								</div>
+							{/if}
+						</section>
 					{:else if activeTab === 'media'}
-		<!-- Media Grid -->
-	<MediaGrid 
-		username={user?.username || ''} 
-		isActive={activeTab === 'media'}
-	/>	{:else if activeTab === 'likes'}
-		<!-- Likes content - to be implemented -->
-		<section
-			class="likes-section"
-			in:fly={{ y: 200, duration: 300 }}
-			out:fly={{ y: -200, duration: 200 }}
-		>
-			<div class="empty-state">
-				<p>Likes feature coming soon...</p>
-			</div>
-		</section>
-	{/if}
+						<!-- Media Grid -->
+						<MediaGrid username={user?.username || ''} isActive={activeTab === 'media'} />
+					{:else if activeTab === 'likes'}
+						<!-- Likes content - to be implemented -->
+						<section
+							class="likes-section"
+							in:fly={{ y: 200, duration: 300 }}
+							out:fly={{ y: -200, duration: 200 }}
+						>
+							<div class="empty-state">
+								<p>Likes feature coming soon...</p>
+							</div>
+						</section>
+					{/if}
 				</main>
 			</div>
 		{/if}
@@ -1691,7 +1673,7 @@ $: if (user?.username) {
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1967,25 +1949,21 @@ $: if (user?.username) {
 		position: relative;
 		overflow: hidden;
 		transition: all 0.3s ease;
-			border-bottom-left-radius: 1rem;
-				border-bottom-right-radius: 1rem;
-
-
+		border-bottom-left-radius: 1rem;
+		border-bottom-right-radius: 1rem;
 	}
 
 	.profile-background::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 50px;
-    background: linear-gradient(to bottom, 
-        transparent 10%, 
-        var(--bg-color) 100%);
-    pointer-events: none;
-	backdrop-filter: blur(1px);
-}
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 0;
+		right: 0;
+		height: 50px;
+		background: linear-gradient(to bottom, transparent 10%, var(--bg-color) 100%);
+		pointer-events: none;
+		backdrop-filter: blur(1px);
+	}
 
 	.profile-background.interactive {
 		cursor: pointer;

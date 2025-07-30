@@ -3,7 +3,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import { onMount } from 'svelte';
 	import { slide, fade, fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
+
 	// import {
 	// 	isTextareaFocused,
 	// 	handleTextareaFocus,
@@ -11,7 +11,7 @@
 	// 	adjustFontSize
 	// } from '$lib/stores/textareaFocusStore';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
-	import { uiStore,expandedSections } from '$lib/stores/uiStore';
+	import { uiStore, expandedSections } from '$lib/stores/uiStore';
 	import { currentUser } from '$lib/pocketbase';
 	import { t } from '$lib/stores/translationStore';
 	import ThreadCollaborators from '$lib/features/threads/components/ThreadCollaborators.svelte';
@@ -20,9 +20,9 @@
 	import ModelSelector from '$lib/features/ai/components/models/ModelSelector.svelte';
 	import MsgBookmarks from '$lib/features/ai/components/chat/MsgBookmarks.svelte';
 	import { availablePrompts } from '$lib/features/ai/utils/prompts';
-	import type { AIModel } from '$lib/types/types';
+	import type { AIModel, ExpandedSections } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-import { derived } from 'svelte/store';
+	import { derived } from 'svelte/store';
 
 	// Props
 	export let userInput = '';
@@ -32,11 +32,10 @@ import { derived } from 'svelte/store';
 	export let aiModel: AIModel;
 	export let selectedModelLabel = '';
 	export let selectedPromptLabel = '';
-	export let selectedIcon: IconName | null = null;
-	export let currentPlaceholder = '';
+	// export let selectedIcon: IconName | null = null;
+	// export let currentPlaceholder = '';
 	export let placeholderText = '';
 	export let showTextModal = false;
-	export let textTooLong = false;
 	export let createHovered = false;
 	export let isPlaceholder = false;
 	export let currentManualPlaceholder = $t('chat.manualPlaceholder');
@@ -46,116 +45,74 @@ import { derived } from 'svelte/store';
 
 	// DOM references
 	let textareaElement: HTMLTextAreaElement | null = null;
-	let localIsFocused = false;
-let isButtonAreaHovered = false;
-let blurTimeout: NodeJS.Timeout | undefined;
-let isTextareaFocused = false;
+	// let localIsFocused = false;
+	let isButtonAreaHovered = false;
+	let blurTimeout: number | undefined;
+	let isTextareaFocused = false;
 
 	// Event dispatcher
 	const dispatch = createEventDispatcher();
 
-
 	// Event handlers
 
-let clickOutsideTimeout: NodeJS.Timeout | undefined;
+	let clickOutsideTimeout: number | undefined;
 
-function handleClickOutside(event: MouseEvent) {
-    if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
-    
-    clickOutsideTimeout = setTimeout(() => {
-        const target = event.target as Node;
-        const inputContainer = textareaElement?.closest('.input-container');
-        
-        if (inputContainer && !inputContainer.contains(target)) {
-            uiStore.closeAllSections();
-        }
-    }, 10);
-}
+	function handleClickOutside(event: MouseEvent) {
+		if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
 
-let focusDebounceTimer: NodeJS.Timeout | undefined;
-let focusLocked = false;
-let focusLockTimer: NodeJS.Timeout | undefined;
+		clickOutsideTimeout = setTimeout(() => {
+			const target = event.target as Node;
+			const inputContainer = textareaElement?.closest('.input-container');
 
-function onTextareaFocus(event: FocusEvent) {
-    if (focusLocked || isTextareaFocused) return;
-    
-    focusLocked = true;
-    
-    if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
-    if (blurTimeout) clearTimeout(blurTimeout);
-    
-    localIsFocused = true;
-    isTextareaFocused = true;
-    dispatch('textareaFocus');
-    
-    // Unlock after short delay
-    focusLockTimer = setTimeout(() => {
-        focusLocked = false;
-    }, 150);
-}
+			if (inputContainer && !inputContainer.contains(target)) {
+				uiStore.closeAllSections();
+			}
+		}, 10) as unknown as number;
+	}
+	let isFocused = false;
 
-function onTextareaBlur(event: FocusEvent) {
-    if (focusLocked || !localIsFocused) return;
-    
-    focusLocked = true;
-    localIsFocused = false;
-    
-    blurTimeout = setTimeout(() => {
-        isTextareaFocused = false;
-        dispatch('textareaBlur');
-        
-        // Unlock after delay
-        focusLockTimer = setTimeout(() => {
-            focusLocked = false;
-        }, 150);
-    }, 100);
-}
+	let focusDebounceTimer: number | undefined;
+	let isProcessingFocus = false;
 
+	function onTextareaFocus(event: FocusEvent) {
+		if (isProcessingFocus) return; // Prevent multiple rapid focus events
 
-let inputTimeout: NodeJS.Timeout | undefined;
-let resizeTimeout: NodeJS.Timeout | undefined;
-const DEBOUNCE_DELAY = 300; 
+		isProcessingFocus = true;
 
-// function autoResize(element: HTMLTextAreaElement) {
-//     if (!element || isResizing) return;
-    
-//     isResizing = true;
-    
-//     // Use requestAnimationFrame to batch DOM operations
-//     requestAnimationFrame(() => {
-//         const currentHeight = parseInt(element.style.height) || 0;
-        
-//         // Reset height to measure content
-//         element.style.height = 'auto';
-//         const newHeight = element.scrollHeight;
-        
-//         // Only update if height actually changed (prevents loops)
-//         if (Math.abs(newHeight - currentHeight) > 1) {
-//             element.style.height = `${newHeight}px`;
-//         }
-        
-//         isResizing = false;
-//     });
-// }
+		if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
+		if (blurTimeout) clearTimeout(blurTimeout);
 
+		focusDebounceTimer = setTimeout(() => {
+			isFocused = true;
+			dispatch('textareaFocus');
 
-function handleInput(event: Event) {
-    const target = event.currentTarget as HTMLTextAreaElement;
-    const newValue = target.value;
-    
-    if (newValue === userInput) return;
-    userInput = newValue;
-    
-    // Clear existing timeout to prevent accumulation
-    if (inputTimeout) clearTimeout(inputTimeout);
-    
-    // Only debounce if there's actual processing needed
-    if (localIsFocused && textareaElement) {
-        inputTimeout = setTimeout(() => {
-            // Keep this minimal - remove any heavy operations
-        }, DEBOUNCE_DELAY);
-    }
-}
+			setTimeout(() => {
+				isProcessingFocus = false;
+			}, 100);
+		}, 50) as unknown as number;
+	}
+
+	function onTextareaBlur(event: FocusEvent) {
+		if (isProcessingFocus) return;
+
+		if (blurTimeout) clearTimeout(blurTimeout);
+
+		blurTimeout = setTimeout(() => {
+			if (!isButtonAreaHovered) {
+				isFocused = false;
+				dispatch('textareaBlur');
+			}
+		}, 150) as unknown as number; // Increased delay
+	}
+
+	let inputTimeout: number | undefined;
+	let resizeTimeout: number | undefined;
+	const DEBOUNCE_DELAY = 300;
+
+	function handleInput(event: Event) {
+		const target = event.currentTarget as HTMLTextAreaElement;
+		userInput = target.value;
+	}
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Enter' && !event.shiftKey) {
 			event.preventDefault();
@@ -171,8 +128,15 @@ function handleInput(event: Event) {
 	}
 
 	function toggleSection(section: string) {
-		// console.log('Toggling section:', section);
-		dispatch('toggleSection', { section });
+		console.log('🔧 Parent toggleSection called with:', section);
+		console.log('🔧 Current expandedSections before:', $expandedSections);
+
+		uiStore.toggleSection(section as keyof ExpandedSections);
+
+		// Check after a short delay to see if it worked
+		setTimeout(() => {
+			console.log('🔧 expandedSections after toggle:', $expandedSections);
+		}, 10);
 	}
 
 	function toggleAiActive() {
@@ -184,15 +148,13 @@ function handleInput(event: Event) {
 	function handleModelSelection(event: CustomEvent) {
 		console.log('🔄 MessageInput handleModelSelection - event.detail:', event.detail);
 
-		// Add safety check before dispatching
 		if (!event.detail) {
 			console.error('❌ No event detail in MessageInput handleModelSelection');
 			return;
 		}
 
-		// Pass through the exact same structure
 		console.log('✅ MessageInput dispatching model selection');
-		dispatch('modelSelection', event.detail); // Pass through unchanged
+		dispatch('modelSelection', event.detail);
 	}
 
 	function handleSysPromptSelect(event: CustomEvent) {
@@ -226,73 +188,76 @@ function handleInput(event: Event) {
 		console.log('Text modal opened');
 		dispatch('textModalOpen');
 	}
-// 	let cachedShowButtons = false;
-// 	let cachedProjectId = '';
-// let currentThreadData = null;
-// let expandedSectionsData = {};
-// let currentUserData = null;
+	// 	let cachedShowButtons = false;
+	// 	let cachedProjectId = '';
+	// let currentThreadData = null;
+	// let expandedSectionsData = {};
+	// let currentUserData = null;
 
-
-// $: projectId = $threadsStore.currentThread?.project_id || '';
+	// $: projectId = $threadsStore.currentThread?.project_id || '';
 
 	// $: placeholderText = (currentManualPlaceholder as string) || '';
 
 	export { textareaElement };
 
-// let lastUserInputLength = 0;
-// let memoizedTextTooLong = false;
+	// let lastUserInputLength = 0;
+	// let memoizedTextTooLong = false;
 
-// $: {
-//     if (userInput.length !== lastUserInputLength) {
-//         memoizedTextTooLong = userInput.length > MAX_VISIBLE_CHARS;
-//         lastUserInputLength = userInput.length;
-//     }
-//     textTooLong = memoizedTextTooLong;
-// }
+	// $: {
+	//     if (userInput.length !== lastUserInputLength) {
+	//         memoizedTextTooLong = userInput.length > MAX_VISIBLE_CHARS;
+	//         lastUserInputLength = userInput.length;
+	//     }
+	//     textTooLong = memoizedTextTooLong;
+	// }
 
-// let cachedExpandedSections = {};
-// $: {
-//     // Only update if expandedSections actually changed
-//     const currentSections = $expandedSections;
-//     if (JSON.stringify(currentSections) !== JSON.stringify(cachedExpandedSections)) {
-//         cachedExpandedSections = { ...currentSections };
-//     }
-// }
+	// let cachedExpandedSections = {};
+	// $: {
+	//     // Only update if expandedSections actually changed
+	//     const currentSections = $expandedSections;
+	//     if (JSON.stringify(currentSections) !== JSON.stringify(cachedExpandedSections)) {
+	//         cachedExpandedSections = { ...currentSections };
+	//     }
+	// }
 
 	// Debug reactive statement
 	// $: console.log('MessageInput props:', { isPlaceholder, currentThreadId, isAiActive });
 
-	$: textTooLong = userInput.length > MAX_VISIBLE_CHARS;
-$: showButtons = localIsFocused || isTextareaFocused || isButtonAreaHovered;
+	let textTooLong = false;
+	let showButtons = false;
+	let uiUpdateTimer: number | undefined;
 
-function clearAllTimers() {
-    if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
-    if (inputTimeout) clearTimeout(inputTimeout);
-    if (resizeTimeout) clearTimeout(resizeTimeout);
-    if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
-    if (blurTimeout) clearTimeout(blurTimeout);
-    if (focusLockTimer) clearTimeout(focusLockTimer);
-}
+	$: {
+		if (uiUpdateTimer) clearTimeout(uiUpdateTimer);
+		uiUpdateTimer = setTimeout(() => {
+			textTooLong = userInput.length > MAX_VISIBLE_CHARS;
+			showButtons = isFocused || isButtonAreaHovered;
+		}, 50) as unknown as number;
+	}
+	function clearAllTimers() {
+		if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
+		if (inputTimeout) clearTimeout(inputTimeout);
+		if (resizeTimeout) clearTimeout(resizeTimeout);
+		if (clickOutsideTimeout) clearTimeout(clickOutsideTimeout);
+		if (blurTimeout) clearTimeout(blurTimeout);
+		// if (focusLockTimer) clearTimeout(focusLockTimer);
+	}
 
+	onMount(() => {
+		placeholderText = (currentManualPlaceholder as string) || '';
+		document.addEventListener('click', handleClickOutside, { passive: true });
 
-onMount(() => {
-    placeholderText = (currentManualPlaceholder as string) || '';
-    document.addEventListener('click', handleClickOutside, { passive: true });
-    
-    return () => {
-        document.removeEventListener('click', handleClickOutside);
-        clearAllTimers();
-    };
-});
-
-
+		return () => {
+			document.removeEventListener('click', handleClickOutside);
+			clearAllTimers();
+		};
+	});
 </script>
 
 <div
 	class="input-container"
 	class:input-container-start={isPlaceholder}
 	class:drawer-visible={$showThreadList}
-	transition:slide={{ duration: 100, easing: cubicOut }}
 >
 	<!-- AI Active Mode or Placeholder Input -->
 	{#if (isAiActive && !isPlaceholder) || isPlaceholder}
@@ -310,43 +275,35 @@ onMount(() => {
 
 			<!-- System Prompts Section -->
 			{#if $expandedSections.sysprompts}
-				<div
-					class="section-content"
-					in:slide={{ duration: 200 }}
-					out:slide={{ duration: 200 }}
-				>
+				<div class="section-content">
 					<SysPromptSelector on:select={handleSysPromptSelect} />
 				</div>
 			{/if}
 
 			<!-- Prompts Section -->
 			{#if $expandedSections.prompts}
-				<div class="section-content" in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
+				<div class="section-content">
 					<PromptCatalog on:select={handlePromptSelect} />
 				</div>
 			{/if}
 
 			<!-- Models Section -->
 			{#if $expandedSections.models}
-				<div class="section-content" in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
+				<div class="section-content">
 					<ModelSelector provider={aiModel?.provider} on:select={handleModelSelection} />
 				</div>
 			{/if}
 
 			<!-- Bookmarks Section -->
 			{#if $expandedSections.bookmarks}
-				<div
-					class="section-content-bookmark"
-					in:slide={{ duration: 200 }}
-					out:slide={{ duration: 200 }}
-				>
+				<div class="section-content-bookmark">
 					<MsgBookmarks on:loadThread={handleLoadThread} />
 				</div>
 			{/if}
 		</div>
 
 		<!-- Input Area -->
-		<div class="combo-input" in:fly={{ x: 200, duration: 300 }} out:fade={{ duration: 200 }}>
+		<div class="combo-input">
 			<!-- {#if userInput.length > MAX_VISIBLE_CHARS && !$isTextareaFocused}
 				<div class="text-preview-container">
 					<button class="text-preview-btn" on:click={openTextModal}>
@@ -357,47 +314,39 @@ onMount(() => {
 					</button>
 				</div>
 			{:else} -->
-				<!-- Textarea -->
-				<textarea
-					bind:this={textareaElement}
-					bind:value={userInput}
-					on:input={handleInput}
-					on:keydown={handleKeydown}
-					on:focus={onTextareaFocus}
-					on:blur={onTextareaBlur}
-					placeholder={isTextareaFocused ? currentPlaceholder : placeholderText}
-					disabled={isLoading}
-					rows="1"
-				/>
+			<!-- Textarea -->
+			<textarea
+				bind:this={textareaElement}
+				bind:value={userInput}
+				on:input={handleInput}
+				on:keydown={handleKeydown}
+				on:focus={onTextareaFocus}
+				on:blur={onTextareaBlur}
+				placeholder={placeholderText}
+				disabled={isLoading}
+				rows="1"
+			/>
 			<!-- {/if} -->
 
 			<!-- Button Row -->
-    <div 
-        class="btn-row" 
-        transition:slide
-        on:mouseenter={() => {
-            isButtonAreaHovered = true;
-            // Cancel blur if hovering over buttons
-            if (blurTimeout) {
-                clearTimeout(blurTimeout);
-                blurTimeout = undefined;
-            }
-        }}
-        on:mouseleave={() => {
-            isButtonAreaHovered = false;
-            // If textarea isn't focused, start blur timeout
-            if (!localIsFocused && !isTextareaFocused) {
-                blurTimeout = setTimeout(() => {
-                    // Double check states before hiding
-                    // if (!localIsFocused && !isTextareaFocused && !isButtonAreaHovered) {
-                    //     handleTextareaBlur();
-                    // }
-                }, 100);
-            }
-        }}
-    >
-	{#if showButtons} 
-					<div class="submission" >
+			<div
+				class="btn-row"
+				role="region"
+				aria-label="Message input controls"
+				transition:slide
+				on:mouseenter={() => {
+					isButtonAreaHovered = true;
+					if (blurTimeout) {
+						clearTimeout(blurTimeout);
+						blurTimeout = undefined;
+					}
+				}}
+				on:mouseleave={() => {
+					isButtonAreaHovered = false;
+				}}
+			>
+				{#if showButtons}
+					<div class="submission">
 						<!-- AI Toggle Button (only for existing threads) -->
 						{#if currentThreadId && !isPlaceholder}
 							<button
@@ -428,7 +377,6 @@ onMount(() => {
 							<button
 								class="btn model"
 								type="button"
-								transition:slide
 								on:click={() => toggleSection('collaborators')}
 							>
 								<span class="icon">
@@ -442,12 +390,7 @@ onMount(() => {
 						{/if}
 
 						<!-- Bookmarks Button -->
-						<button
-							class="btn model"
-							type="button"
-							transition:slide
-							on:click={() => toggleSection('bookmarks')}
-						>
+						<button class="btn model" type="button" on:click={() => toggleSection('bookmarks')}>
 							<span class="icon">
 								{#if $expandedSections.bookmarks}
 									<Icon name="BookmarkCheckIcon" size={30} />
@@ -455,15 +398,11 @@ onMount(() => {
 									<Icon name="Bookmark" size={20} />
 								{/if}
 							</span>
+							<p class="selector-lable">{$t('chat.bookmarks')}</p>
 						</button>
 
 						<!-- Prompts Button -->
-						<button
-							class="btn model"
-							type="button"
-							transition:slide
-							on:click={() => toggleSection('prompts')}
-						>
+						<button class="btn model" type="button" on:click={() => toggleSection('prompts')}>
 							<span class="icon">
 								{#if $expandedSections.prompts}
 									<Icon name="Braces" size={30} />
@@ -471,18 +410,15 @@ onMount(() => {
 									<Icon name="Braces" size={20} />
 								{/if}
 							</span>
-							{#if selectedPromptLabel && selectedIcon}
-								<svelte:component this={selectedIcon} color="var(--text-color)" />
+							{#if $expandedSections.prompts}
+								<p class="selector-lable">{$t('chat.prompts')}</p>
+							{:else}
+								<p class="selector-lable">{$t('chat.prompts')}</p>
 							{/if}
 						</button>
 
 						<!-- System Prompts Button -->
-						<button
-							class="btn model"
-							type="button"
-							transition:slide
-							on:click={() => toggleSection('sysprompts')}
-						>
+						<button class="btn model" type="button" on:click={() => toggleSection('sysprompts')}>
 							<span class="icon">
 								{#if $expandedSections.sysprompts}
 									<Icon name="Command" size={24} />
@@ -490,8 +426,12 @@ onMount(() => {
 									<Icon name="Command" size={20} />
 								{/if}
 							</span>
-
-							<div class="label-container">
+							{#if selectedPromptLabel}
+								<p class="selector-lable">{selectedPromptLabel}</p>
+							{:else}
+								<p class="selector-lable">{$t('chat.sysPrompts')}</p>
+							{/if}
+							<!-- <div class="label-container">
 								{#if $currentUser?.sysprompt_preference}
 									{#if $currentUser.sysprompt_preference === 'NORMAL'}
 										<span class="prompt-label">Normal</span>
@@ -505,7 +445,7 @@ onMount(() => {
 										<span class="prompt-label">{$currentUser.sysprompt_preference}</span>
 									{/if}
 								{/if}
-							</div>
+							</div> -->
 						</button>
 
 						<!-- Model Selection Button -->
@@ -513,31 +453,30 @@ onMount(() => {
 							class="btn model"
 							type="button"
 							disabled={isLoading}
-
-							transition:slide
 							on:click={() => toggleSection('models')}
 						>
 							<span class="icon">
 								<Icon name="Brain" />
-								{#if selectedModelLabel}
-									<p class="selector-lable">{selectedModelLabel}</p>
-								{/if}
 							</span>
+							{#if selectedModelLabel}
+								<p class="selector-lable">{selectedModelLabel}</p>
+							{:else}
+								<p class="selector-lable">{$t('agents.models')}</p>
+							{/if}
 						</button>
 
 						<!-- Send Button -->
 						<button
 							class="btn send-btn"
 							type="button"
-							transition:slide
 							on:click={handleSendMessage}
 							disabled={isLoading}
 						>
 							<Icon name="Send" />
 						</button>
 					</div>
-					{/if}
-				</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 
@@ -556,7 +495,21 @@ onMount(() => {
 				rows="1"
 			/>
 
-			<div class="btn-row" transition:slide>
+			<div
+				class="btn-row"
+				role="region"
+				aria-label="Message input controls"
+				on:mouseenter={() => {
+					isButtonAreaHovered = true;
+					if (blurTimeout) {
+						clearTimeout(blurTimeout);
+						blurTimeout = undefined;
+					}
+				}}
+				on:mouseleave={() => {
+					isButtonAreaHovered = false;
+				}}
+			>
 				<div class="submission" class:visible={isTextareaFocused}>
 					{#if isTextareaFocused}
 						{#if currentThreadId}
@@ -587,7 +540,7 @@ onMount(() => {
 						{/if}
 
 						<!-- Attachment Button -->
-						<button class="btn" type="button" transition:slide>
+						<button class="btn" type="button">
 							<Icon name="Paperclip" />
 						</button>
 
@@ -596,7 +549,6 @@ onMount(() => {
 							class="btn send-btn"
 							type="button"
 							class:visible={isTextareaFocused}
-							transition:slide
 							on:click={handleSendMessage}
 							disabled={isLoading}
 						>
@@ -614,7 +566,7 @@ onMount(() => {
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -735,6 +687,21 @@ onMount(() => {
 		border: none;
 		width: auto;
 
+		padding: 0 0.5rem !important;
+		&:hover {
+			// transform: translateX(-1rem);
+			span.icon {
+				display: none;
+			}
+			p.selector-lable {
+				display: inline-flex;
+				color: var(--tertiary-color);
+				width: 100%;
+			}
+			& .prompt-label {
+				display: flex;
+			}
+		}
 		&.send-btn {
 			border-radius: 1rem;
 			width: 3rem !important;
@@ -744,32 +711,30 @@ onMount(() => {
 				background: var(--tertiary-color);
 			}
 		}
-			&:hover {
-				width: 10rem !important;
-				transform: translateX(-1rem);
-				p.selector-lable {
-					display: flex;
-				}
-				& .prompt-label {
-					display: flex;
-				}
-			}
 		&.model {
 			border-radius: 1rem;
-			width: auto !important;			padding: 0;
+			width: 3rem !important;
+			padding: 0;
+			gap: 0.5rem;
 			background: var(--bg-color) !important;
-				display: flex;
+			display: flex;
+			justify-content: center;
 			p.selector-lable {
 				display: none;
 			}
-						& .prompt-label {
+			& .prompt-label {
 				display: none;
 			}
 			&:hover {
-				width: 10rem !important;
-				transform: translateX(-75%);
+				width: auto !important;
+				justify-content: center;
+
+				// transform: translateX(1rem);
 				p.selector-lable {
-					display: flex;
+					display: inline-flex;
+					text-wrap: nowrap;
+					width: 100%;
+					margin: 0 !important;
 				}
 			}
 		}
@@ -800,281 +765,279 @@ onMount(() => {
 		bottom: 3rem;
 		position: absolute;
 	}
-/* =============================================================================
+	/* =============================================================================
    INPUT CONTAINER STYLES
    ============================================================================= */
 
-.input-container {
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	max-width: 1200px;
-	width: 100%;
-	height: auto;
-	bottom: 3rem;
-	border-radius: 2rem;
-	transition: transform 0.2s ease, opacity 0.2s ease;
-	z-index: 7700;
-	pointer-events: auto;
-
-	&::placeholder {
-		color: var(--placeholder-color);
-	}
-
-	:global(svg) {
-		color: var(--primary-color);
-		stroke: var(--primary-color);
-		fill: var(--tertiary-color);
-	}
-
-	& textarea {
-		font-size: 1.5rem;
-		border: none;
-		border-radius: 1rem;
-		color: var(--text-color);
+	.input-container {
 		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		max-width: 1200px;
+		width: 100%;
+		height: auto;
+		bottom: 3rem;
+		border-radius: 2rem;
+		transition:
+			transform 0.2s ease,
+			opacity 0.2s ease;
+		z-index: 7700;
+		pointer-events: auto;
+
+		&::placeholder {
+			color: var(--placeholder-color);
+		}
+
+		:global(svg) {
+			color: var(--primary-color);
+			stroke: var(--primary-color);
+			fill: var(--tertiary-color);
+		}
+
+		& textarea {
+			font-size: 1.5rem;
+			border: none;
+			border-radius: 1rem;
+			color: var(--text-color);
+			display: flex;
+		}
 	}
-}
 
-.drawer-visible .input-container {
-	bottom: 3rem;
-	position: absolute;
-}
+	.drawer-visible .input-container {
+		bottom: 3rem;
+		position: absolute;
+	}
 
-/* =============================================================================
+	/* =============================================================================
    INPUT CONTAINER START
    ============================================================================= */
 
-.input-container-start {
-	display: flex;
-	flex-direction: column;
-	justify-content: flex-end;
-	align-items: center;
-	position: absolute;
-	width: calc(100% - 1rem);
-	height: auto;
-	bottom: 0.5rem;
-	z-index: 1;
-	transition: all 0.1s ease;
-
-	& .combo-input {
-		background: var(--primary-color);
+	.input-container-start {
 		display: flex;
-		justify-content: center;
-		align-items: stretch;
-		border-radius: 2rem;
-		width: 100%;
+		flex-direction: column;
+		justify-content: flex-end;
+		align-items: center;
+		position: absolute;
+		width: calc(100% - 1rem);
 		height: auto;
-	}
+		bottom: 0.5rem;
+		z-index: 1;
+		transition: all 0.1s ease;
 
-	&::placeholder {
-		color: var(--placeholder-color);
-	}
-
-	:global(svg) {
-		color: var(--primary-color);
-		stroke: var(--primary-color);
-		fill: var(--tertiary-color);
-	}
-
-	& textarea {
-		border: none;
-		background: transparent;
-		color: var(--text-color);
-		display: flex;
-		font-size: 1.5rem;
-		width: calc(100% - 2rem);
-		border-radius: 2rem;
-		transition: height 0.1s ease;
-		max-height: 100px;
-		&:focus {
-			overflow-y: auto;
+		& .combo-input {
+			background: var(--primary-color);
 			display: flex;
-			max-height: 400px;
-		} 
-	}
-}
+			justify-content: center;
+			align-items: stretch;
+			border-radius: 2rem;
+			width: 100%;
+			height: auto;
+		}
 
-/* =============================================================================
+		&::placeholder {
+			color: var(--placeholder-color);
+		}
+
+		:global(svg) {
+			color: var(--primary-color);
+			stroke: var(--primary-color);
+			fill: var(--tertiary-color);
+		}
+
+		& textarea {
+			border: none;
+			background: transparent;
+			color: var(--text-color);
+			display: flex;
+			font-size: 1.5rem;
+			width: calc(100% - 2rem);
+			border-radius: 2rem;
+			transition: height 0.1s ease;
+			max-height: 100px;
+			&:focus {
+				overflow-y: auto;
+				display: flex;
+				max-height: 400px;
+			}
+		}
+	}
+
+	/* =============================================================================
    COMBO INPUT STYLES
    ============================================================================= */
 
-.combo-input {
-	border-radius: var(--radius-m);
-	height: auto;
-	width: 100%;
-	display: flex;
-	position: relative;
-	align-items: stretch;
-	flex-direction: row;
-	max-height: 400px;
-	overflow: hidden;
-
-	& textarea {
-		padding: 1rem;
+	.combo-input {
+		border-radius: var(--radius-m);
 		height: auto;
 		width: 100%;
-		margin: 1rem 1rem 0;
-		font-size: 1rem;
-		flex: 1;
-
-		&:focus {
-			height: auto;
-			margin-top: 1.5rem;
-			margin-bottom: 0;
-			overflow-y: scroll;
-			flex: 1;
-		}
-	}
-}
-
-.combo-input-human {
-	border-radius: var(--radius-m);
-	height: auto;
-	width: 100%;
-	max-width: 1200px;
-	display: flex;
-	position: relative;
-	background: transparent;
-	flex-direction: column;
-
-	& .btn-row {
 		display: flex;
-		flex-direction: row;
-		justify-content: flex-end;
-		margin-top: 0.5rem;
-		width: calc(100% - 8rem);
-	}
+		position: relative;
+		align-items: stretch;
+		flex-direction: column;
+		max-height: 400px;
+		overflow: hidden;
 
-	& .submission {
-		flex-direction: row;
-	}
+		& textarea {
+			padding: 1rem;
+			height: auto;
+			width: 100%;
+			margin: 1rem 1rem 0;
+			font-size: 1rem;
+			flex: 1;
 
-	& textarea {
-		height: 100px;
-		border-radius: 4rem;
-		margin: 1rem 1rem 0;
-		margin-top: 0.5rem;
-		padding-left: 2rem;
-		font-style: normal;
-		z-index: 1000;
-
-		&:focus {
-			min-height: 400px;
-			box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-			margin: 2.5rem 2.5rem 0;
-			margin-top: 0.5rem;
+			&:focus {
+				height: auto;
+				margin-top: 1.5rem;
+				margin-bottom: 0;
+				overflow-y: scroll;
+				flex: 1;
+			}
 		}
 	}
-}
 
-/* =============================================================================
+	.combo-input-human {
+		border-radius: var(--radius-m);
+		height: auto;
+		width: 100%;
+		max-width: 1200px;
+		display: flex;
+		position: relative;
+		background: transparent;
+		flex-direction: column;
+
+		& .btn-row {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-end;
+			margin-top: 0.5rem;
+			width: calc(100% - 8rem);
+		}
+
+		& .submission {
+			flex-direction: row;
+		}
+
+		& textarea {
+			height: 100px;
+			border-radius: 4rem;
+			margin: 1rem 1rem 0;
+			margin-top: 0.5rem;
+			padding-left: 2rem;
+			font-style: normal;
+			z-index: 1000;
+
+			&:focus {
+				min-height: 400px;
+				box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
+				margin: 2.5rem 2.5rem 0;
+				margin-top: 0.5rem;
+			}
+		}
+	}
+
+	/* =============================================================================
    TEXTAREA STYLES
    ============================================================================= */
 
-textarea {
-	display: flex;
-	flex-direction: column;
-	width: 100%;
-	min-height: 80px;
-	resize: none;
-	letter-spacing: 1.4px;
-	background: transparent;
-	border: 1px solid rgba(8, 16, 16, 0.5);
-	color: var(--text-color);
-	line-height: 1.4;
-	text-align: left;
-	overflow: scroll;
-	scrollbar-width: none;
-	scrollbar-color: #21201d transparent;
-	vertical-align: middle;
-	transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-	// margin: 1rem 0 0 1rem;
-	// padding: 0.5rem;
-
-	&:focus {
-		align-items: stretch;
-		outline: none;
-		transform: translateY(0) rotate(0deg);
-		flex: 1;
+	textarea {
 		display: flex;
-		height: auto !important;
-	}
-
-	&::placeholder {
-		color: var(--placeholder-color);
+		flex-direction: column;
 		width: 100%;
-		display: flex;
-		text-align: center;
-		user-select: none;
-		font-size: 1.1rem;
-		letter-spacing: 0.2rem;
+		min-height: 80px;
+		resize: none;
+		letter-spacing: 1.4px;
+		background: transparent;
+		border: 1px solid rgba(8, 16, 16, 0.5);
+		color: var(--text-color);
+		line-height: 1.4;
+		text-align: left;
+		overflow: scroll;
+		scrollbar-width: none;
+		scrollbar-color: #21201d transparent;
+		vertical-align: middle;
+		transition: border-color 0.2s ease;
+		// transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+		// margin: 1rem 0 0 1rem;
+		// padding: 0.5rem;
+
+		&:focus {
+			outline: none;
+			border-color: var(--tertiary-color);
+		}
+
+		&::placeholder {
+			color: var(--placeholder-color);
+			width: calc(100% - 2rem);
+			display: flex;
+			text-align: center;
+			user-select: none;
+			font-size: 1.1rem;
+			letter-spacing: 0.2rem;
+		}
+
+		&.quote-placeholder::placeholder {
+			font-style: italic;
+			opacity: 0.8;
+			padding: 1rem;
+			font-size: 0.8rem;
+			display: flex;
+			flex: 1;
+			justify-content: center;
+			align-items: flex-start;
+			height: auto;
+			user-select: none;
+		}
 	}
 
-	&.quote-placeholder::placeholder {
-		font-style: italic;
-		opacity: 0.8;
-		padding: 1rem;
-		font-size: 0.8rem;
-		display: flex;
-		flex: 1;
-		justify-content: center;
-		align-items: flex-start;
-		height: auto;
-		user-select: none;
-	}
-}
-
-/* =============================================================================
+	/* =============================================================================
    SECTION AND BUTTON STYLES
    ============================================================================= */
 
-.section-content {
-	width: calc(100vw - 2rem);
-	max-width: 1200px;
-	height: auto;
-	display: flex;
-	position: relative;
-	bottom: 0;
-	right: 0;
-	background: var(--bg-gradient-r);
-	margin-bottom: 1rem;
-	border-radius: 2rem;
-	justify-content: flex-end;
-	box-shadow: var(--tertiary-color) 0 -10px 24px 2px;
-}
-
-.btn-row {
-	display: flex;
-	flex-direction: column;
-	justify-content: center;
-	align-items: center;
-	height: 100%;
-	margin: 0 1rem 0.5rem 0;
-	width: 2rem;
-	z-index: 8000;
-}
-
-.submission {
-	display: flex;
-	flex-direction: column;
-	margin: 0.5rem;
-	gap: 0.5rem;
-	padding: 0;
-	width: 2rem;
-	height: 100%;
-	justify-content: flex-end;
-	align-self: flex-end;
-	transition: all 0.3s ease;
-
-	&.visible {
-		z-index: 7000;
+	.section-content {
+		width: calc(100vw - 2rem);
+		max-width: 1200px;
+		height: auto;
+		display: flex;
+		position: relative;
+		bottom: 0;
+		right: 0;
+		background: var(--bg-gradient-r);
+		margin-bottom: 1rem;
+		border-radius: 2rem;
+		justify-content: flex-end;
+		box-shadow: var(--tertiary-color) 0 -10px 24px 2px;
 	}
-}
+
+	.btn-row {
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		height: 100%;
+		margin: 0 1rem 0.5rem 0;
+		width: auto;
+		z-index: 8000;
+	}
+
+	.submission {
+		display: flex;
+		flex-direction: row;
+		margin: 0.5rem;
+		gap: 0.5rem;
+		padding: 0;
+		width: 100%;
+		height: 100%;
+		justify-content: flex-end;
+		align-self: flex-end;
+		transition: all 0.3s ease;
+		padding: 0.5rem;
+
+		&.visible {
+			z-index: 7000;
+		}
+	}
 	@media (max-width: 1000px) {
-
-
 		.chat-placeholder {
 			display: flex;
 			flex-direction: column;
@@ -1136,7 +1099,6 @@ textarea {
 				left: 0;
 			}
 		}
-
 
 		button {
 			display: flex;
@@ -1215,7 +1177,6 @@ textarea {
 				align-items: center;
 				position: relative;
 				user-select: none;
-				transition: all 0.2s ease;
 				width: fit-content !important;
 
 				// gap: var(--spacing-sm);
@@ -1265,10 +1226,9 @@ textarea {
 			width: 100%;
 		}
 
-
 		.submission {
 			display: flex;
-			flex-direction: column;
+			flex-direction: row;
 			gap: 1rem;
 			width: auto;
 			height: auto;
@@ -1301,12 +1261,21 @@ textarea {
 	}
 
 	@media (max-width: 450px) {
-
 		.input-container-start {
 			width: calc(100% - 2rem);
 			margin-bottom: 0.5rem;
 		}
-
-
+		.btn-row {
+			gap: 0.5rem;
+			width: 100%;
+			height: 2.5rem;
+		}
+		.submission {
+			& .model,
+			.send-btn {
+				width: 2.5rem !important;
+				height: 2.5rem !important;
+			}
+		}
 	}
 </style>

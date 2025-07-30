@@ -3,7 +3,7 @@ import type { AIAgent } from '$lib/types/types';
 import { debounce } from 'lodash-es';
 import { browser } from '$app/environment';
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
-import { modelStore } from './modelStore'
+import { modelStore } from './modelStore';
 import { get } from 'svelte/store';
 interface ApiResponse<T> {
 	success: boolean;
@@ -56,8 +56,7 @@ function createAgentStore() {
 		});
 	}
 
-
-const debouncedUpdateAgent: (id: string, changes: Partial<AIAgent>) => void = debounce(
+	const debouncedUpdateAgent: (id: string, changes: Partial<AIAgent>) => void = debounce(
 		async (id: string, changes: Partial<AIAgent>) => {
 			const result = await clientTryCatch(
 				(async () => {
@@ -233,50 +232,50 @@ const debouncedUpdateAgent: (id: string, changes: Partial<AIAgent>) => void = de
 			debouncedUpdateAgent(id, formattedChanges);
 		},
 
-updateAgentAPI: async (
-		id: string,
-		agentData: Partial<AIAgent> | FormData
-	): Promise<AIAgent | null> => {
-		const result = await clientTryCatch(
-			(async () => {
-				const isFormData = agentData instanceof FormData;
+		updateAgentAPI: async (
+			id: string,
+			agentData: Partial<AIAgent> | FormData
+		): Promise<AIAgent | null> => {
+			const result = await clientTryCatch(
+				(async () => {
+					const isFormData = agentData instanceof FormData;
 
-				const response = await fetch(`/api/agents/${id}`, {
-					method: 'PATCH', // Changed from PUT to PATCH
-					credentials: 'include',
-					...(isFormData
-						? {}
-						: {
-								headers: {
-									'Content-Type': 'application/json'
-								},
-								body: JSON.stringify(agentData)
-							}),
-					...(isFormData ? { body: agentData } : {})
-				});
+					const response = await fetch(`/api/agents/${id}`, {
+						method: 'PATCH', // Changed from PUT to PATCH
+						credentials: 'include',
+						...(isFormData
+							? {}
+							: {
+									headers: {
+										'Content-Type': 'application/json'
+									},
+									body: JSON.stringify(agentData)
+								}),
+						...(isFormData ? { body: agentData } : {})
+					});
 
-				return await handleResponse<AIAgent>(response);
-			})(),
-			'Error updating agent'
-		);
+					return await handleResponse<AIAgent>(response);
+				})(),
+				'Error updating agent'
+			);
 
-		if (isSuccess(result)) {
-			update((state) => ({
-				...state,
-				agents: state.agents.map((agent) =>
-					agent.id === id ? { ...agent, ...result.data } : agent
-				),
-				updateStatus: 'Agent updated successfully'
-			}));
-			setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-			return result.data;
-		} else {
-			console.error(result.error);
-			update((state) => ({ ...state, updateStatus: result.error ?? 'Failed to update agent' }));
-			setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
-			return null;
-		}
-	},
+			if (isSuccess(result)) {
+				update((state) => ({
+					...state,
+					agents: state.agents.map((agent) =>
+						agent.id === id ? { ...agent, ...result.data } : agent
+					),
+					updateStatus: 'Agent updated successfully'
+				}));
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return result.data;
+			} else {
+				console.error(result.error);
+				update((state) => ({ ...state, updateStatus: result.error ?? 'Failed to update agent' }));
+				setTimeout(() => update((state) => ({ ...state, updateStatus: '' })), 3000);
+				return null;
+			}
+		},
 
 		deleteAgent: async (id: string): Promise<boolean> => {
 			const result = await clientTryCatch(

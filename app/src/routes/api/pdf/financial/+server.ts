@@ -9,9 +9,8 @@ import crypto from 'crypto';
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const contentType = request.headers.get('content-type');
-		let tempPath: string;
 		const tempId = crypto.randomUUID();
-		tempPath = join('/tmp', `${tempId}.pdf`);
+		const tempPath = join('/tmp', `${tempId}.pdf`);
 
 		if (contentType?.includes('multipart/form-data')) {
 			const formData = await request.formData();
@@ -56,7 +55,24 @@ async function analyzeFinancialDocument(filePath: string): Promise<any> {
 		extractedAt: new Date().toISOString()
 	};
 }
+async function extractFullText(filePath: string): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const pdftotext = spawn('pdftotext', [filePath, '-']);
+		let output = '';
 
+		pdftotext.stdout.on('data', (data) => {
+			output += data.toString();
+		});
+
+		pdftotext.on('close', (code) => {
+			if (code === 0) {
+				resolve(output);
+			} else {
+				reject(new Error('Full text extraction failed'));
+			}
+		});
+	});
+}
 function extractAmounts(text: string): any[] {
 	const patterns = [
 		/\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g,

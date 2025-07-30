@@ -13,7 +13,7 @@
 	let isLoading = true;
 	let error: string | null = null;
 
-onMount(async () => {
+	onMount(async () => {
 		if (!browser) return;
 
 		// Only handle redirects if we're actually on the root page
@@ -44,7 +44,6 @@ onMount(async () => {
 		<div class="spinnter-container">
 			<div class="spinner"></div>
 		</div>
-
 	{:else if error}
 		<div class="error">
 			<p>{error}</p>
@@ -70,7 +69,7 @@ onMount(async () => {
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

@@ -41,7 +41,11 @@
 	import { showSidenav, showInput, showRightSidenav, showDebug } from '$lib/stores/sidenavStore';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 	import { filteredPosts, tagFilterStore, selectedTags } from '$lib/stores/tagFilterStore';
-	import { combinedFilteredPosts, filterStatus } from '$lib/stores/combinedFilterStore';
+	import {
+		combinedFilteredPosts,
+		filterStatus,
+		syncPostsForTags
+	} from '$lib/stores/combinedFilterStore';
 	import {
 		selectedAttachmentFilter,
 		attachmentFilterStore
@@ -66,6 +70,11 @@
 	let hasMore = true;
 	// let rightSideCleanup: (() => void) | null = null;
 	let currentOffset = 0;
+	let shouldShowLoadingTrigger = false;
+	let contentHeight = 0;
+	let viewportHeight = 0;
+	let pageHasScrollableContent = false;
+
 	export let selectedLocalModel = 'qwen2.5:0.5b';
 
 	const HOME_POSTS_PER_PAGE = 10;
@@ -120,18 +129,6 @@
 		showPostModal = false;
 	}
 
-	function syncPostsForTags(homePosts: PostWithInteractions[]) {
-		console.log('🔄 Syncing posts for tags:', homePosts.length);
-
-		// Update the postStore with your home posts data so tagFilterStore can access them
-		postStore.setPosts(homePosts);
-
-		// Force trigger tag count update with a small delay to ensure store is updated
-		setTimeout(() => {
-			console.log('🏷️ Force updating tag counts after sync...');
-			tagFilterStore.updateTagCounts();
-		}, 100);
-	}
 	async function handlePostSubmit(
 		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
 	) {
@@ -291,19 +288,19 @@
 	}
 
 	// Handle opening comment modal (from PostCard)
-function handleComment(event: CustomEvent<{ postId: string }>) {
-	if (!$currentUser) {
-		// Redirect to login or show login prompt
-		toast.warning('Please sign in to comment on posts');
-		return;
-	}
+	function handleComment(event: CustomEvent<{ postId: string }>) {
+		if (!$currentUser) {
+			// Redirect to login or show login prompt
+			toast.warning('Please sign in to comment on posts');
+			return;
+		}
 
-	const post = posts.find((p) => p.id === event.detail.postId);
-	if (post) {
-		selectedPost = post;
-		isCommentModalOpen = true;
+		const post = posts.find((p) => p.id === event.detail.postId);
+		if (post) {
+			selectedPost = post;
+			isCommentModalOpen = true;
+		}
 	}
-}
 	// Handle submitting a comment (from PostCommentModal)
 	async function handleCommentSubmit(
 		event: CustomEvent<{ content: string; attachments: File[]; parentId: string }>
@@ -541,22 +538,38 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 	}
 
 	// Load more function like username page
+	// async function loadMoreHomePosts() {
+	// 	// Don't load more if filters are active
+	// 	if (shouldDisableInfiniteScroll) {
+	// 		console.log('⛔ Load more disabled due to active filters');
+	// 		return;
+	// 	}
+
+	// 	if (homeLoadingMore || !homeHasMore) {
+	// 		console.log('⛔ Load more skipped:', { homeLoadingMore, homeHasMore });
+	// 		return;
+	// 	}
+
+	// 	console.log('🚀 Loading more home posts from offset:', homeCurrentOffset);
+	// 	await fetchHomePosts(homeCurrentOffset, true);
+	// }
 	async function loadMoreHomePosts() {
-		// Don't load more if filters are active
 		if (shouldDisableInfiniteScroll) {
 			console.log('⛔ Load more disabled due to active filters');
 			return;
 		}
 
-		if (homeLoadingMore || !homeHasMore) {
-			console.log('⛔ Load more skipped:', { homeLoadingMore, homeHasMore });
+		if ($postStore.loadingMore || !$postStore.hasMore) {
+			console.log('⛔ Load more skipped:', {
+				loadingMore: $postStore.loadingMore,
+				hasMore: $postStore.hasMore
+			});
 			return;
 		}
 
-		console.log('🚀 Loading more home posts from offset:', homeCurrentOffset);
-		await fetchHomePosts(homeCurrentOffset, true);
+		console.log('🚀 Loading more posts via postStore');
+		await postStore.loadMorePosts(HOME_POSTS_PER_PAGE);
 	}
-
 	function handlePostCreated(
 		event: CustomEvent<{ postId: string; post: string; success: boolean }>
 	) {
@@ -590,7 +603,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 	$: error = $postStore.error;
 
 	// Get filtered posts from the store (this will be homePosts after sync)
-	$: filteredHomePosts = $combinedFilteredPosts;
+	$: filteredHomePosts = $postStore.posts;
 	$: currentFilterStatus = $filterStatus;
 	$: currentAttachmentFilter = $selectedAttachmentFilter;
 
@@ -744,21 +757,140 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 	onMount(() => {
 		console.log('🔄 Home page mounted - setting up...');
 
-		// Setup async initialization
+		// Setup async initialization - DISABLE infinite scroll during initial load
 		(async () => {
-			// Choose one approach:
+			// Step 1: Load initial posts WITHOUT infinite scroll
+			console.log('📥 Loading initial posts...');
+			await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
 
-			// Option A: Keep your existing fetchHomePosts but sync for tags
-			await fetchHomePosts(0, false);
+			// Step 2: Wait a bit for DOM to settle and posts to render
+			await new Promise((resolve) => setTimeout(resolve, 500));
 
-			// Option B: Use postStore directly and sync variables
-			// await fetchHomePostsViaStore(0, false);
+			// Step 3: Check if posts were actually loaded
+			const currentPosts = get(postStore);
+			console.log('🔍 After initial load - Posts in store:', currentPosts.posts.length);
 
-			// Setup infinite scroll
+			if (currentPosts.posts.length === 0) {
+				console.log('⚠️ No posts loaded initially, trying again...');
+				await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
+			}
+
+			// Step 4: Only setup infinite scroll AFTER initial posts are loaded and rendered
 			console.log('🔧 Setting up infinite scroll...');
 			setupInfiniteScroll();
 
-			// Try to attach with retries
+			// Step 5: Try to attach with retries
+			if (infiniteScrollManager) {
+				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+					if (success) {
+						console.log('✅ Infinite scroll ready!');
+					} else {
+						console.error('❌ Failed to setup infinite scroll');
+					}
+				});
+			}
+
+			console.log('✅ Home page setup complete');
+		})();
+
+		// Cleanup function
+		return () => {
+			console.log('🧹 Cleaning up infinite scroll...');
+			if (infiniteScrollManager) {
+				infiniteScrollManager.destroy();
+				infiniteScrollManager = null;
+			}
+		};
+	});
+	function checkContentScrollability(): boolean {
+		if (typeof window === 'undefined' || !browser) return false;
+
+		// Wait a bit for DOM to settle
+		setTimeout(() => {
+			try {
+				const body = document.body;
+				const html = document.documentElement;
+
+				contentHeight = Math.max(
+					body.scrollHeight,
+					body.offsetHeight,
+					html.clientHeight,
+					html.scrollHeight,
+					html.offsetHeight
+				);
+
+				viewportHeight = window.innerHeight;
+				const scrollBuffer = 100; // Increased buffer
+				const isScrollable = contentHeight > viewportHeight + scrollBuffer;
+
+				console.log('📏 Scrollability check:', {
+					contentHeight,
+					viewportHeight,
+					scrollBuffer,
+					isScrollable,
+					calculation: `${contentHeight} > ${viewportHeight + scrollBuffer}`,
+					postsCount: enhancedPosts.length
+				});
+
+				// Update the reactive variable
+				pageHasScrollableContent = isScrollable;
+			} catch (error) {
+				console.error('Error checking content scrollability:', error);
+			}
+		}, 100);
+
+		return pageHasScrollableContent;
+	}
+	$: {
+		// Always allow trigger if we have very few posts to enable initial loading
+		const hasFewPosts = enhancedPosts.length < 5; // Increased threshold
+		const hasMoreFromServer = $postStore.hasMore;
+		const filtersAllowInfiniteScroll = !shouldDisableInfiniteScroll;
+
+		// Check content after posts are rendered
+		if (enhancedPosts.length > 0) {
+			checkContentScrollability();
+		}
+
+		shouldShowLoadingTrigger =
+			hasMoreFromServer && filtersAllowInfiniteScroll && (pageHasScrollableContent || hasFewPosts);
+
+		console.log('🎯 shouldShowLoadingTrigger updated:', {
+			result: shouldShowLoadingTrigger,
+			hasMoreFromServer,
+			filtersAllowInfiniteScroll,
+			pageHasScrollableContent,
+			hasFewPosts,
+			postsCount: enhancedPosts.length
+		});
+	}
+
+	onMount(() => {
+		console.log('🔄 Home page mounted - setting up...');
+
+		// Setup async initialization - DISABLE infinite scroll during initial load
+		(async () => {
+			// Step 1: Load initial posts WITHOUT infinite scroll
+			console.log('📥 Loading initial posts...');
+			await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
+
+			// Step 2: Wait a bit for DOM to settle and posts to render
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			// Step 3: Check if posts were actually loaded
+			const currentPosts = get(postStore);
+			console.log('🔍 After initial load - Posts in store:', currentPosts.posts.length);
+
+			if (currentPosts.posts.length === 0) {
+				console.log('⚠️ No posts loaded initially, trying again...');
+				await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
+			}
+
+			// Step 4: Only setup infinite scroll AFTER initial posts are loaded and rendered
+			console.log('🔧 Setting up infinite scroll...');
+			setupInfiniteScroll();
+
+			// Step 5: Try to attach with retries
 			if (infiniteScrollManager) {
 				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
 					if (success) {
@@ -782,7 +914,16 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		};
 	});
 
+	// Also update your setupInfiniteScroll function to be more defensive:
+
 	function setupInfiniteScroll() {
+		// Don't setup if we don't have any posts yet
+		const currentPosts = get(postStore);
+		if (currentPosts.posts.length === 0) {
+			console.log('⏳ Skipping infinite scroll setup - no posts loaded yet');
+			return null;
+		}
+
 		if (infiniteScrollManager) {
 			infiniteScrollManager.destroy();
 		}
@@ -790,18 +931,37 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		infiniteScrollManager = new InfiniteScrollManager({
 			loadMore: async () => {
 				try {
+					// Add extra safety checks
+					const storeState = get(postStore);
+					if (!storeState.hasMore || shouldDisableInfiniteScroll || storeState.loadingMore) {
+						console.log('⛔ Load more cancelled:', {
+							hasMore: storeState.hasMore,
+							filtersDisabled: shouldDisableInfiniteScroll,
+							alreadyLoading: storeState.loadingMore
+						});
+						return;
+					}
+
+					console.log('🔄 Infinite scroll triggering loadMore...');
 					await loadMoreHomePosts();
 				} catch (error) {
 					console.error('Error loading more home posts:', error);
 				}
 			},
-			hasMore: () => effectiveHasMore, // Use effectiveHasMore instead of homeHasMore
-			isLoading: () => homeLoadingMore,
+			hasMore: () => {
+				const state = get(postStore);
+				return state.hasMore && !shouldDisableInfiniteScroll;
+			},
+			isLoading: () => {
+				const state = get(postStore);
+				return homeLoadingMore || state.loading || state.loadingMore;
+			},
 			triggerId: 'home-loading-trigger',
 			debug: true
 		});
 
 		infiniteScrollManager.setup();
+		console.log('🔧 Infinite scroll manager created');
 		return infiniteScrollManager;
 	}
 
@@ -939,7 +1099,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 
 			<!-- Posts Feed -->
 			<section class="posts-feed">
-				{#each enhancedPosts as post (post._displayKey || post.id)}
+				{#each $postStore.posts as post (post.id)}
 					{#if post.isRepost}
 						<RepostCard
 							{post}
@@ -1011,7 +1171,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 				<!-- Loading trigger - only show when infinite scroll is enabled -->
 				{#if !shouldDisableInfiniteScroll}
 					<!-- Use effectiveHasMore instead of homeHasMore -->
-					{#if effectiveHasMore}
+					{#if shouldShowLoadingTrigger || (enhancedPosts.length < 3 && $postStore.hasMore && !shouldDisableInfiniteScroll)}
 						<div id="home-loading-trigger" class="loading-trigger">
 							{#if homeLoadingMore}
 								<div class="loading-indicator">
@@ -1035,8 +1195,8 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 						</div>
 					{:else if $postStore.posts.length > 0}
 						<div class="end-of-posts" style="text-align: center; padding: 20px; color: #666;">
-							<p>No more posts to load</p>
-							<p>Total posts: {$postStore.posts.length}</p>
+							<p>{$t('posts.noMorePosts')}</p>
+							<p>{$t('status.total')} {$t('posts.posts')}: {$postStore.posts.length}</p>
 						</div>
 					{/if}
 				{:else if enhancedPosts.length === 0}
@@ -1164,7 +1324,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1242,7 +1402,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		margin-bottom: 0;
 		justify-content: flex;
 		&.hide-toggle {
-			margin-bottom: 0 !important
+			margin-bottom: 0 !important;
 		}
 		&.hide-left-sidebar {
 			justify-content: flex-start;
@@ -1278,7 +1438,6 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		position: relative;
 	}
 
-
 	.trigger-loader {
 		width: 20px;
 		aspect-ratio: 1;
@@ -1310,12 +1469,10 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 	.side-right-menu {
 		display: flex;
 		justify-content: center;
-		width: auto;
-	}
-	.side-right-menu {
 		width: 100%;
-		max-width: 600px;
+		max-width: 400px;
 	}
+
 	.create-post {
 		margin-bottom: 2rem;
 	}
@@ -1473,7 +1630,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		align-items: center;
 		justify-content: center;
 		background-color: transparent;
-				width: calc(100% - 6.5rem) !important;
+		width: calc(100% - 6.5rem) !important;
 		margin-left: 3.5rem;
 		margin-bottom: 2rem;
 
@@ -1542,37 +1699,48 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 			width: calc(100% - 2rem);
 			transition: all 0.3s ease;
 			padding: 1rem;
+			margin-left: 3rem;
+			& .main-content {
+				display: none;
+			}
 		}
 		.side-right-menu.drawers-visible {
 			transform: perspective(75em) rotateY(-10deg);
 			transition: all 0.3s ease;
 			width: 100%;
+			height: calc(100vh - 10rem);
 			position: relative;
 			border: 1px solid var(--line-color);
 			border-radius: 1rem;
 			padding: 1rem;
-
+			cursor: pointer;
 			&:hover {
 				z-index: 1;
-				transform: scale(1.05) perspective(75em) rotateY(-10deg);
+				transform: perspective(75em) rotateY(0);
+				border: 1px solid var(--tertiary-color);
 			}
 		}
 		.side-menu.drawers-visible {
 			transition: all 0.3s ease;
 			transform: perspective(75em) rotateY(-10deg);
 			width: 100%;
+			height: calc(100vh - 10rem);
+			margin-top: 10rem;
+			margin-bottom: 10rem;
 			position: relative;
 			border: 1px solid var(--line-color);
 			border-radius: 1rem;
 			padding: 1rem;
+			cursor: pointer;
+
 			&:hover {
 				z-index: 1;
-				transform: scale(1.1) perspective(75em) rotateY(-10deg);
+				transform: perspective(75em) rotateY(0);
+				border: 1px solid var(--tertiary-color);
 			}
 		}
 
 		.composer-overlay {
-
 			width: calc(100% - 4.5rem) !important;
 			bottom: 0.5rem;
 		}
@@ -1582,15 +1750,33 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		.home-container.drawers-visible {
 			display: flex;
 			flex-direction: column;
-			justify-content: flex-start;
+			justify-content: flex-end;
 			align-items: center;
 			transition: all 0.3s ease;
 			padding: 3rem;
+			margin-top: 2rem;
+			height: auto;
+		}
+		.side-right-menu,
+		.side-menu {
+			max-width: calc(100% - 4rem);
+			margin-top: 2rem;
+			margin-bottom: 3rem;
+			height: 50%;
+		}
+		.side-menu,
+		.side-right-menu {
+			margin-left: 4rem;
+			height: calc(100% - 5rem);
 		}
 		.side-right-menu.drawers-visible {
 			transform: perspective(75em) rotateX(-20deg);
 			transition: all 0.3s ease;
-			width: 100%;
+			width: calc(100% - 6rem);
+			height: 50%;
+			margin-left: 0;
+			margin-bottom: 0;
+			margin-top: 0;
 			&:hover {
 				z-index: 1;
 				transform: scale(1.1) perspective(75em) rotateX(0deg);
@@ -1599,6 +1785,12 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		.side-menu.drawers-visible {
 			transition: all 0.3s ease;
 			transform: perspective(75em) rotateX(-20deg);
+			width: calc(100% - 6rem);
+
+			height: 50%;
+			margin-left: 0;
+			margin-bottom: 0;
+			margin-top: 0;
 			&:hover {
 				z-index: 1;
 				transform: scale(1.1) perspective(75em) rotateX(0deg);
@@ -1610,7 +1802,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 			display: flex;
 		}
 		.main-content.drawer-visible {
-			// display: none;
+			display: none;
 		}
 
 		.main-content.drawer-right-visible {
@@ -1620,12 +1812,7 @@ function handleComment(event: CustomEvent<{ postId: string }>) {
 		.posts-feed {
 			margin-left: 2rem;
 		}
-		.side-menu {
-			justify-content: center;
-			align-items: center;
-			margin: 0;
-			padding: 0;
-		}
+
 		// .side-menu.hide-sidemenu {
 		// 	// transform: translate(-50%);
 		// }

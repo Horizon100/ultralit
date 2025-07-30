@@ -7,6 +7,7 @@
 		extractTextFromPDF,
 		type PDFDocument
 	} from '$lib/features/pdf/utils/pdf';
+	import DOMPurify from 'dompurify';
 
 	export let pdfUrl: string;
 	export let onClose: () => void;
@@ -343,10 +344,12 @@
 							</div>
 						{:else if aiResponse}
 							<div class="ai-response">
-								{@html aiResponse
-									.replace(/\n/g, '<br>')
-									.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-									.replace(/\*(.*?)\*/g, '<em>$1</em>')}
+								{@html DOMPurify.sanitize(
+									aiResponse
+										.replace(/\n/g, '<br>')
+										.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+										.replace(/\*(.*?)\*/g, '<em>$1</em>')
+								)}
 							</div>
 						{:else}
 							<div class="ai-placeholder">
@@ -366,7 +369,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

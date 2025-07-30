@@ -15,6 +15,7 @@
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
+	let defaultMessage: InternalChatMessage;
 
 	// Declare variables first
 	export let userId: string = '';
@@ -22,33 +23,6 @@
 	export let threadId: string | null = null;
 	export let messageId: string | null = null;
 	export let initialMessage: InternalChatMessage | null = null;
-
-	$: defaultMessage = {
-		id: '',
-		text: '',
-		content: '',
-		user: userId,
-		role: 'user' as const,
-		created: new Date().toISOString(),
-		updated: new Date().toISOString(),
-		collectionId: '',
-		collectionName: 'messages',
-		parent_msg: null,
-		provider: 'openai' as const,
-		prompt_type: null,
-		prompt_input: null,
-		model: aiModel.id,
-		thread: threadId || undefined,
-		isTyping: false,
-		isHighlighted: false,
-		reactions: {
-			upvote: 0,
-			downvote: 0,
-			bookmark: [],
-			highlight: [],
-			question: 0
-		}
-	} as InternalChatMessage;
 
 	onMount(async () => {
 		try {
@@ -59,8 +33,37 @@
 				return;
 			}
 
+			// Set these once - don't make reactive
 			userId = $currentUser.id;
-			user = $currentUser; // Update user variable
+			user = $currentUser;
+
+			// Initialize defaultMessage once here
+			defaultMessage = {
+				id: '',
+				text: '',
+				content: '',
+				user: userId,
+				role: 'user' as const,
+				created: new Date().toISOString(),
+				updated: new Date().toISOString(),
+				collectionId: '',
+				collectionName: 'messages',
+				parent_msg: null,
+				provider: 'openai' as const,
+				prompt_type: null,
+				prompt_input: null,
+				model: aiModel.id,
+				thread: threadId || undefined,
+				isTyping: false,
+				isHighlighted: false,
+				reactions: {
+					upvote: 0,
+					downvote: 0,
+					bookmark: [],
+					highlight: [],
+					question: 0
+				}
+			} as InternalChatMessage;
 
 			pageReady = true;
 		} catch (e) {
@@ -73,13 +76,6 @@
 			}, minimumLoadingTime);
 		}
 	});
-
-	$: {
-		if ($currentUser && !userId) {
-			userId = $currentUser.id;
-			user = $currentUser;
-		}
-	}
 </script>
 
 {#if pageReady}
@@ -103,7 +99,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 
@@ -208,16 +204,16 @@
 	}
 
 	@media (max-width: 450px) {
-	.chat {
-		display: flex;
-		position: relative;
-		justify-content: center;
-		width: 100%;
-		margin-left: 0.5rem !important;
-		left: 0 !important;
-		margin-top: 1rem !important;
-		margin-bottom: 1rem !important;
-	}
+		.chat {
+			display: flex;
+			position: relative;
+			justify-content: center;
+			width: 100%;
+			margin-left: 0.5rem !important;
+			left: 0 !important;
+			margin-top: 1rem !important;
+			margin-bottom: 1rem !important;
+		}
 	}
 
 	.section {

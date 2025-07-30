@@ -59,10 +59,120 @@ function highlightCode(code: string, language: string): string {
 		}
 	}
 
+	if (
+		language === 'javascript' ||
+		language === 'js' ||
+		language === 'typescript' ||
+		language === 'ts'
+	) {
+		let highlighted = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+		// Comments first (to avoid highlighting keywords inside comments)
+		highlighted = highlighted.replace(/\/\/.*$/gm, '<span class="syntax-comment">$&</span>');
+
+		highlighted = highlighted.replace(
+			/\/\*[\s\S]*?\*\//g,
+			'<span class="syntax-comment">$&</span>'
+		);
+
+		// Strings (avoiding already highlighted content)
+		highlighted = highlighted.replace(/"([^"\\]*(\\.[^"\\]*)*)"/g, function (match) {
+			return match.includes('<span') ? match : '<span class="syntax-string">' + match + '</span>';
+		});
+
+		highlighted = highlighted.replace(/'([^'\\]*(\\.[^'\\]*)*)'/g, function (match) {
+			return match.includes('<span') ? match : '<span class="syntax-string">' + match + '</span>';
+		});
+
+		// Template literals
+		highlighted = highlighted.replace(/`([^`\\]*(\\.[^`\\]*)*)`/g, function (match) {
+			return match.includes('<span') ? match : '<span class="syntax-string">' + match + '</span>';
+		});
+
+		// Keywords (avoiding already highlighted content)
+		highlighted = highlighted.replace(
+			/\b(function|const|let|var|if|else|return|import|export|from|document|getElementById|addEventListener|console|log|class|for|while|async|await|try|catch|finally|throw|switch|case|default|break|continue|typeof|instanceof|new|this)\b/g,
+			function (match) {
+				return match.includes('<span')
+					? match
+					: '<span class="syntax-keyword">' + match + '</span>';
+			}
+		);
+
+		// Numbers
+		highlighted = highlighted.replace(/\b\d+(?:\.\d+)?\b/g, function (match) {
+			return match.includes('<span') ? match : '<span class="syntax-number">' + match + '</span>';
+		});
+
+		return highlighted;
+	}
+
+	// Handle CSS
+	if (language === 'css') {
+		let highlighted = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+		// CSS selectors (lines that end with {)
+		highlighted = highlighted.replace(
+			/^([^{]+)(?=\s*\{)/gm,
+			'<span class="syntax-selector">$1</span>'
+		);
+
+		// CSS properties
+		highlighted = highlighted.replace(
+			/([a-zA-Z-]+)(\s*:)/g,
+			'<span class="syntax-property">$1</span>$2'
+		);
+
+		// CSS values (after :)
+		highlighted = highlighted.replace(
+			/:(\s*)([^;}\n]+)/g,
+			':$1<span class="syntax-value">$2</span>'
+		);
+
+		// CSS comments
+		highlighted = highlighted.replace(
+			/\/\*[\s\S]*?\*\//g,
+			'<span class="syntax-comment">$&</span>'
+		);
+
+		return highlighted;
+	}
+
+	// Handle HTML
+	if (language === 'html' || language === 'xml') {
+		let highlighted = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+		// HTML tags
+		highlighted = highlighted.replace(
+			/&lt;(\/?[a-zA-Z][a-zA-Z0-9]*)((?:\s+[^&gt;]*)?)&gt;/g,
+			function (match, tagName, attributes) {
+				let result = '&lt;<span class="syntax-tag">' + tagName + '</span>';
+
+				// Highlight attributes
+				if (attributes) {
+					result += attributes.replace(
+						/(\s+)([a-zA-Z-]+)(=)("([^"]*)"|'([^']*)')/g,
+						'$1<span class="syntax-attr-name">$2</span>$3<span class="syntax-attr-value">$4</span>'
+					);
+				}
+
+				result += '&gt;';
+				return result;
+			}
+		);
+
+		// HTML comments
+		highlighted = highlighted.replace(
+			/&lt;!--[\s\S]*?--&gt;/g,
+			'<span class="syntax-comment">$&</span>'
+		);
+
+		return highlighted;
+	}
+
 	// Escape HTML characters for all other languages
 	return code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
-
 // Custom renderer for code blocks and other elements
 const renderer = new marked.Renderer();
 

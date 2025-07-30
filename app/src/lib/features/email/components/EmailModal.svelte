@@ -31,7 +31,8 @@
 		limit: 50,
 		offset: 0
 	};
-
+	let aiAnalysisResult: any = null;
+	let aiAnalysisLoading = false;
 	let addAccountForm = {
 		provider: 'gmail' as const,
 		email: '',
@@ -369,9 +370,9 @@ Priorities: low, medium, high`;
 					};
 				}
 
-				// Update the UI directly (skip PocketBase for now)
+				// FIXED: Force Svelte reactivity by reassigning the entire object
 				if (selectedMessage) {
-					selectedMessage.aiAnalysis = {
+					const aiAnalysis = {
 						id: Date.now().toString(),
 						messageId: message.id,
 						summary: analysisResult.summary || 'Analysis completed',
@@ -382,12 +383,17 @@ Priorities: low, medium, high`;
 						category: analysisResult.category || 'unknown',
 						analyzedAt: new Date().toISOString(),
 						model: 'qwen2.5:0.5b'
-					} as any;
+					};
+
+					// Trigger Svelte reactivity by reassigning the entire selectedMessage
+					selectedMessage = {
+						...selectedMessage,
+						aiAnalysis
+					};
 
 					console.log('🤖 Analysis completed successfully:', selectedMessage.aiAnalysis);
+					return aiAnalysis;
 				}
-
-				return selectedMessage?.aiAnalysis;
 			} else {
 				throw new Error(data.error || 'No response from AI model');
 			}
@@ -400,25 +406,16 @@ Priorities: low, medium, high`;
 	// Loading state for AI analysis
 	let isAnalyzing = false;
 
-	// Function to trigger analysis
 	async function triggerAIAnalysis() {
-		console.log('🤖 triggerAIAnalysis called');
-
-		if (!selectedMessage || isAnalyzing) {
-			console.log('🤖 Aborting analysis - no message or already analyzing');
-			return;
-		}
-
-		console.log('🤖 Starting analysis...');
-		isAnalyzing = true;
+		if (!selectedMessage || isAnalyzing) return;
 
 		try {
-			const result = await analyzeEmailWithAI(selectedMessage);
-			console.log('🤖 Analysis completed successfully:', result);
-		} catch (error: any) {
-			console.error('🤖 Failed to analyze email:', error);
+			isAnalyzing = true;
+			await analyzeEmailWithAI(selectedMessage);
+		} catch (error) {
+			console.error('AI analysis failed:', error);
+			error = 'Failed to analyze email with AI';
 		} finally {
-			console.log('🤖 Setting isAnalyzing to false');
 			isAnalyzing = false;
 		}
 	}
@@ -429,7 +426,23 @@ Priorities: low, medium, high`;
 		}
 		return from.map((f: any) => (f.name ? f.name.replace(/^"|"$/g, '') : '') || f.email).join(', ');
 	}
-	// Loading state for AI analysis
+	$: if (selectedMessage && !selectedMessage.aiAnalysis) {
+		handleAiAnalysis();
+	}
+
+	async function handleAiAnalysis() {
+		if (!selectedMessage || selectedMessage.aiAnalysis || aiAnalysisLoading) return;
+
+		try {
+			aiAnalysisLoading = true;
+			aiAnalysisResult = await analyzeEmailWithAI(selectedMessage);
+		} catch (error) {
+			console.error('AI analysis failed:', error);
+			aiAnalysisResult = null;
+		} finally {
+			aiAnalysisLoading = false;
+		}
+	}
 </script>
 
 <div class="modal-overlay">
@@ -858,7 +871,7 @@ Priorities: low, medium, high`;
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	.modal-overlay {
 		position: relative;
@@ -871,8 +884,7 @@ Priorities: low, medium, high`;
 		width: 100%;
 		margin: 0 2rem;
 		z-index: 1000;
-						background: transparent;
-
+		background: transparent;
 	}
 
 	.modal-content {
@@ -881,7 +893,6 @@ Priorities: low, medium, high`;
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
-
 	}
 
 	.modal-body {
@@ -894,7 +905,6 @@ Priorities: low, medium, high`;
 	}
 
 	.modal-nav {
-
 		padding: 1rem 1.5rem;
 		display: flex;
 		align-items: center;

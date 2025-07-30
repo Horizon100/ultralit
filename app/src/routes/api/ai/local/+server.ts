@@ -6,9 +6,9 @@ import * as pbServer from '$lib/server/pocketbase';
 import { dev } from '$app/environment';
 import { ContextAnalyzer } from '$lib/features/ai/utils/contextAnalyzer';
 import type { LocalModelParams, OllamaGenerateResponse } from '$lib/types/types.localModels';
-import { OLLAMA_DEV_URL, OLLAMA_PROD_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-const OLLAMA_BASE_URL = dev ? OLLAMA_DEV_URL : OLLAMA_PROD_URL;
+const OLLAMA_BASE_URL = dev ? env.OLLAMA_DEV_URL : env.OLLAMA_PROD_URL;
 
 interface TaggingRequest {
 	content: string;

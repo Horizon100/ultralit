@@ -8,7 +8,7 @@
 		RoleType,
 		AIModel,
 		User,
-		ProviderType
+		AIProviderType
 	} from '$lib/types/types';
 	import { createEventDispatcher } from 'svelte';
 	import { showThreadList, threadsStore } from '$lib/stores/threadsStore';
@@ -33,6 +33,7 @@
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { MessageService } from '$lib/services/messageService';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
+	import { enhanceCodeBlocks } from '$lib/features/ai/utils/markdownProcessor';
 
 	export let message: InternalChatMessage;
 
@@ -94,8 +95,6 @@
 	$: providerIconSrc = getProviderIcon(provider);
 	$: promptLabel = getPromptLabelFromContent(message.prompt_type);
 	$: promptDescription = getPromptDescription(message.prompt_type);
-
-	
 
 	function handleToggleReplies(messageId: string) {
 		if (hiddenReplies.has(messageId)) {
@@ -754,48 +753,49 @@
 		);
 	}
 
-async function processContent() {
-	if (!message?.content || isProcessingContent) return;
+	async function processContent() {
+		if (!message?.content || isProcessingContent) return;
 
-	console.log('🔍 MESSAGE PROCESSING - Starting for message:', message.id);
-	console.log('🔍 MESSAGE PROCESSING - Raw content type:', typeof message.content);
-	console.log('🔍 MESSAGE PROCESSING - Raw content value:', message.content);
-	console.log('🔍 MESSAGE PROCESSING - Is Promise?', isPromise(message.content));
-	
-	isProcessingContent = true;
+		console.log('🔍 MESSAGE PROCESSING - Starting for message:', message.id);
+		isProcessingContent = true;
 
-	let contentToProcess: string = '';
+		let contentToProcess: string = '';
 
-	try {
-		if (isPromise(message.content)) {
-			console.log('🔍 MESSAGE PROCESSING - Awaiting promise content...');
-			const resolvedContent = await message.content;
-			contentToProcess = String(resolvedContent || '');
-			console.log('🔍 MESSAGE PROCESSING - Resolved content:', contentToProcess);
-		} else {
-			contentToProcess = String(message.content || '');
-			console.log('🔍 MESSAGE PROCESSING - Direct content:', contentToProcess);
+		try {
+			if (isPromise(message.content)) {
+				const resolvedContent = await message.content;
+				contentToProcess = String(resolvedContent || '');
+			} else {
+				contentToProcess = String(message.content || '');
+			}
+
+			// Use the MessageService method directly
+			processedContent = await MessageService.processMessageContentWithReplyable(
+				contentToProcess,
+				message.id
+			);
+
+			console.log(
+				'🔍 MESSAGE PROCESSING - Final processed content length:',
+				processedContent.length
+			);
+
+			// Force re-initialization of code blocks after content is processed
+			setTimeout(() => {
+				const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
+				if (messageElement) {
+					console.log('🔍 MESSAGE PROCESSING - Re-enhancing code blocks for message:', message.id);
+					enhanceCodeBlocks(messageElement as HTMLElement);
+				}
+			}, 100);
+		} catch (error) {
+			console.error('❌ MESSAGE PROCESSING - Error:', error);
+			processedContent = contentToProcess || 'Error loading message content';
+		} finally {
+			isProcessingContent = false;
+			console.log('🔍 MESSAGE PROCESSING - Completed for message:', message.id);
 		}
-
-		console.log('🔍 MESSAGE PROCESSING - Content to process length:', contentToProcess.length);
-		console.log('🔍 MESSAGE PROCESSING - Content preview:', contentToProcess.substring(0, 100));
-
-		// Use the MessageService method directly
-		processedContent = await MessageService.processMessageContentWithReplyable(
-			contentToProcess,
-			message.id
-		);
-
-		console.log('🔍 MESSAGE PROCESSING - Final processed content length:', processedContent.length);
-		console.log('🔍 MESSAGE PROCESSING - Final processed preview:', processedContent.substring(0, 100));
-	} catch (error) {
-		console.error('❌ MESSAGE PROCESSING - Error:', error);
-		processedContent = contentToProcess || 'Error loading message content';
-	} finally {
-		isProcessingContent = false;
-		console.log('🔍 MESSAGE PROCESSING - Completed for message:', message.id);
 	}
-}
 	$: if (message?.id && message.id !== lastProcessedMessageId) {
 		lastProcessedMessageId = message.id;
 		processContent();
@@ -846,24 +846,20 @@ async function processContent() {
 >
 	<div class="message-header">
 		{#if message.role === 'user'}
-        <div class="user-header">
-            <div class="avatar-container">
-                {#if message.user}
-                    <Avatar 
-                        user={$currentUser} 
-                        size={40} 
-                        className="message-avatar"
-                    />
-                {/if}
-            </div>
-            <span class="role">
-                {#if message.type === 'human' && message.user}
-                    {$currentUser?.id === message.user ? $currentUser.name : name}
-                {:else}
-                    {name}
-                {/if}
-            </span>
-        </div>
+			<div class="user-header">
+				<div class="avatar-container">
+					{#if message.user}
+						<Avatar user={$currentUser} size={40} className="message-avatar" />
+					{/if}
+				</div>
+				<span class="role">
+					{#if message.type === 'human' && message.user}
+						{$currentUser?.id === message.user ? $currentUser.name : name}
+					{:else}
+						{name}
+					{/if}
+				</span>
+			</div>
 		{:else if message.role === 'assistant'}
 			<div class="user-header ai">
 				<div
@@ -916,7 +912,7 @@ async function processContent() {
 		</div> -->
 	</div>
 
-	<p class:typing={message.isTyping}>
+	<p class:typing={message.isTyping} use:enhanceCodeBlocks>
 		{#if isProcessingContent}
 			<!-- <span class="processing">Processing...</span> -->
 		{:else}
@@ -1067,7 +1063,7 @@ async function processContent() {
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1100,6 +1096,33 @@ async function processContent() {
 		justify-content: center;
 		background: transparent !important;
 		z-index: 2;
+	}
+
+	.copy-code-button {
+		position: absolute;
+		top: 0.5rem;
+		right: 0.5rem;
+		padding: 0.35rem;
+		border: none;
+		border-radius: 0.5rem;
+		color: var(--text-color);
+		cursor: pointer;
+		opacity: 0;
+		transition:
+			opacity 0.2s,
+			background-color 0.2s,
+			transform 0.2s;
+		z-index: 10;
+	}
+
+	.copy-code-button:hover {
+		background-color: rgba(255, 255, 255, 0.2);
+		transform: scale(1.05);
+	}
+
+	/* Show copy button on hover of pre element */
+	pre:hover .copy-code-button {
+		opacity: 1;
 	}
 	.tooltip {
 		position: absolute;

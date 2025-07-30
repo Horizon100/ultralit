@@ -1,7 +1,8 @@
-import { VITE_POCKETBASE_URL } from '$env/static/private';
+// src/routes/+layout.server.ts
+import { env } from '$env/dynamic/public';
 
 export async function load() {
 	return {
-		pocketbaseUrl: VITE_POCKETBASE_URL || 'http://localhost:8090'
+		pocketbaseUrl: env.PUBLIC_POCKETBASE_URL || 'http://100.87.185.104:8090'
 	};
 }

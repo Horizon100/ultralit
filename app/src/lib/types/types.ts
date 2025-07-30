@@ -116,9 +116,9 @@ export interface User extends RecordModel {
 	languagePreference?: string;
 	theme_preference?: string;
 	wallpaper_preference: string[];
-	  timezonePreference?: string;
-  notificationPreferences?: Record<string, boolean>;
-  factorValidated?: boolean; 
+	timezonePreference?: string;
+	notificationPreferences?: Record<string, boolean>;
+	factorValidated?: boolean;
 
 	profileWallpaper: string;
 	created: string;
@@ -132,6 +132,8 @@ export interface User extends RecordModel {
 	prompt_preference: string[];
 	sysprompt_preference: string;
 	model_preference?: string[];
+	local_model_preference?: string;
+	local_model_favorites?: string[];
 	taskAssignments: string[];
 	projects: string[];
 	hero: string;
@@ -379,7 +381,7 @@ export interface PartialAIAgent {
 	type?: 'host' | 'sub' | 'peer';
 	created?: string;
 	updated?: string;
-	provider: ProviderType;
+	provider: AIProviderType;
 	collectionId: string;
 	collectionName: string;
 }
@@ -426,11 +428,11 @@ export interface AIAgent extends RecordModel {
 	expanded: boolean;
 	created: string;
 	updated: string;
-		last_reply?: string; 
-	auto_reply_enabled?: boolean; 
-	reply_delay?: number; 
+	last_reply?: string;
+	auto_reply_enabled?: boolean;
+	reply_delay?: number;
 	reply_conditions?: {
-		keywords?: string[]; 
+		keywords?: string[];
 		user_types?: string[];
 		min_content_length?: number;
 	};
@@ -449,13 +451,13 @@ export interface AgentAutoReplyConfig {
 export interface AIMessage {
 	role: RoleType;
 	content: string;
-	provider: ProviderType;
+	provider: AIProviderType;
 	model: string;
 	prompt_type?: PromptType;
 	prompt_input?: string;
 }
 
-export type ProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek' | 'local';
+export type AIProviderType = 'openai' | 'anthropic' | 'google' | 'grok' | 'deepseek' | 'local';
 
 export interface AIModel extends RecordModel {
 	id: string;
@@ -468,7 +470,7 @@ export interface AIModel extends RecordModel {
 	user: string[];
 	created: string;
 	updated: string;
-	provider: ProviderType;
+	provider: AIProviderType;
 	collectionId: string;
 	collectionName: string;
 }
@@ -476,20 +478,36 @@ export interface AIModel extends RecordModel {
 export interface AIResponse {
 	response: string;
 }
+
+export interface ModelSelectionContext {
+	cloudModels: AIModel[];
+	selectedCloudModel?: AIModel;
+	favoriteCloudModels: string[];
+	localModels: SelectableAIModel[];
+	selectedLocalModel?: string;
+	favoriteLocalModels: string[];
+	currentProvider: AIProviderType;
+	hasValidSelection: boolean;
+}
 export interface UserModelPreferences {
 	id: string;
 	user: string;
-	selected_provider: ProviderType;
+	selected_provider: AIProviderType;
 	model: string;
 	created: string;
 	updated: string;
 }
-
+export interface ModelPreferences {
+	selectedCloudModel?: AIModel;
+	favoriteCloudModels?: string[];
+	selectedLocalModel?: string;
+	favoriteLocalModels?: string[];
+}
 
 export interface SelectableAIModel {
 	id: string;
 	name: string;
-	provider: ProviderType;
+	provider: AIProviderType;
 	context_length?: number;
 	description?: string;
 	api_type?: string;
@@ -501,12 +519,6 @@ export interface SelectableAIModel {
 	collectionName?: string;
 	created?: string;
 	updated?: string;
-}
-
-
-export interface NodeConfig {
-	maxTokens: number;
-	temperature: number;
 }
 export interface AIPreferences extends RecordModel {
 	reference_agent: string[];
@@ -526,6 +538,11 @@ export interface AIPreferences extends RecordModel {
 	ai_interaction_style: string;
 	privacy_level: string;
 	learning_rate: number;
+}
+
+export interface NodeConfig {
+	maxTokens: number;
+	temperature: number;
 }
 
 export interface CursorPosition extends RecordModel {
@@ -721,7 +738,7 @@ export interface InternalChatMessage extends ChatMessage {
 	prompt_type: string | null;
 	prompt_input: string | null;
 	model: User['model'];
-	provider: ProviderType;
+	provider: AIProviderType;
 	thread?: string;
 	role: RoleType;
 }
@@ -1008,6 +1025,7 @@ export interface ExpandedSections {
 export interface UIState {
 	isLoading: boolean;
 	isLoadingMessages: boolean;
+	showSysPrompt: boolean;
 	showPromptCatalog: boolean;
 	showModelSelector: boolean;
 	isMinimized: boolean;

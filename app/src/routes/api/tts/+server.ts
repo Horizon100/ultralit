@@ -2,9 +2,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { dev } from '$app/environment';
-import { TTS_DEV_URL, TTS_PROD_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-const TTS_BASE_URL = dev ? TTS_DEV_URL : TTS_PROD_URL;
+const TTS_BASE_URL = dev ? env.TTS_DEV_URL : env.TTS_PROD_URL;
 
 interface TTSRequest {
 	text: string;

@@ -1,6 +1,6 @@
 // stores/newsletterStore.ts
 import { writable, get } from 'svelte/store';
-import { pocketbaseUrl } from '$lib/stores/pocketbase'; // Use your existing PocketBase instance
+import { pocketbase } from '$lib/stores/pocketbase';
 import type { NewsletterSubscription, NewsletterPreferences } from '$lib/types/types.subscriptions';
 
 function createNewsletterStore() {
@@ -11,7 +11,7 @@ function createNewsletterStore() {
 
 		subscribeToNewsletter: async (email: string, preferences: NewsletterPreferences) => {
 			try {
-				const pb = get(pocketbaseUrl);
+				const pb = get(pocketbase);
 				const subscription = await pb.collection('subscriptions').create<NewsletterSubscription>({
 					email,
 					newsletter: preferences.newsletter,
@@ -29,7 +29,7 @@ function createNewsletterStore() {
 
 		unsubscribe: async (email: string) => {
 			try {
-				const pb = get(pocketbaseUrl);
+				const pb = get(pocketbase);
 				// Find the subscription by email
 				const subscriptions = await pb
 					.collection('subscriptions')
@@ -56,7 +56,7 @@ function createNewsletterStore() {
 
 		updatePreferences: async (email: string, preferences: NewsletterPreferences) => {
 			try {
-				const pb = get(pocketbaseUrl);
+				const pb = get(pocketbase);
 				// Find the subscription by email
 				const subscriptions = await pb
 					.collection('subscriptions')
@@ -88,7 +88,7 @@ function createNewsletterStore() {
 
 		verifySubscription: async (email: string, token: string) => {
 			try {
-				const pb = get(pocketbaseUrl);
+				const pb = get(pocketbase);
 				// Find the subscription by email
 				const subscriptions = await pb
 					.collection('subscriptions')
@@ -119,7 +119,7 @@ function createNewsletterStore() {
 
 		loadSubscriptions: async () => {
 			try {
-				const pb = get(pocketbaseUrl);
+				const pb = get(pocketbase);
 				const subscriptions = await pb
 					.collection('subscriptions')
 					.getFullList<NewsletterSubscription>();
@@ -133,7 +133,7 @@ function createNewsletterStore() {
 
 		checkSubscription: async (email: string): Promise<NewsletterSubscription | null> => {
 			try {
-				const pb = get(pocketbaseUrl);
+				const pb = get(pocketbase);
 				const subscriptions = await pb
 					.collection('subscriptions')
 					.getFullList<NewsletterSubscription>({

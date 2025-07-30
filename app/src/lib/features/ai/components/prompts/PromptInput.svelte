@@ -220,7 +220,7 @@
 				error = '';
 			}}
 		>
-			{showInputForm ? '' : '+'} 
+			{showInputForm ? '' : '+'}
 		</button>
 	</div>
 
@@ -257,11 +257,10 @@
 				>
 					{#if isSubmitting}
 						{editingPromptId ? $t('status.updating') + '...' : $t('status.adding') + '...'}
-
 					{:else}
-
-						{editingPromptId ? $t('status.update') + ' ' + $t('chat.prompt') : $t('status.add') + ' ' + $t('chat.prompt')}
-
+						{editingPromptId
+							? $t('status.update') + ' ' + $t('chat.prompt')
+							: $t('status.add') + ' ' + $t('chat.prompt')}
 					{/if}
 				</button>
 			</div>
@@ -306,16 +305,17 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
 	.prompt-container {
-		width: calc(100% - 2rem);
+		width: calc(100% - 1rem);
 		max-width: 1200px;
+
+		height: 100%;
 		margin-right: 1rem;
 		margin-left: 1rem;
-
 	}
 
 	.header-row {
@@ -519,8 +519,6 @@
 		}
 	}
 
-
-
 	.cancel-button {
 		padding: 0.5rem 1rem;
 		background: transparent;
@@ -572,12 +570,12 @@
 		margin: 0;
 		display: flex;
 		flex-direction: column;
-		justify-content: space-between;
-		height: 400px;
+		justify-content: flex-start;
+		height: 100%;
 		width: 100%;
 		gap: 0;
 		backdrop-filter: blur(20px);
-				scroll-behavior: smooth;
+		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: auto;
 		&::-webkit-scrollbar {
@@ -676,12 +674,12 @@
 			align-items: stretch;
 			gap: 0.5rem;
 		}
-			.button-container {
-		width: 100%;
-		display: flex;
-		align-items: center;
-		justify-content: flex-end;
-	}
+		.button-container {
+			width: 100%;
+			display: flex;
+			align-items: center;
+			justify-content: flex-end;
+		}
 
 		.button-group {
 			flex-direction: column;
@@ -701,6 +699,5 @@
 			flex-direction: column;
 			gap: 0.25rem;
 		}
-		
 	}
 </style>

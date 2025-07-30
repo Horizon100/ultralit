@@ -46,11 +46,11 @@ function findEnvReferences() {
 				}
 
 				// Special check for SvelteKit's standard $env imports
-				if (content.includes('$env/static/public') || content.includes('$env/static/private')) {
+				if (content.includes('$env/dynamic/public') || content.includes('$env/dynamic/private')) {
 					const importMatches = [
-						...content.matchAll(/from\s+['"]?\$env\/static\/(?:public|private)['"]?\s*;?\s*$/gm),
+						...content.matchAll(/from\s+['"]?\$env\/dynamic\/(?:public|private)['"]?\s*;?\s*$/gm),
 						...content.matchAll(
-							/import\s+{\s*([^}]+)\s*}\s+from\s+['"]?\$env\/static\/(?:public|private)['"]?/g
+							/import\s+{\s*([^}]+)\s*}\s+from\s+['"]?\$env\/dynamic\/(?:public|private)['"]?/g
 						)
 					];
 

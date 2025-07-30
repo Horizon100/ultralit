@@ -380,7 +380,6 @@ export class ThreadService {
 					}));
 
 					try {
-						// Get the thread from the store before attempting to update
 						const threadToUpdate = currentState.threads.find((t) => t.id === threadId);
 
 						if (!threadToUpdate) {

@@ -30,6 +30,7 @@ export default {
 		posts: 'Посты',
 		filters: 'Фильтры',
 		agents: 'Агенты',
+		threads: 'потоки'
 	},
 	generic: {
 		created: 'Создано',
@@ -41,10 +42,12 @@ export default {
 		deleteWarning: 'Это действие нельзя отменить.',
 		attachments: 'Вложения',
 		show: 'Показать',
+		hide: 'Скрыть',
 		only: 'только',
 		all: 'все',
 		match: 'Совпадение',
 		filter: 'Фильтр',
+		filters: 'фильтры',
 		sort: 'Сортировать',
 		share: 'Делиться',
 		copy: 'Копировать',
@@ -71,6 +74,8 @@ export default {
 		new: 'Новый',
 		and: 'и',
 		for: 'для',
+		user: 'Пользователь',
+		clear: 'Очистить'
 	},
 	posts: {
 		loginPrompt: 'Пожалуйста, войдите, чтобы создать запись.',
@@ -109,6 +114,8 @@ export default {
 		historySignin: 'Войдите, чтобы просмотреть полную историю сообщений этого пользователя',
 		seeAll: 'Просмотреть все',
 		joinConversation: 'Присоединиться к обсуждению',
+		noMorePosts: 'Нет больше постов для загрузки',
+		hasntPosted: 'еще ничего не опубликовал(а).'
 	},
 	lang: {
 		notification: 'Язык: русский',
@@ -458,7 +465,7 @@ export default {
 		months: 'месяцев',
 		now: 'Сейчас',
 		online: 'Онлайн',
-		offline: 'Оффлайн',
+		offline: 'Оффлайн'
 	},
 	months: {
 		january: 'Январь',
@@ -559,6 +566,10 @@ export default {
 		threads: 'Потоки',
 		local: 'Локальный',
 		locals: 'Локальные',
+		bookmark: 'Закладка',
+		bookmarks: 'Закладки',
+		systemPrompt: 'Системная подсказка',
+		systemPrompts: 'Системные подсказки'
 	},
 
 	profile: {
@@ -623,12 +634,17 @@ export default {
 		followers: 'Подписчики',
 		following: 'Подписан',
 		follow: 'Подписаться',
-		favorites: 'Избранное',
-		stats: 'Статистика'
+		favorite: 'Избранное',
+		favorites: 'Избранные',
+		stats: 'Статистика',
+		timeTracker: 'Таймер',
+		yourPosts: 'Ваши посты'
 	},
 	agents: {
 		title: 'Агент',
 		agents: 'Агенты',
+		model: 'Модель',
+		models: 'Модели',
 		analysis: 'Анализ',
 		response: 'Ответ',
 		summary: 'Сводка',
@@ -637,7 +653,7 @@ export default {
 		ai: 'ИИ',
 		analyze: 'Анализировать',
 		autoreply: 'автоответ',
-		autoReply: 'Автоответ',
+		autoReply: 'Автоответ'
 	},
 	status: {
 		downloading: 'Загрузка...',
@@ -674,7 +690,7 @@ export default {
 		unassigning: 'Отмена назначения...',
 		unassigned: 'Назначение отменено',
 		trigger: 'Триггер',
-		triggered: 'триггерировано',
+		triggered: 'триггерировано'
 	},
 	button: {
 		tags: 'Тагы'

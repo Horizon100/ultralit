@@ -90,10 +90,10 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) =>
 		try {
 			// Make sure PocketBase auth is properly set before the update
 			pb.authStore.save(authData.token, authData.model);
-			
+
 			const updatedResult = await pb.collection('ai_agents').update(params.id, updateData);
 			console.log('PocketBase update successful:', updatedResult);
-			
+
 			return json({ success: true, data: updatedResult });
 		} catch (pbError: any) {
 			console.error('PocketBase Error Details:', {
@@ -105,14 +105,16 @@ export const PATCH: RequestHandler = async ({ params, request, cookies }) =>
 				authValid: pb.authStore.isValid,
 				authModel: pb.authStore.model?.id
 			});
-			
+
 			// Try to get more specific error information
 			if (pbError.response?.data) {
 				console.error('PocketBase validation errors:', pbError.response.data);
 			}
-			
+
 			// Re-throw with more context
-			throw new Error(`PocketBase update failed: ${pbError.message} - ${JSON.stringify(pbError.response?.data || {})}`);
+			throw new Error(
+				`PocketBase update failed: ${pbError.message} - ${JSON.stringify(pbError.response?.data || {})}`
+			);
 		}
 	}, 'Failed to update agent');
 export const DELETE: RequestHandler = async ({ params, cookies }) =>

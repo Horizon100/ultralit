@@ -4,7 +4,7 @@
 	import { currentUser } from '$lib/pocketbase';
 	import { elasticOut, elasticIn } from 'svelte/easing';
 	import { fly, slide, fade } from 'svelte/transition';
-	import type { Notes, Attachment, Folders, AIModel, ProviderType } from '$lib/types/types';
+	import type { Notes, Attachment, Folders, AIModel, AIProviderType } from '$lib/types/types';
 	import { notesStore } from '$lib/stores/notesStore';
 	import { fetchAIResponse } from '$lib/clients/aiClient';
 	import Headmaster from '$lib/assets/wallpapers/aristoles.png';
@@ -793,7 +793,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;

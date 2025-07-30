@@ -1,8 +1,10 @@
+//src/routes/api/ai/+server.ts
+
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import type { AIMessage, AIModel, ProviderType } from '$lib/types/types';
+import type { AIMessage, AIModel, AIProviderType } from '$lib/types/types';
 import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import type { TextBlock } from '@anthropic-ai/sdk/resources/messages';
 import * as pbServer from '$lib/server/pocketbase';
@@ -83,7 +85,7 @@ export const POST: RequestHandler = async (event) =>
 		console.log('🔍 AI API Debug - userData.api_keys exists:', !!userData.api_keys);
 		console.log('🔍 AI API Debug - userData.api_keys type:', typeof userData.api_keys);
 
-		let userKeys: Partial<Record<ProviderType, string>> = {};
+		let userKeys: Partial<Record<AIProviderType, string>> = {};
 		if (userData.api_keys) {
 			try {
 				console.log('🔍 AI API Debug - Attempting to decrypt API keys...');

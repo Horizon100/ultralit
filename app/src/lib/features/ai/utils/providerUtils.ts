@@ -1,4 +1,4 @@
-import type { ProviderType } from '$lib/types/types';
+import type { AIProviderType } from '$lib/types/types';
 
 import OpenAIIcon from '$lib/assets/icons/providers/openai.svg';
 import AnthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
@@ -6,7 +6,7 @@ import GoogleIcon from '$lib/assets/icons/providers/google.svg';
 import DeepSeekIcon from '$lib/assets/icons/providers/deepseek.svg';
 import XIcon from '$lib/assets/icons/providers/x.svg';
 
-export function getProviderFromModel(modelName: string): ProviderType {
+export function getProviderFromModel(modelName: string): AIProviderType {
 	const model = modelName.toLowerCase();
 
 	if (model.includes('gpt') || model.includes('o1') || model.includes('openai')) {
@@ -32,7 +32,7 @@ export function getProviderFromModel(modelName: string): ProviderType {
 	return 'openai';
 }
 
-export function getProviderIcon(provider: ProviderType): string {
+export function getProviderIcon(provider: AIProviderType): string {
 	switch (provider) {
 		case 'openai':
 			return OpenAIIcon;

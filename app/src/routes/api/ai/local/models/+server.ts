@@ -4,9 +4,9 @@ import type { RequestHandler } from './$types';
 import { apiTryCatch } from '$lib/utils/errorUtils';
 import { dev } from '$app/environment';
 import type { OllamaModel, OllamaModelsResponse, LocalAIModel } from '$lib/types/types.localModels';
-import { OLLAMA_DEV_URL, OLLAMA_PROD_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-const OLLAMA_BASE_URL = dev ? OLLAMA_DEV_URL : OLLAMA_PROD_URL;
+const OLLAMA_BASE_URL = dev ? env.OLLAMA_DEV_URL : env.OLLAMA_PROD_URL;
 
 export const GET: RequestHandler = async (event) =>
 	apiTryCatch(async () => {

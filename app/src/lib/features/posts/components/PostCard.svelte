@@ -4,7 +4,11 @@
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
+	import type {
+		PostWithInteractions,
+		CommentWithInteractions,
+		PostAttachment
+	} from '$lib/types/types.posts';
 	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import { currentUser } from '$lib/pocketbase';
@@ -20,8 +24,8 @@
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
 	import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
-import { analytics } from '$lib/stores/analyticsStore';
-import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
+	import { analytics } from '$lib/stores/analyticsStore';
+	import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 	import {
 		initAudioState,
 		registerAudioElement,
@@ -48,7 +52,8 @@ import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 
 	import PDFThumbnail from '$lib/features/pdf/components/PDFThumbnail.svelte';
 	import PDFReader from '$lib/features/pdf/components/PDFReader.svelte';
-  import { marked } from 'marked';
+	import { marked } from 'marked';
+	import DOMPurify from 'dompurify';
 
 	export let post: PostWithInteractions | CommentWithInteractions;
 	export let showActions: boolean = true;
@@ -61,7 +66,7 @@ import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 	export let hideHeaderOnScroll: boolean = false;
 	export let selectedLocalModel: string = 'qwen2.5:0.5b';
 
-  $: htmlContent = marked(post.content);
+	$: htmlContent = marked(post.content);
 
 	let showTooltip = false;
 	let showShareModal = false;
@@ -141,40 +146,40 @@ import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 	// 					: `${agentCount} active agents`
 	// 				: `${agentCount} of ${totalAgentIds} agents active`;
 	$: postAssignedAgentIds = post.assignedAgents || [];
-$: postAssignedAgentObjects = postAssignedAgentIds
-    .map((agentId) => activeAgents.find((agent) => agent.id === agentId))
-    .filter((agent): agent is AIAgent => agent !== undefined);
+	$: postAssignedAgentObjects = postAssignedAgentIds
+		.map((agentId) => activeAgents.find((agent) => agent.id === agentId))
+		.filter((agent): agent is AIAgent => agent !== undefined);
 
-$: totalAssignedAgentIds = postAssignedAgentIds.length;
-$: assignedAgentCount = postAssignedAgentObjects.length;
-$: displayedAgents = postAssignedAgentObjects.slice(0, 5);
-$: agentsTitle =
-    totalAssignedAgentIds === 0
-        ? 'No agents assigned'
-        : assignedAgentCount === 0
-            ? `${totalAssignedAgentIds} agents (none active)`
-            : assignedAgentCount === totalAssignedAgentIds
-                ? assignedAgentCount === 1
-                    ? '1 active agent'
-                    : `${assignedAgentCount} active agents`
-                : `${assignedAgentCount} of ${totalAssignedAgentIds} agents active`;
-function handleAgents() {
-    if (!$currentUser) {
-        toast.warning('Please sign in to view agents');
-        return;
-    }
+	$: totalAssignedAgentIds = postAssignedAgentIds.length;
+	$: assignedAgentCount = postAssignedAgentObjects.length;
+	$: displayedAgents = postAssignedAgentObjects.slice(0, 5);
+	$: agentsTitle =
+		totalAssignedAgentIds === 0
+			? 'No agents assigned'
+			: assignedAgentCount === 0
+				? `${totalAssignedAgentIds} agents (none active)`
+				: assignedAgentCount === totalAssignedAgentIds
+					? assignedAgentCount === 1
+						? '1 active agent'
+						: `${assignedAgentCount} active agents`
+					: `${assignedAgentCount} of ${totalAssignedAgentIds} agents active`;
+	function handleAgents() {
+		if (!$currentUser) {
+			toast.warning('Please sign in to view agents');
+			return;
+		}
 
-    console.log('=== AGENT DEBUG ===');
-    console.log('Post assigned agent IDs:', postAssignedAgentIds); 
-    console.log('Available agents in store:', availableAgents.length);
-    console.log('Available agent details:', availableAgents);
-    console.log('Active agents in store:', activeAgents.length);
-    console.log('Active agent details:', activeAgents);
-    console.log('Matched post assigned agents:', postAssignedAgentObjects);
-    console.log('Assigned agent count:', assignedAgentCount); 
-    agentsExpanded = !agentsExpanded;
-    console.log('Agents expanded:', agentsExpanded);
-}
+		console.log('=== AGENT DEBUG ===');
+		console.log('Post assigned agent IDs:', postAssignedAgentIds);
+		console.log('Available agents in store:', availableAgents.length);
+		console.log('Available agent details:', availableAgents);
+		console.log('Active agents in store:', activeAgents.length);
+		console.log('Active agent details:', activeAgents);
+		console.log('Matched post assigned agents:', postAssignedAgentObjects);
+		console.log('Assigned agent count:', assignedAgentCount);
+		agentsExpanded = !agentsExpanded;
+		console.log('Agents expanded:', agentsExpanded);
+	}
 	function handleAIAnalysis(event: CustomEvent) {
 		console.log('AI Analysis complete:', event.detail);
 		// Optional: Show toast notification
@@ -183,34 +188,34 @@ function handleAgents() {
 	function toggleLabels() {
 		showLabels = !showLabels;
 	}
-$: isAgentReply = post.type === 'agent_reply' || !!post.agent;
-$: if (isAgentReply && post.agent && !agentData) {
-    loadAgentData(post.agent);
-}
+	$: isAgentReply = post.type === 'agent_reply' || !!post.agent;
+	$: if (isAgentReply && post.agent && !agentData) {
+		loadAgentData(post.agent);
+	}
 
-let agentData: AIAgent | null = null;
+	let agentData: AIAgent | null = null;
 
-async function loadAgentData(agentId: string) {
-    try {
-        // Check if agent is already in the store first
-        const storeAgent = $agentStore.agents.find(a => a.id === agentId);
-        if (storeAgent) {
-            agentData = storeAgent;
-            return;
-        }
-        
-        // If not in store, fetch from API
-        const response = await fetch(`/api/agents/${agentId}`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            agentData = await response.json();
-        }
-    } catch (error) {
-        console.error('Error loading agent data:', error);
-    }
-}
+	async function loadAgentData(agentId: string) {
+		try {
+			// Check if agent is already in the store first
+			const storeAgent = $agentStore.agents.find((a) => a.id === agentId);
+			if (storeAgent) {
+				agentData = storeAgent;
+				return;
+			}
+
+			// If not in store, fetch from API
+			const response = await fetch(`/api/agents/${agentId}`, {
+				credentials: 'include'
+			});
+
+			if (response.ok) {
+				agentData = await response.json();
+			}
+		} catch (error) {
+			console.error('Error loading agent data:', error);
+		}
+	}
 
 	const dispatch = createEventDispatcher<{
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
@@ -229,7 +234,7 @@ async function loadAgentData(agentId: string) {
 		goto(postUrl);
 	}
 
-	function openPDFReader(attachmentData) {
+	function openPDFReader(attachmentData: PostAttachment) {
 		currentPDFUrl = `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
 		showPDFReader = true;
 	}
@@ -241,7 +246,7 @@ async function loadAgentData(agentId: string) {
 		document.body.style.overflow = '';
 	}
 
-	function getPDFUrl(attachmentData) {
+	function getPDFUrl(attachmentData: PostAttachment) {
 		return `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
 	}
 	function handleModelSelect(event: CustomEvent<{ model: string }>) {
@@ -311,132 +316,269 @@ async function loadAgentData(agentId: string) {
 			agentsLoaded = false; // Reset so user can retry
 		}
 	}
-async function toggleAgentAssignment(agentId: string) {
-    console.log('🤖 Toggling agent assignment:', agentId);
+	async function toggleAgentAssignment(agentId: string) {
+		console.log('🤖 Toggling agent assignment:', agentId);
 
-    try {
-        const agent = activeAgents.find((a) => a.id === agentId);
-        const isCurrentlyAssigned = postAssignedAgentIds.includes(agentId);
-        
-        if (agent) {
-            console.log(`🤖 ${isCurrentlyAssigned ? 'Unassigning' : 'Assigning'} agent: ${agent.name}`);
-        }
+		try {
+			const agent = activeAgents.find((a) => a.id === agentId);
+			const isCurrentlyAssigned = postAssignedAgentIds.includes(agentId);
 
-        // Track the agent interaction
-        analytics.trackAgentInteraction(
-            isCurrentlyAssigned ? 'unassign' : 'assign', 
-            agentId, 
-            post.id
-        );
+			if (agent) {
+				console.log(`🤖 ${isCurrentlyAssigned ? 'Unassigning' : 'Assigning'} agent: ${agent.name}`);
+			}
 
-        // Update assignedAgents field
-        let newAssignedAgentIds: string[];
-        if (isCurrentlyAssigned) {
-            newAssignedAgentIds = postAssignedAgentIds.filter(id => id !== agentId);
-        } else {
-            newAssignedAgentIds = [...postAssignedAgentIds, agentId];
-        }
+			// Track the agent interaction
+			analytics.trackAgentInteraction(
+				isCurrentlyAssigned ? 'unassign' : 'assign',
+				agentId,
+				post.id
+			);
 
-        // Update post with new agent assignments
-        const response = await fetch(`/api/posts/${post.id}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({
-                assignedAgents: newAssignedAgentIds  // Use assignedAgents field
-            })
-        });
+			// Update assignedAgents field
+			let newAssignedAgentIds: string[];
+			if (isCurrentlyAssigned) {
+				newAssignedAgentIds = postAssignedAgentIds.filter((id) => id !== agentId);
+			} else {
+				newAssignedAgentIds = [...postAssignedAgentIds, agentId];
+			}
 
-        if (!response.ok) {
-            throw new Error('Failed to update agent assignment');
-        }
+			// Update post with new agent assignments
+			const response = await fetch(`/api/posts/${post.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
+				body: JSON.stringify({
+					assignedAgents: newAssignedAgentIds // Use assignedAgents field
+				})
+			});
 
-        // Update local post state
-        post.assignedAgents = newAssignedAgentIds;
-        
-        // Show success message
-        const isAssigned = newAssignedAgentIds.includes(agentId);
-        if (isAssigned) {
-            toast.success(`${$t('agents.title')} ${agent?.name} ${$t('status.assigned')}`);
-            
-            // Trigger auto-reply for new assignment
-            if (!isCurrentlyAssigned) {
-                try {
-                    await triggerAutoReplyForSpecificComment(post.id, agentId);
-                } catch (error) {
-                    console.warn('🤖 Auto-reply failed:', error);
-                }
-            }
-        } else {
-            toast.success(`${$t('agents.title')} ${agent?.name} ${$t('status.unassigned')}`);
-        }
+			if (!response.ok) {
+				throw new Error('Failed to update agent assignment');
+			}
 
-        // Trigger post update for reactivity
-        post = { ...post, assignedAgents: newAssignedAgentIds };
+			// Update local post state
+			post.assignedAgents = newAssignedAgentIds;
 
-    } catch (error) {
-        console.error('🤖 Error updating agent assignment:', error);
-        toast.error('Failed to update agent assignment');
-    }
-}
+			// Show success message
+			const isAssigned = newAssignedAgentIds.includes(agentId);
+			if (isAssigned) {
+				toast.success(`${$t('agents.title')} ${agent?.name} ${$t('status.assigned')}`);
 
-async function triggerBatchAutoReply() {
-    if (postAssignedAgentIds.length === 0) {  // Changed from postAgentIds
-        toast.warning(`${$t('generic.no')} ${$t('agents.agents')} ${$t('status.assigned')}`);
-        return;
-    }
+				// Trigger auto-reply for new assignment
+				if (!isCurrentlyAssigned) {
+					try {
+						await triggerAutoReplyForSpecificComment(post.id, agentId);
+					} catch (error) {
+						console.warn('🤖 Auto-reply failed:', error);
+					}
+				}
+			} else {
+				toast.success(`${$t('agents.title')} ${agent?.name} ${$t('status.unassigned')}`);
+			}
 
-    try {
-        console.log('🤖 Triggering batch auto-reply for all assigned agents...');
-        
-        // Track the batch auto-reply event
-        analytics.trackEvent('batch_auto_reply_triggered', { 
-            post_id: post.id,
-            agent_count: postAssignedAgentIds.length,  // Changed from postAgentIds
-            agent_ids: postAssignedAgentIds  // Changed from postAgentIds
-        });
-        
-        const result = await postStore.triggerAgentAutoReply(post.id, postAssignedAgentIds);  // Changed from postAgentIds
-        
-        if (result.skipped) {
-            toast.info('Post already analyzed by agents');
-            
-            // Track skipped auto-reply
-            analytics.trackEvent('auto_reply_skipped', {
-                post_id: post.id,
-                reason: result.reason || 'unknown'
-            });
-        } else {
-            const successCount = result.responses.filter(r => r.success).length;
-            const totalCount = result.responses.length;
-            
-            if (successCount === totalCount) {
-                toast.success(`All ${successCount} agents replied successfully`);
-            } else {
-                toast.warning(`${successCount}/${totalCount} agents replied successfully`);
-            }
-            
-            // Track successful auto-replies
-            analytics.trackEvent('auto_reply_completed', {
-                post_id: post.id,
-                success_count: successCount,
-                total_count: totalCount,
-                success_rate: successCount / totalCount
-            });
-        }
-    } catch (error) {
-        console.error('🤖 Error triggering batch auto-reply:', error);
-        toast.error('Failed to trigger agent auto-reply');
-        
-        // Track auto-reply errors
-        analytics.trackEvent('auto_reply_error', {
-            post_id: post.id,
-            agent_count: postAssignedAgentIds.length,  // Changed from postAgentIds
-            error: error.message
-        });
-    }
-}
+			// Trigger post update for reactivity
+			post = { ...post, assignedAgents: newAssignedAgentIds };
+		} catch (error) {
+			console.error('🤖 Error updating agent assignment:', error);
+			toast.error('Failed to update agent assignment');
+		}
+	}
 
+	async function triggerBatchAutoReply() {
+		if (postAssignedAgentIds.length === 0) {
+			toast.warning(`${$t('generic.no')} ${$t('agents.agents')} ${$t('status.assigned')}`);
+			return;
+		}
+
+		try {
+			console.log('🤖 Triggering batch auto-reply for all assigned agents...');
+
+			// Track the batch auto-reply event
+			analytics.trackEvent('batch_auto_reply_triggered', {
+				post_id: post.id,
+				agent_count: postAssignedAgentIds.length,
+				agent_ids: postAssignedAgentIds
+			});
+
+			const result = await postStore.triggerAgentAutoReply(post.id, postAssignedAgentIds);
+
+			if (result.skipped) {
+				toast.info('Post already analyzed by agents');
+				analytics.trackEvent('auto_reply_skipped', {
+					post_id: post.id,
+					reason: result.reason || 'unknown'
+				});
+			} else {
+				const successCount = result.responses?.filter((r) => r.success).length || 0;
+				const totalCount = result.responses?.length || 0;
+
+				if (successCount === totalCount) {
+					toast.success(`All ${successCount} agents replied successfully`);
+				} else {
+					toast.warning(`${successCount}/${totalCount} agents replied successfully`);
+				}
+
+				analytics.trackEvent('auto_reply_completed', {
+					post_id: post.id,
+					success_count: successCount,
+					total_count: totalCount,
+					success_rate: successCount / totalCount
+				});
+
+				// NEW: Redirect to post if we're on home page and replies were successful
+				if (successCount > 0 && shouldRedirectToPost()) {
+					redirectToPost();
+				}
+			}
+		} catch (error) {
+			console.error('🤖 Error triggering batch auto-reply:', error);
+			toast.error('Failed to trigger agent auto-reply');
+
+			analytics.trackEvent('auto_reply_error', {
+				post_id: post.id,
+				agent_count: postAssignedAgentIds.length,
+				error: error.message
+			});
+		}
+	}
+
+	async function triggerAutoReplyForSpecificComment(commentId: string, agentId: string) {
+		try {
+			console.log('🤖 Triggering auto-reply API call:', { commentId, agentId });
+
+			const response = await fetch(`/api/agents/${agentId}/auto-reply`, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				credentials: 'include',
+				body: JSON.stringify({ postId: commentId })
+			});
+
+			console.log('🤖 Auto-reply API response:', {
+				status: response.status,
+				ok: response.ok
+			});
+
+			if (response.ok) {
+				const result = await response.json();
+				console.log('🤖 Auto-reply result:', result);
+
+				if (result.success && !result.skipped) {
+					const agent = activeAgents.find((a) => a.id === agentId);
+					const agentName = agent?.name || 'Agent';
+					toast.success(`${agentName} replied to comment`);
+
+					// NEW: Redirect to post if we're on home page
+					if (shouldRedirectToPost()) {
+						// Add a delay to let user see the success message
+						setTimeout(() => {
+							redirectToPost();
+						}, 1500);
+					} else {
+						// If already on post page, just refresh to show new reply
+						setTimeout(() => {
+							window.location.reload();
+						}, 1000);
+					}
+				} else if (result.skipped) {
+					console.log('🤖 Auto-reply skipped:', result.reason);
+				}
+			} else {
+				const errorText = await response.text();
+				console.error('🤖 Auto-reply API error:', errorText);
+			}
+		} catch (error) {
+			console.error('Error triggering auto-reply for comment:', error);
+		}
+	}
+
+	// NEW: Helper function to determine if we should redirect
+	function shouldRedirectToPost(): boolean {
+		const currentRoute = $page.route.id;
+		const currentPath = $page.url.pathname;
+
+		// Check if we're on home page or similar listing pages
+		const isHomePage = currentRoute === '/' || currentPath === '/';
+		const isDiscoverPage = currentPath.includes('/discover');
+		const isFeedPage = currentPath.includes('/feed');
+		const isTagPage = currentPath.includes('/tags/');
+
+		// Don't redirect if we're already on the specific post page
+		const isAlreadyOnPostPage = currentPath.includes(`/${post.author_username}/posts/${post.id}`);
+
+		console.log('🔍 Redirect check:', {
+			currentRoute,
+			currentPath,
+			isHomePage,
+			isDiscoverPage,
+			isFeedPage,
+			isTagPage,
+			isAlreadyOnPostPage,
+			shouldRedirect:
+				(isHomePage || isDiscoverPage || isFeedPage || isTagPage) && !isAlreadyOnPostPage
+		});
+
+		return (isHomePage || isDiscoverPage || isFeedPage || isTagPage) && !isAlreadyOnPostPage;
+	}
+
+	// NEW: Helper function to redirect to the post
+	function redirectToPost() {
+		const postUrl = `/${post.author_username}/posts/${post.id}`;
+		console.log('🔗 Redirecting to post:', postUrl);
+
+		// Use goto for client-side navigation
+		goto(postUrl, {
+			replaceState: false, // Add to browser history
+			noScroll: false // Allow normal scroll behavior
+		});
+	}
+
+	// Update the checkForNewCommentsAndTriggerReplies function
+	async function checkForNewCommentsAndTriggerReplies() {
+		console.log('🤖 Checking for new comments that need auto-replies...');
+
+		try {
+			const response = await fetch(`/api/posts/${post.id}/children?latest=true&limit=10`, {
+				credentials: 'include'
+			});
+
+			if (response.ok) {
+				const data = await response.json();
+				const newComments = data.children || [];
+
+				const userComments = newComments.filter((comment: any) => {
+					const isAgentReply = comment.agent || comment.type === 'agent_reply';
+					return !isAgentReply;
+				});
+
+				if (userComments.length > 0 && postAssignedAgents.length > 0) {
+					console.log(
+						'🤖 Triggering auto-replies for comments:',
+						userComments.map((c) => c.id)
+					);
+
+					let repliesTriggered = 0;
+
+					for (const comment of userComments) {
+						for (const agentId of postAssignedAgents) {
+							await triggerAutoReplyForSpecificComment(comment.id, agentId);
+							repliesTriggered++;
+						}
+					}
+
+					// NEW: If replies were triggered and we're on home page, redirect after all are done
+					if (repliesTriggered > 0 && shouldRedirectToPost()) {
+						setTimeout(() => {
+							redirectToPost();
+						}, 2000); // Give time for all replies to process
+					}
+				}
+			}
+		} catch (error) {
+			console.error('Error checking for new comments:', error);
+		}
+	}
 
 	function handleInteraction(action: 'upvote' | 'repost' | 'read') {
 		dispatch('interact', { postId: post.id, action });
@@ -812,26 +954,31 @@ async function triggerBatchAutoReply() {
 	//         expand_user: post.expand?.user
 	//     });
 	// }
-$: {
-	console.log('🔍 FULL POST DEBUG:', {
-		postId: post.id,
-		userId: post.user,
-		author_name: post.author_name,
-		author_username: post.author_username, 
-		author_avatar: post.author_avatar,
-		expand: post.expand,
-		expand_user: post.expand?.user,
-		isGuest: !$currentUser,
-		fullPost: post // This will show the entire post object
-	});
-}
+	$: {
+		console.log('🔍 FULL POST DEBUG:', {
+			postId: post.id,
+			userId: post.user,
+			author_name: post.author_name,
+			author_username: post.author_username,
+			author_avatar: post.author_avatar,
+			expand: post.expand,
+			expand_user: post.expand?.user,
+			isGuest: !$currentUser,
+			fullPost: post // This will show the entire post object
+		});
+	}
 
-$: avatarUserData = {
-	id: post.user || 'guest',
-	avatar: post.author_avatar || post.expand?.user?.avatar || null,
-	username: post.author_username || post.expand?.user?.username || 'user',
-	name: post.author_name || post.expand?.user?.name || post.author_username || post.expand?.user?.username || 'User'
-};
+	$: avatarUserData = {
+		id: post.user || 'guest',
+		avatar: post.author_avatar || post.expand?.user?.avatar || null,
+		username: post.author_username || post.expand?.user?.username || 'user',
+		name:
+			post.author_name ||
+			post.expand?.user?.name ||
+			post.author_username ||
+			post.expand?.user?.username ||
+			'User'
+	};
 	$: if (agentsExpanded && !agentsLoaded && !$agentStore.isLoading) {
 		console.log('🤖 Agents expanded for first time, loading...');
 		loadAgentsOnDemand();
@@ -843,7 +990,6 @@ $: avatarUserData = {
 
 	$: isUsernameRoute = $page.route.id === '/[username]';
 
-
 	onDestroy(() => {
 		if (post.attachments) {
 			post.attachments.forEach((attachment) => {
@@ -853,147 +999,36 @@ $: avatarUserData = {
 			});
 		}
 	});
-let lastCommentCount = 0;
-let commentCheckDebounce: ReturnType<typeof setTimeout>;
+	let lastCommentCount = 0;
+	let commentCheckDebounce: ReturnType<typeof setTimeout>;
 
-$: postAssignedAgents = post.assignedAgents || [];
-$: console.log('🤖 REACTIVE CHECK:', {
-    postId: post.id,
-    commentCount: post.commentCount,
-    hasAssignedAgents: !!post.assignedAgents,
-    assignedAgentCount: postAssignedAgents.length,
-    assignedAgents: postAssignedAgents,
-    shouldTrigger: !!(post.commentCount && postAssignedAgents.length > 0)
-});
+	$: postAssignedAgents = post.assignedAgents || [];
+	$: console.log('🤖 REACTIVE CHECK:', {
+		postId: post.id,
+		commentCount: post.commentCount,
+		hasAssignedAgents: !!post.assignedAgents,
+		assignedAgentCount: postAssignedAgents.length,
+		assignedAgents: postAssignedAgents,
+		shouldTrigger: !!(post.commentCount && postAssignedAgents.length > 0)
+	});
 
-$: if (post.commentCount && postAssignedAgents.length > 0) {
-    console.log('🤖 Comment count changed:', {
-        current: post.commentCount,
-        last: lastCommentCount,
-        hasAssignedAgents: postAssignedAgents.length,
-        postId: post.id
-    });
-    
-    if (post.commentCount > lastCommentCount && lastCommentCount > 0) {
-        console.log('🤖 New comment detected, scheduling auto-reply check...');
-        clearTimeout(commentCheckDebounce);
-        commentCheckDebounce = setTimeout(() => {
-            checkForNewCommentsAndTriggerReplies();
-        }, 2000);
-    }
-    lastCommentCount = post.commentCount;
-}
+	$: if (post.commentCount && postAssignedAgents.length > 0) {
+		console.log('🤖 Comment count changed:', {
+			current: post.commentCount,
+			last: lastCommentCount,
+			hasAssignedAgents: postAssignedAgents.length,
+			postId: post.id
+		});
 
-async function checkForNewCommentsAndTriggerReplies() {
-    console.log('🤖 Checking for new comments that need auto-replies...');
-    console.log('🤖 Post details:', {
-        postId: post.id,
-        commentCount: post.commentCount,
-        assignedAgents: postAssignedAgents
-    });
-    
-    try {
-        // Get the latest comments
-        const response = await fetch(`/api/posts/${post.id}/children?latest=true&limit=10`, {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const newComments = data.children || [];
-            
-            console.log('🤖 Found comments:', {
-                total: newComments.length,
-                comments: newComments.map(c => ({
-                    id: c.id,
-                    user: c.user,
-                    agent: c.agent,
-                    type: c.type,
-                    content: c.content?.substring(0, 50)
-                }))
-            });
-            
-            // Find comments that need auto-replies
-const userComments = newComments.filter((comment: any) => {
-    const isAgentReply = comment.agent || comment.type === 'agent_reply';
-    
-    console.log('🤖 Comment filter check:', {
-        id: comment.id,
-        user: comment.user,
-        currentUser: $currentUser?.id,
-        isAgentReply,
-        shouldTrigger: !isAgentReply
-    });
-    
-    // Only filter out agent replies - allow all human comments (including own comments)
-    return !isAgentReply;
-});
-            console.log('🤖 Comments needing auto-reply:', userComments.length);
-            
-            if (userComments.length > 0 && postAssignedAgents.length > 0) {
-                console.log('🤖 Triggering auto-replies for comments:', userComments.map(c => c.id));
-                
-                // Trigger auto-reply for each new comment
-                for (const comment of userComments) {
-                    console.log('🤖 Processing comment:', comment.id);
-                    // For each assigned agent, trigger a reply
-                    for (const agentId of postAssignedAgents) {
-                        console.log('🤖 Triggering auto-reply:', { commentId: comment.id, agentId });
-                        await triggerAutoReplyForSpecificComment(comment.id, agentId);
-                    }
-                }
-            } else {
-                console.log('🤖 No auto-replies needed:', {
-                    userCommentsCount: userComments.length,
-                    assignedAgentsCount: postAssignedAgents.length
-                });
-            }
-        } else {
-            console.error('🤖 Failed to fetch comments:', response.status);
-        }
-    } catch (error) {
-        console.error('Error checking for new comments:', error);
-    }
-}
-async function triggerAutoReplyForSpecificComment(commentId: string, agentId: string) {
-    try {
-        console.log('🤖 Triggering auto-reply API call:', { commentId, agentId });
-        
-        const response = await fetch(`/api/agents/${agentId}/auto-reply`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({ postId: commentId })
-        });
-        
-        console.log('🤖 Auto-reply API response:', {
-            status: response.status,
-            ok: response.ok
-        });
-        
-        if (response.ok) {
-            const result = await response.json();
-            console.log('🤖 Auto-reply result:', result);
-            
-            if (result.success && !result.skipped) {
-                toast.success(`${postAssignedAgentIds}  replied to comment`);
-                // Refresh the comments to show the new reply
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1000);
-            } else if (result.skipped) {
-                console.log('🤖 Auto-reply skipped:', result.reason);
-            }
-        } else {
-            const errorText = await response.text();
-            console.error('🤖 Auto-reply API error:', errorText);
-        }
-    } catch (error) {
-        console.error('Error triggering auto-reply for comment:', error);
-    }
-}
+		if (post.commentCount > lastCommentCount && lastCommentCount > 0) {
+			console.log('🤖 New comment detected, scheduling auto-reply check...');
+			clearTimeout(commentCheckDebounce);
+			commentCheckDebounce = setTimeout(() => {
+				checkForNewCommentsAndTriggerReplies();
+			}, 2000);
+		}
+		lastCommentCount = post.commentCount;
+	}
 </script>
 
 <article class="post-card" class:comment={isComment}>
@@ -1008,97 +1043,94 @@ async function triggerAutoReplyForSpecificComment(commentId: string, agentId: st
 			<span>{$t('posts.youReposted')}</span>
 		</div>
 	{/if}
-{#if !isUsernameRoute}
-	<div class="post-header" class:scrolled={hideHeaderOnScroll} class:agent-reply={isAgentReply}>
-		{#if isAgentReply && agentData}
-			<!-- Agent Reply Header -->
+	{#if !isUsernameRoute}
+		<div class="post-header" class:scrolled={hideHeaderOnScroll} class:agent-reply={isAgentReply}>
+			{#if isAgentReply && agentData}
+				<!-- Agent Reply Header -->
 
-								<div class="post-avatar">
-								{#if agentData.avatar}
-									<img src={getAgentAvatarUrl(agentData)} alt="Agent avatar" class="avatar" />
-								{:else}
-									<div class="post-avatar-placeholder">
-										<Icon name="Bot" size={20} />
-									</div>
-								{/if}
+				<div class="post-avatar">
+					{#if agentData.avatar}
+						<img src={getAgentAvatarUrl(agentData)} alt="Agent avatar" class="avatar" />
+					{:else}
+						<div class="post-avatar-placeholder">
+							<Icon name="Bot" size={20} />
+						</div>
+					{/if}
 				</div>
 
-			<div class="agent-info">
-				<div class="post-author">{agentData.name || 'AI Agent'}</div>
-				<div class="post-role">{agentData.role || 'assistant'}</div>
+				<div class="agent-info">
+					<div class="post-author">{agentData.name || 'AI Agent'}</div>
+					<div class="post-role">{agentData.role || 'assistant'}</div>
+				</div>
+			{:else}
+				<!-- Regular User Post Header -->
+				<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
+					<Avatar
+						user={{
+							id: post.user || 'guest',
+							name: post.author_name || post.expand?.user?.name,
+							username:
+								post.author_username ||
+								post.expand?.user?.username ||
+								`user_${(post.user || 'guest').slice(-4)}`,
+							avatar: post.author_avatar || post.expand?.user?.avatar
+						}}
+						size={40}
+						className="post-avatar"
+					/>
+				</a>
+				<a
+					href="/{post.author_username || post.expand?.user?.username}"
+					class="author-link"
+					class:hidden={hideHeaderOnScroll}
+				>
+					<div class="post-author">
+						{post.author_name ||
+							post.author_username ||
+							post.expand?.user?.name ||
+							post.expand?.user?.username ||
+							'Unknown User'}
+					</div>
+				</a>
+			{/if}
+
+			<div class="post-meta">
+				{#if isAgentReply}
+					<div class="auto-reply-badge">
+						<Icon name="PlugZap" size={16} />
+						{$t('agents.autoReply')}
+					</div>
+				{/if}
+				<div class="post-timestamp">{formatTimestamp(post.created)}</div>
 			</div>
-		{:else}
-			<!-- Regular User Post Header -->
-			<a href="/{post.author_username}" class="avatar-link" class:hidden={hideHeaderOnScroll}>
-				<Avatar 
-					user={{
-						id: post.user || 'guest',
-						name: post.author_name || post.expand?.user?.name,
-						username: post.author_username || 
-								  post.expand?.user?.username || 
-								  `user_${(post.user || 'guest').slice(-4)}`,
-						avatar: post.author_avatar || post.expand?.user?.avatar
-					}} 
-					size={40} 
-					className="post-avatar" 
-				/>
-			</a>
-			<a
-				href="/{post.author_username || post.expand?.user?.username}"
-				class="author-link"
-				class:hidden={hideHeaderOnScroll}
-			>
-				<div class="post-author">
-					{post.author_name ||
-						post.author_username ||
-						post.expand?.user?.name ||
-						post.expand?.user?.username ||
-						'Unknown User'}
-				</div>
-			</a>
-		{/if}
-		
-		<div class="post-meta">
+		</div>
+	{:else}
+		<!-- Username route - simplified header -->
+		<div class="post-header" class:scrolled={hideHeaderOnScroll} class:agent-reply={isAgentReply}>
 			{#if isAgentReply}
-				<div class="auto-reply-badge">
-					<Icon name="PlugZap" size={16} />
-					{$t('agents.autoReply')}
+				<div class="agent-reply-indicator">
+					<Icon name="Bot" size={14} />
+					<span>Agent Reply</span>
 				</div>
 			{/if}
-						<div class="post-timestamp">{formatTimestamp(post.created)}</div>
 
-		</div>
-	</div>
-{:else}
-	<!-- Username route - simplified header -->
-	<div class="post-header" class:scrolled={hideHeaderOnScroll} class:agent-reply={isAgentReply}>
-		{#if isAgentReply}
-			<div class="agent-reply-indicator">
-				<Icon name="Bot" size={14} />
-				<span>Agent Reply</span>
+			<div class="post-meta">
+				{#if isAgentReply}
+					<div class="auto-reply-badge">
+						<Icon name="Zap" size={12} />
+						{$t('agents.autoReply')}
+					</div>
+				{/if}
+				<div class="post-timestamp">{formatTimestamp(post.created)}</div>
 			</div>
-		{/if}
-		
-		<div class="post-meta">
-			{#if isAgentReply}
-				<div class="auto-reply-badge">
-					<Icon name="Zap" size={12} />
-					{$t('agents.autoReply')}
-				</div>
-			{/if}
-						<div class="post-timestamp">{formatTimestamp(post.created)}</div>
-
 		</div>
-	</div>
-{/if}
+	{/if}
 
-
-		<!-- {#if showActions}
+	<!-- {#if showActions}
 			<button class="post-options">
 				<Icon name="MoreHorizontal" size={16} />
 			</button>
 		{/if} -->
-
 
 	{#if !isComment}
 		<div class="post-content">
@@ -1122,7 +1154,19 @@ async function triggerAutoReplyForSpecificComment(commentId: string, agentId: st
 					}
 				}}
 			>
-  {@html htmlContent}
+				{#if post.content}
+					{#await post.content}
+						<div class="spinner-container">
+							<div class="spinner"></div>
+						</div>
+					{:then content}
+						{@html marked(content)}
+					{:catch}
+						<div>Error loading content</div>
+					{/await}
+				{:else}
+					<div>No content</div>
+				{/if}
 			</a>
 
 			{#if post.attachments && post.attachments.length > 0}
@@ -1219,8 +1263,19 @@ async function triggerAutoReplyForSpecificComment(commentId: string, agentId: st
 	{:else}
 		<!-- Comments section stays the same -->
 		<div class="post-content">
-  {@html htmlContent}
-
+			{#if post.content}
+				{#await post.content}
+					<div class="spinner-container">
+						<div class="spinner"></div>
+					</div>
+				{:then content}
+					{@html marked(content)}
+				{:catch}
+					<div>Error loading content</div>
+				{/await}
+			{:else}
+				<div>No content</div>
+			{/if}
 			{#if post.attachments && post.attachments.length > 0}
 				<div class="post-attachments">
 					{#each post.attachments as attachment}
@@ -1387,112 +1442,113 @@ async function triggerAutoReplyForSpecificComment(commentId: string, agentId: st
 		</div>
 	{/if}
 	<div class="actions-container">
-{#if agentsExpanded}
-<div class="agents-container">
-	<div class="agents-block">
-
-	<div 
-		class="agents-row" 
-		class:analyzed={showAIAnalysisModal}
-		transition:slide={{ duration: 200 }}
-	>
-		{#if activeAgents.length === 0}
-			<div class="no-agents-message">
-				<p>No active agents available</p>
-				<p><small>Total agents in store: {availableAgents.length}</small></p>
-			</div>
-		{:else}
-			{#each activeAgents.slice(0, 5) as agent (agent.id)}
-				<div
-					class="agent-avatar clickable"
-					class:assigned={postAssignedAgentIds.includes(agent.id)}
-					class:analyzing={agent.status === 'analyzing'}
-					title="{agent.name} - Click to {postAssignedAgentIds.includes(agent.id)
-						? 'unassign'
-						: 'assign'}"
-					on:click={() => toggleAgentAssignment(agent.id)}
-					on:keydown={(e) => e.key === 'Enter' && toggleAgentAssignment(agent.id)}
-					role="button"
-					tabindex="0"
-					animate:flip={{ duration: 200 }}
-				>
-					{#if agent.avatar}
-						<img
-							src={getAvatarUrl(agent)}
-							alt={agent.name}
-							class="avatar-image"
-							on:error={(e) => {
-								console.warn('Failed to load avatar for', agent.name, ':', e.target.src);
-								e.target.style.display = 'none';
-								const fallback = e.target.nextElementSibling;
-								if (fallback) {
-									fallback.style.display = 'flex';
-								}
-							}}
-						/>
-						<!-- Fallback shown when image fails to load -->
-						<div class="avatar-fallback" style="display: none;">
-							{agent.name.charAt(0).toUpperCase()}
-						</div>
-					{:else}
-						<div class="avatar-fallback">
-							{agent.name.charAt(0).toUpperCase()}
-						</div>
-					{/if}
-					<span class="agent-name">{agent.name}</span>
-					{#if postAssignedAgentIds.includes(agent.id)}
-						<div class="assigned-indicator">
-							{#if agent.status === 'analyzing'}
-								<Icon name="Loader2" size={12}  />
-							{:else}
-								✓
-							{/if}
-						</div>
-					{/if}
-				</div>
-			{/each}
-
-			{#if activeAgents.length > 5}
-				<div class="agent-overflow" title={`+${activeAgents.length - 5} more agents available`}>
-					<span class="overflow-count">+{activeAgents.length - 5}</span>
-				</div>
-			{/if}
-		{/if}
-	</div>
-	
-	<div class="agents-info">
-		{#if postAssignedAgentIds.length > 0}
-			<div class="agents-summary">
-				<span>{postAssignedAgentIds.length} {$t('status.assigned')}</span>
-				<!-- Auto-reply control buttons -->
-					<button 
-						class="auto-reply-btn"
-						on:click={triggerBatchAutoReply}
-						title="Trigger auto-reply for all assigned agents"
+		{#if agentsExpanded}
+			<div class="agents-container">
+				<div class="agents-block">
+					<div
+						class="agents-row"
+						class:analyzed={showAIAnalysisModal}
+						transition:slide={{ duration: 200 }}
 					>
-						<Icon name="MessageSquare" size={14} />
-						{$t('agents.autoReply')}
-					</button>
-			</div>
-		{/if}
-		<!-- <div class="agents-header">
+						{#if activeAgents.length === 0}
+							<div class="no-agents-message">
+								<p>No active agents available</p>
+								<p><small>Total agents in store: {availableAgents.length}</small></p>
+							</div>
+						{:else}
+							{#each activeAgents.slice(0, 5) as agent (agent.id)}
+								<div
+									class="agent-avatar clickable"
+									class:assigned={postAssignedAgentIds.includes(agent.id)}
+									class:analyzing={agent.status === 'analyzing'}
+									title="{agent.name} - Click to {postAssignedAgentIds.includes(agent.id)
+										? 'unassign'
+										: 'assign'}"
+									on:click={() => toggleAgentAssignment(agent.id)}
+									on:keydown={(e) => e.key === 'Enter' && toggleAgentAssignment(agent.id)}
+									role="button"
+									tabindex="0"
+									animate:flip={{ duration: 200 }}
+								>
+									{#if agent.avatar}
+										<img
+											src={getAvatarUrl(agent)}
+											alt={agent.name}
+											class="avatar-image"
+											on:error={(e) => {
+												console.warn('Failed to load avatar for', agent.name, ':', e.target.src);
+												e.target.style.display = 'none';
+												const fallback = e.target.nextElementSibling;
+												if (fallback) {
+													fallback.style.display = 'flex';
+												}
+											}}
+										/>
+										<!-- Fallback shown when image fails to load -->
+										<div class="avatar-fallback" style="display: none;">
+											{agent.name.charAt(0).toUpperCase()}
+										</div>
+									{:else}
+										<div class="avatar-fallback">
+											{agent.name.charAt(0).toUpperCase()}
+										</div>
+									{/if}
+									<span class="agent-name">{agent.name}</span>
+									{#if postAssignedAgentIds.includes(agent.id)}
+										<div class="assigned-indicator">
+											{#if agent.status === 'analyzing'}
+												<Icon name="Loader2" size={12} />
+											{:else}
+												✓
+											{/if}
+										</div>
+									{/if}
+								</div>
+							{/each}
+
+							{#if activeAgents.length > 5}
+								<div
+									class="agent-overflow"
+									title={`+${activeAgents.length - 5} more agents available`}
+								>
+									<span class="overflow-count">+{activeAgents.length - 5}</span>
+								</div>
+							{/if}
+						{/if}
+					</div>
+
+					<div class="agents-info">
+						{#if postAssignedAgentIds.length > 0}
+							<div class="agents-summary">
+								<span>{postAssignedAgentIds.length} {$t('status.assigned')}</span>
+								<!-- Auto-reply control buttons -->
+								<button
+									class="auto-reply-btn"
+									on:click={triggerBatchAutoReply}
+									title="Trigger auto-reply for all assigned agents"
+								>
+									<Icon name="MessageSquare" size={14} />
+									{$t('agents.autoReply')}
+								</button>
+							</div>
+						{/if}
+						<!-- <div class="agents-header">
 			<span class="agents-title">{$t('agents.agents')}</span> 
 			<span class="active">{$t('status.active')}: {activeAgents.length}</span>
 			<span class="inactive">{$t('status.total')}: {availableAgents.length}</span>
 
 		</div> -->
-	</div>
-		</div>
-
-	</div>
-{/if}
-	<LocalAIAnalysisButton
-		bind:isOpen={showAIAnalysisModal}
-		on:close={() => (showAIAnalysisModal = false)}
-		{post}
-		selectedModel={selectedLocalModel}
-		on:analyzed={handleAIAnalysis}
-	/>
+					</div>
+				</div>
+			</div>
+		{/if}
+		<LocalAIAnalysisButton
+			bind:isOpen={showAIAnalysisModal}
+			on:close={() => (showAIAnalysisModal = false)}
+			{post}
+			selectedModel={selectedLocalModel}
+			on:analyzed={handleAIAnalysis}
+		/>
 	</div>
 	{#if showActions}
 		<div class="post-actions">
@@ -1537,8 +1593,8 @@ async function triggerAutoReplyForSpecificComment(commentId: string, agentId: st
 				<button
 					class="action-button agents"
 					class:expanded={agentsExpanded}
-class:has-agents={assignedAgentCount > 0}
-class:no-agents={assignedAgentCount === 0}
+					class:has-agents={assignedAgentCount > 0}
+					class:no-agents={assignedAgentCount === 0}
 					title={agentsTitle}
 					on:click={handleAgents}
 				>
@@ -1548,8 +1604,7 @@ class:no-agents={assignedAgentCount === 0}
 						{$t('agents.agents')}
 						<span class="agent-count">({activeAgents.length})</span>
 					{:else}
-					<span class="agent-count">{activeAgents.length}</span>
-
+						<span class="agent-count">{activeAgents.length}</span>
 					{/if}
 
 					<span class="expand-icon">
@@ -1567,11 +1622,10 @@ class:no-agents={assignedAgentCount === 0}
 					title="Analyze with Local AI"
 					disabled={!post.content?.trim()}
 				>
-				<Icon name="Brain" size={12} />
-				{#if showAIAnalysisModal}
-					{$t('agents.analysis')}
-				{:else}
-				{/if}
+					<Icon name="Brain" size={12} />
+					{#if showAIAnalysisModal}
+						{$t('agents.analysis')}
+					{:else}{/if}
 					<!-- <span>AI tools</span> -->
 				</button>
 			</div>
@@ -1631,7 +1685,7 @@ class:no-agents={assignedAgentCount === 0}
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1731,7 +1785,7 @@ class:no-agents={assignedAgentCount === 0}
 		transition: all 0.2s ease;
 		&:hover {
 			opacity: 1;
-		};
+		}
 	}
 	.post-card {
 		border-radius: 1rem 1rem 0 0;
@@ -1753,6 +1807,7 @@ class:no-agents={assignedAgentCount === 0}
 		margin: 0;
 		height: auto;
 		gap: 0.75rem;
+		user-select: none;
 	}
 	.post-header.scrolled {
 		padding: 0;
@@ -1789,7 +1844,7 @@ class:no-agents={assignedAgentCount === 0}
 		& img {
 			width: 40px;
 			height: 40px;
-			border-radius: 50%;	
+			border-radius: 50%;
 			object-fit: cover;
 		}
 	}
@@ -1841,7 +1896,7 @@ class:no-agents={assignedAgentCount === 0}
 	}
 
 	.author-link:hover .post-author {
-		color: var(--primary-color);
+		color: var(--tertiary-color);
 	}
 	.post-meta {
 		display: flex;
@@ -1886,6 +1941,9 @@ class:no-agents={assignedAgentCount === 0}
 		border-radius: 8px;
 		padding: 4px;
 		margin: -4px;
+		&:hover {
+			color: var(--tertiary-color);
+		}
 	}
 
 	.post-content-link:hover {
@@ -1944,6 +2002,7 @@ class:no-agents={assignedAgentCount === 0}
 		margin-left: 1rem;
 		margin-right: 0.5rem;
 		margin-bottom: 0.5rem;
+		user-select: none;
 	}
 	.action-wrapper {
 		display: flex;
@@ -1952,7 +2011,7 @@ class:no-agents={assignedAgentCount === 0}
 		align-items: center;
 		gap: 0.25rem;
 		cursor: pointer;
-		
+
 		transition: all 0.3s ease;
 		&:hover {
 			padding: 0 0.5rem;
@@ -2188,21 +2247,21 @@ class:no-agents={assignedAgentCount === 0}
 			border-radius: 2rem;
 			justify-content: flex-start;
 			// background: var(--bg-gradient-right);
-			width: calc(100% - 2rem); 
+			width: calc(100% - 2rem);
 		}
-	& .agent-avatar.assigned {
-		box-shadow: var(--tertiary-color) 0 0 10px 2px;
-		background-color: var(--primary-color) !important;
-	}
-		& 	.agent-name {
-		font-size: 0.8rem;
-		color: var(--placeholder-color);
-		text-align: center;
-		max-width: 100%;
-		overflow: visible;
-		text-overflow: visible;
-		white-space: nowrap;
-	}
+		& .agent-avatar.assigned {
+			box-shadow: var(--tertiary-color) 0 0 10px 2px;
+			background-color: var(--primary-color) !important;
+		}
+		& .agent-name {
+			font-size: 0.8rem;
+			color: var(--placeholder-color);
+			text-align: center;
+			max-width: 100%;
+			overflow: visible;
+			text-overflow: visible;
+			white-space: nowrap;
+		}
 	}
 	.agent-avatar {
 		display: flex;
@@ -2331,9 +2390,7 @@ class:no-agents={assignedAgentCount === 0}
 	}
 	span.active {
 		color: var(--tertiary-color);
-				font-size: 0.8rem;
-
-
+		font-size: 0.8rem;
 	}
 	.agents-summary {
 		display: flex;

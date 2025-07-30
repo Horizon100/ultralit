@@ -83,12 +83,12 @@
 		dispatch('close');
 	}
 
-function applyTheme(theme: string) {
-	// Remove all available theme classes first
-	document.documentElement.classList.remove(...availableThemes);
-	// Add the new theme class
-	document.documentElement.classList.add(theme);
-}
+	function applyTheme(theme: string) {
+		// Remove all available theme classes first
+		document.documentElement.classList.remove(...availableThemes);
+		// Add the new theme class
+		document.documentElement.classList.add(theme);
+	}
 	function handleHover(style: Style) {
 		hoveredStyle = style;
 		applyTheme(style.value);
@@ -127,8 +127,6 @@ function applyTheme(theme: string) {
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
-
 	.style-switcher {
 		display: flex;
 		flex-wrap: wrap;

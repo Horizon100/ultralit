@@ -3,9 +3,9 @@ import { ClientResponseError } from 'pocketbase';
 import type { User } from '$lib/types/types';
 import type { Cookies } from '@sveltejs/kit';
 import { pbTryCatch } from '$lib/utils/errorUtils';
-import { VITE_POCKETBASE_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-export const pb = new PocketBase(VITE_POCKETBASE_URL || 'http://localhost:8090');
+export const pb = new PocketBase(env.POCKETBASE_URL || 'http://localhost:8090');
 pb.autoCancellation(false);
 
 // Utility variable for auth checks

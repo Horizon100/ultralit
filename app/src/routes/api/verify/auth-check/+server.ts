@@ -45,7 +45,7 @@ export const GET: RequestHandler = async ({ cookies }) => {
 					username: pb.authStore.model?.username,
 					name: pb.authStore.model?.name,
 					avatar: pb.authStore.model?.avatar,
-					role: pb.authStore.model?.role, 
+					role: pb.authStore.model?.role,
 					verified: pb.authStore.model?.verified,
 					status: pb.authStore.model?.status,
 					created: pb.authStore.model?.created,

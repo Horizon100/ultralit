@@ -1,10 +1,10 @@
-import type { AIModel, ProviderType, SelectableAIModel } from '$lib/types/types';
+import type { AIModel, AIProviderType, SelectableAIModel } from '$lib/types/types';
 
 export const availableModels: AIModel[] = [
 	{
 		id: 'gpt-3.5-turbo',
 		name: 'GPT-3.5 Turbo',
-		provider: 'openai' as ProviderType,
+		provider: 'openai' as AIProviderType,
 		api_key: '',
 		base_url: 'https://api.openai.com/v1',
 		api_type: 'gpt-3.5-turbo',
@@ -20,7 +20,7 @@ export const availableModels: AIModel[] = [
 	{
 		id: 'claude-3-haiku',
 		name: 'Claude 3 Haiku',
-		provider: 'anthropic' as ProviderType,
+		provider: 'anthropic' as AIProviderType,
 		api_key: '',
 		base_url: 'https://api.anthropic.com/v1',
 		api_type: 'claude-3-haiku-20240307',
@@ -35,7 +35,7 @@ export const availableModels: AIModel[] = [
 	{
 		id: 'deepseek-deepseek-chat',
 		name: 'Deepseek Chat',
-		provider: 'deepseek' as ProviderType,
+		provider: 'deepseek' as AIProviderType,
 		api_key: '',
 		base_url: 'https://api.deepseek.com/v1',
 		api_type: 'deepseek-chat',
@@ -54,7 +54,7 @@ export const localDefaultModels: SelectableAIModel[] = [
 	{
 		id: 'qwen2.5:0.5b',
 		name: 'Qwen 2.5 0.5B',
-		provider: 'local' as ProviderType,
+		provider: 'local' as AIProviderType,
 		description: 'Small, fast local model for basic tasks',
 		api_type: 'qwen2.5:0.5b',
 		parameters: '0.5B',
@@ -63,7 +63,7 @@ export const localDefaultModels: SelectableAIModel[] = [
 	{
 		id: 'llama3.2:1b',
 		name: 'Llama 3.2 1B',
-		provider: 'local' as ProviderType,
+		provider: 'local' as AIProviderType,
 		description: 'Efficient local model for general use',
 		api_type: 'llama3.2:1b',
 		parameters: '1B',
@@ -72,7 +72,7 @@ export const localDefaultModels: SelectableAIModel[] = [
 	{
 		id: 'deepseek-r1:1.5b',
 		name: 'DeepSeek R1 1.5B',
-		provider: 'local' as ProviderType,
+		provider: 'local' as AIProviderType,
 		description: 'Local reasoning model',
 		api_type: 'deepseek-r1:1.5b',
 		parameters: '1.5B',
@@ -105,26 +105,27 @@ export const defaultLocalModel: AIModel = createLocalAIModel(localDefaultModels[
 export async function getRuntimeDefaultModel(): Promise<SelectableAIModel> {
 	// Check if local server is available
 	const localAvailable = await checkLocalServerAvailability();
-	
+
 	if (localAvailable) {
 		console.log('🎯 Using local model as default');
 		return {
 			id: localDefaultModels[0].id,
 			name: localDefaultModels[0].name,
-			provider: 'local' as ProviderType,
+			provider: 'local' as AIProviderType,
 			api_type: localDefaultModels[0].api_type,
 			description: localDefaultModels[0].description,
 			parameters: localDefaultModels[0].parameters,
 			size: localDefaultModels[0].size
 		};
 	}
-	
+
 	// Fall back to API models
 	console.log('🎯 Local not available, using API model as default');
-	const fallbackModel = availableModels.find((model) => model.provider === 'deepseek') || // Changed order: deepseek first
-						 availableModels.find((model) => model.provider === 'anthropic') ||
-						 availableModels[0];
-	
+	const fallbackModel =
+		availableModels.find((model) => model.provider === 'deepseek') || // Changed order: deepseek first
+		availableModels.find((model) => model.provider === 'anthropic') ||
+		availableModels[0];
+
 	return {
 		id: fallbackModel.id,
 		name: fallbackModel.name,
@@ -135,12 +136,12 @@ export async function getRuntimeDefaultModel(): Promise<SelectableAIModel> {
 }
 
 // Static default for backwards compatibility (but prefer getRuntimeDefaultModel)
-export const defaultModel: AIModel = 
-	availableModels.find((model) => model.provider === 'local') || 
+export const defaultModel: AIModel =
+	availableModels.find((model) => model.provider === 'local') ||
 	availableModels.find((model) => model.provider === 'anthropic') ||
 	availableModels[0];
 
-// Dynamic default model selection based on availability  
+// Dynamic default model selection based on availability
 export async function getDefaultModel(): Promise<AIModel> {
 	const runtimeDefault = await getRuntimeDefaultModel();
 	if (runtimeDefault.provider === 'local') {
@@ -156,15 +157,22 @@ export function getAllAvailableModels(): (AIModel | SelectableAIModel)[] {
 }
 
 // Helper function to check if local server is available
+// Helper function to check if local server is available
 export async function checkLocalServerAvailability(): Promise<boolean> {
 	try {
+		// Create AbortController for timeout
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), 5000);
+
 		const response = await fetch('/api/ai/local/models', {
 			method: 'GET',
-			timeout: 5000 // 5 second timeout
-		} as any);
-		
+			signal: controller.signal
+		});
+
+		clearTimeout(timeoutId);
+
 		if (!response.ok) return false;
-		
+
 		const data = await response.json();
 		return data.success && data.data?.models?.length > 0;
 	} catch (error) {
@@ -172,4 +180,3 @@ export async function checkLocalServerAvailability(): Promise<boolean> {
 		return false;
 	}
 }
-

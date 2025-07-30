@@ -8,7 +8,7 @@ import type {
 	InternalChatMessage,
 	AIModel,
 	RoleType,
-	ProviderType,
+	AIProviderType,
 	PromptType,
 	Scenario,
 	Task,
@@ -26,7 +26,7 @@ export class MessageService {
 		parentMsgId: string | null = null,
 		model: string = 'default',
 		userId: string,
-		provider: ProviderType = 'openai',
+		provider: AIProviderType = 'openai',
 		selectedModelLabel: string = ''
 	): InternalChatMessage {
 		const store = get(chatStore);
@@ -99,71 +99,74 @@ export class MessageService {
 	 * Types out a message character by character
 	 */
 
-static async typeMessage(
-	messageId: string,
-	fullMessage: string,
-	typingSpeed: number = 1
-): Promise<void> {
-	console.log('🔍 TYPE MESSAGE - Starting for:', messageId);
-	console.log('🔍 TYPE MESSAGE - Full message length:', fullMessage.length);
-	console.log('🔍 TYPE MESSAGE - Full message preview:', fullMessage.substring(0, 100));
-	
-	chatStore.setTypingInProgress(true);
+	static async typeMessage(
+		messageId: string,
+		fullMessage: string,
+		typingSpeed: number = 1
+	): Promise<void> {
+		console.log('🔍 TYPE MESSAGE - Starting for:', messageId);
+		console.log('🔍 TYPE MESSAGE - Full message length:', fullMessage.length);
+		console.log('🔍 TYPE MESSAGE - Full message preview:', fullMessage.substring(0, 100));
 
-	const store = get(chatStore);
-	const typingMessage = store.messages.find((msg) => msg.id === messageId);
+		chatStore.setTypingInProgress(true);
 
-	if (!typingMessage) {
-		console.error('❌ TYPE MESSAGE - Typing message not found:', messageId);
-		console.error('❌ TYPE MESSAGE - Available message IDs:', store.messages.map(m => m.id));
-		chatStore.setTypingInProgress(false);
-		return;
-	}
+		const store = get(chatStore);
+		const typingMessage = store.messages.find((msg) => msg.id === messageId);
 
-	console.log('🔍 TYPE MESSAGE - Found message to type into:', typingMessage.id);
-
-	try {
-		// Split message into chunks for better performance
-		const messageLength = fullMessage.length;
-		const chunkSize = Math.max(10, Math.floor(messageLength / 20));
-
-		console.log('🔍 TYPE MESSAGE - Using chunk size:', chunkSize);
-
-		for (let i = chunkSize; i <= messageLength; i += chunkSize) {
-			const typedMessage = fullMessage.slice(0, i);
-
-			chatStore.updateMessage(messageId, {
-				content: typedMessage,
-				text: typedMessage,
-				isTyping: true
-			});
-
-			// Small delay between updates
-			await new Promise((resolve) => setTimeout(resolve, typingSpeed * chunkSize));
+		if (!typingMessage) {
+			console.error('❌ TYPE MESSAGE - Typing message not found:', messageId);
+			console.error(
+				'❌ TYPE MESSAGE - Available message IDs:',
+				store.messages.map((m) => m.id)
+			);
+			chatStore.setTypingInProgress(false);
+			return;
 		}
 
-		// Final update to complete the message
-		console.log('🔍 TYPE MESSAGE - Final update with full message');
-		chatStore.updateMessage(messageId, {
-			content: fullMessage,
-			text: fullMessage,
-			isTyping: false
-		});
+		console.log('🔍 TYPE MESSAGE - Found message to type into:', typingMessage.id);
 
-		console.log('🔍 TYPE MESSAGE - Completed successfully');
-	} catch (error) {
-		console.error('❌ TYPE MESSAGE - Error:', error);
+		try {
+			// Split message into chunks for better performance
+			const messageLength = fullMessage.length;
+			const chunkSize = Math.max(10, Math.floor(messageLength / 20));
 
-		// Ensure message is updated even if there's an error
-		chatStore.updateMessage(messageId, {
-			content: fullMessage,
-			text: fullMessage,
-			isTyping: false
-		});
-	} finally {
-		chatStore.setTypingInProgress(false);
+			console.log('🔍 TYPE MESSAGE - Using chunk size:', chunkSize);
+
+			for (let i = chunkSize; i <= messageLength; i += chunkSize) {
+				const typedMessage = fullMessage.slice(0, i);
+
+				chatStore.updateMessage(messageId, {
+					content: typedMessage,
+					text: typedMessage,
+					isTyping: true
+				});
+
+				// Small delay between updates
+				await new Promise((resolve) => setTimeout(resolve, typingSpeed * chunkSize));
+			}
+
+			// Final update to complete the message
+			console.log('🔍 TYPE MESSAGE - Final update with full message');
+			chatStore.updateMessage(messageId, {
+				content: fullMessage,
+				text: fullMessage,
+				isTyping: false
+			});
+
+			console.log('🔍 TYPE MESSAGE - Completed successfully');
+		} catch (error) {
+			console.error('❌ TYPE MESSAGE - Error:', error);
+
+			// Ensure message is updated even if there's an error
+			chatStore.updateMessage(messageId, {
+				content: fullMessage,
+				text: fullMessage,
+				isTyping: false
+			});
+		} finally {
+			chatStore.setTypingInProgress(false);
+		}
 	}
-}
 
 	/**
 	 * Processes message content to add replyable elements
@@ -203,9 +206,7 @@ static async typeMessage(
 		return tempDiv.innerHTML;
 	}
 
-
-
-/**
+	/**
 	 * Enhanced generateAIResponse with comprehensive error handling and fallbacks
 	 */
 	static async generateAIResponse(
@@ -240,57 +241,68 @@ static async typeMessage(
 			// Handle local models directly
 			if (aiModel.provider === 'local') {
 				console.log('🤖 Using local AI model directly');
-				aiResponse = await this.fetchLocalAIResponse(messagesToSend, aiModel as SelectableAIModel, userId);
+				aiResponse = await this.fetchLocalAIResponse(
+					messagesToSend,
+					aiModel as SelectableAIModel,
+					userId
+				);
 			} else {
 				try {
 					// Try API client first
 					console.log('🤖 Attempting API provider:', aiModel.provider);
-					aiResponse = await fetchAIResponse(messagesToSend, aiModel as AIModel, userId, attachment);
+					aiResponse = await fetchAIResponse(
+						messagesToSend,
+						aiModel as AIModel,
+						userId,
+						attachment
+					);
 				} catch (error) {
 					console.log('🤖 API provider failed, checking for fallback options...');
-					
+
 					// Check error type
 					const errorMessage = error instanceof Error ? error.message : String(error);
 					console.log('🤖 Error message:', errorMessage);
-					
-					const isBillingError = errorMessage.includes('BILLING_ERROR') || 
-										 errorMessage.includes('credit balance') || 
-										 errorMessage.includes('billing') ||
-										 errorMessage.includes('quota') ||
-										 errorMessage.includes('rate limit') ||
-										 errorMessage.includes('insufficient credits');
 
-					const isModelError = errorMessage.includes('MODEL_NOT_EXIST') ||
-										errorMessage.includes('Model Not Exist') ||
-										errorMessage.includes('model not found') ||
-										errorMessage.includes('invalid model') ||
-										errorMessage.includes('model does not exist');
+					const isBillingError =
+						errorMessage.includes('BILLING_ERROR') ||
+						errorMessage.includes('credit balance') ||
+						errorMessage.includes('billing') ||
+						errorMessage.includes('quota') ||
+						errorMessage.includes('rate limit') ||
+						errorMessage.includes('insufficient credits');
+
+					const isModelError =
+						errorMessage.includes('MODEL_NOT_EXIST') ||
+						errorMessage.includes('Model Not Exist') ||
+						errorMessage.includes('model not found') ||
+						errorMessage.includes('invalid model') ||
+						errorMessage.includes('model does not exist');
 
 					const isLocalRedirect = errorMessage.includes('LOCAL_MODEL_REDIRECT');
 
 					if (isBillingError || isModelError || isLocalRedirect) {
 						console.log('🤖 Recoverable error detected, attempting local fallback...');
-						
+
 						// Try to fallback to local model
 						try {
 							// Check if local models are available
 							const localCheckResponse = await fetch('/api/ai/local/models');
 							const localCheck = await localCheckResponse.json();
-							
+
 							if (localCheck.success && localCheck.data?.models?.length > 0) {
 								console.log('🤖 Local models available, using fallback');
-								
+
 								// Use first available local model
 								const localModel: SelectableAIModel = {
 									id: localCheck.data.models[0].api_type,
 									name: localCheck.data.models[0].name,
-									provider: 'local' as ProviderType,
+									provider: 'local' as AIProviderType,
 									api_type: localCheck.data.models[0].api_type
 								};
-								
+
 								actualModel = localModel;
 								aiResponse = await this.fetchLocalAIResponse(messagesToSend, localModel, userId);
-								
+
 								// Add a note about the fallback with specific error type
 								let fallbackReason = '';
 								if (isBillingError) {
@@ -300,24 +312,27 @@ static async typeMessage(
 								} else {
 									fallbackReason = 'API limitations';
 								}
-								
+
 								aiResponse = `*[Using local model ${localModel.name} due to ${fallbackReason}]*\n\n${aiResponse}`;
 							} else {
 								throw new Error('Local AI server not available for fallback');
 							}
 						} catch (localError) {
 							console.error('❌ Local fallback also failed:', localError);
-							
+
 							// Provide specific error messages based on the original error
 							let userFriendlyMessage = '';
 							if (isBillingError) {
-								userFriendlyMessage = 'API credits exhausted and local AI server is not available. Please add credits or start your local AI server (Ollama).';
+								userFriendlyMessage =
+									'API credits exhausted and local AI server is not available. Please add credits or start your local AI server (Ollama).';
 							} else if (isModelError) {
-								userFriendlyMessage = 'The requested AI model is not available and local AI server is not available. Please try a different model or start your local AI server (Ollama).';
+								userFriendlyMessage =
+									'The requested AI model is not available and local AI server is not available. Please try a different model or start your local AI server (Ollama).';
 							} else {
-								userFriendlyMessage = 'API provider failed and local AI server is not available. Please check your setup.';
+								userFriendlyMessage =
+									'API provider failed and local AI server is not available. Please check your setup.';
 							}
-							
+
 							throw new Error(userFriendlyMessage);
 						}
 					} else {
@@ -466,133 +481,163 @@ static async typeMessage(
 	/**
 	 * Enhanced fetchLocalAIResponse with better error handling
 	 */
-/**
- * Enhanced fetchLocalAIResponse with improved response parsing
- */
-static async fetchLocalAIResponse(
-	messages: any[],
-	model: SelectableAIModel,
-	userId: string
-): Promise<string> {
-	console.log('🤖 Sending request to local AI model:', model.name);
-	console.log('🤖 Messages:', messages);
+	/**
+	 * Enhanced fetchLocalAIResponse with improved response parsing
+	 */
+	static async fetchLocalAIResponse(
+		messages: any[],
+		model: SelectableAIModel,
+		userId: string
+	): Promise<string> {
+		console.log('🤖 Sending request to local AI model:', model.name);
+		console.log('🤖 Messages:', messages);
 
-	try {
-		const response = await fetch('/api/ai/local/chat', {
-			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				messages: messages,
-				model: model.id, // Use the api_type for local models
-				userId: userId,
-				// Add any local-specific parameters
-				temperature: 0.7,
-				max_tokens: 4096,
-				stream: false
-			})
-		});
+		try {
+			const response = await fetch('/api/ai/local/chat', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					messages: messages,
+					model: (model.api_type || model.id).replace(/^local-/, ''),
+					userId: userId,
+					temperature: 0.7,
+					max_tokens: 4096,
+					stream: false
+				})
+			});
 
-		console.log('🤖 Local AI response status:', response.status);
-		console.log('🤖 Local AI response ok:', response.ok);
+			console.log('🤖 Local AI response status:', response.status);
+			console.log('🤖 Local AI response ok:', response.ok);
 
-		if (!response.ok) {
-			const errorText = await response.text();
-			console.error('Local AI API error:', response.status, errorText);
-			
-			// Provide user-friendly error messages for local AI failures
-			if (response.status === 404) {
-				throw new Error('Local AI server not found. Please ensure Ollama is running on localhost:11434');
-			} else if (response.status === 500) {
-				throw new Error('Local AI server error. The model might not be available or the server is overloaded');
-			} else if (response.status >= 400 && response.status < 500) {
-				throw new Error(`Local AI request error: ${errorText}`);
-			} else {
-				throw new Error(`Local AI server error: ${errorText}`);
-			}
-		}
+			if (!response.ok) {
+				const errorText = await response.text();
+				console.error('Local AI API error:', response.status, errorText);
 
-		const responseData = await response.json();
-		console.log('🤖 Local AI response data:', responseData);
-
-		// Enhanced debugging - log the exact structure
-		console.log('🔍 Response structure analysis:');
-		console.log('🔍 responseData.success:', responseData.success);
-		console.log('🔍 responseData.data exists:', !!responseData.data);
-		if (responseData.data) {
-			console.log('🔍 responseData.data keys:', Object.keys(responseData.data));
-			console.log('🔍 responseData.data.response type:', typeof responseData.data.response);
-			console.log('🔍 responseData.data.response value:', responseData.data.response);
-		}
-
-		// Handle local AI response structure with better error checking
-		let finalResponse: string = '';
-
-if (responseData.success && responseData.data) {
-			const outerData = responseData.data;
-			
-			// Check for double-wrapped structure (apiTryCatch wrapper)
-			if (outerData.success && outerData.data) {
-				const innerData = outerData.data;
-				
-				if (innerData.response && typeof innerData.response === 'string' && innerData.response.trim()) {
-					finalResponse = innerData.response.trim();
-					console.log('✅ Found response in double-wrapped structure: data.data.response');
-				}
-				else if (innerData.content && typeof innerData.content === 'string' && innerData.content.trim()) {
-					finalResponse = innerData.content.trim();
-					console.log('✅ Found response in double-wrapped structure: data.data.content');
+				// Provide user-friendly error messages for local AI failures
+				if (response.status === 404) {
+					throw new Error(
+						'Local AI server not found. Please ensure Ollama is running on localhost:11434'
+					);
+				} else if (response.status === 500) {
+					throw new Error(
+						'Local AI server error. The model might not be available or the server is overloaded'
+					);
+				} else if (response.status >= 400 && response.status < 500) {
+					throw new Error(`Local AI request error: ${errorText}`);
+				} else {
+					throw new Error(`Local AI server error: ${errorText}`);
 				}
 			}
-			// Check for single-wrapped structure
-			else if (outerData.response && typeof outerData.response === 'string' && outerData.response.trim()) {
-				finalResponse = outerData.response.trim();
-				console.log('✅ Found response in single-wrapped structure: data.response');
-			}
-			else if (outerData.content && typeof outerData.content === 'string' && outerData.content.trim()) {
-				finalResponse = outerData.content.trim();
-				console.log('✅ Found response in single-wrapped structure: data.content');
-			}
-		}
-		
-		// Fallback: check top-level fields
-		if (!finalResponse) {
-			if (responseData.response && typeof responseData.response === 'string' && responseData.response.trim()) {
-				finalResponse = responseData.response.trim();
-				console.log('✅ Found response in top-level response field');
-			}
-			else if (responseData.content && typeof responseData.content === 'string' && responseData.content.trim()) {
-				finalResponse = responseData.content.trim();
-				console.log('✅ Found response in top-level content field');
-			}
-		}
 
-		if (!finalResponse) {
-			console.error('❌ Could not extract response from local AI');
-			console.error('❌ Complete response structure:', JSON.stringify(responseData, null, 2));
-			console.error('❌ Available top-level keys:', Object.keys(responseData || {}));
+			const responseData = await response.json();
+			console.log('🤖 Local AI response data:', responseData);
+
+			// Enhanced debugging - log the exact structure
+			console.log('🔍 Response structure analysis:');
+			console.log('🔍 responseData.success:', responseData.success);
+			console.log('🔍 responseData.data exists:', !!responseData.data);
 			if (responseData.data) {
-				console.error('❌ Available data keys:', Object.keys(responseData.data || {}));
+				console.log('🔍 responseData.data keys:', Object.keys(responseData.data));
+				console.log('🔍 responseData.data.response type:', typeof responseData.data.response);
+				console.log('🔍 responseData.data.response value:', responseData.data.response);
 			}
-			throw new Error('Local AI returned empty response. Check the logs for response structure details.');
-		}
 
-		console.log('🎯 Local AI final response length:', finalResponse.length);
-		console.log('🎯 Local AI final response preview:', finalResponse.substring(0, 100) + (finalResponse.length > 100 ? '...' : ''));
-		return finalResponse;
+			// Handle local AI response structure with better error checking
+			let finalResponse: string = '';
 
-	} catch (error) {
-		console.error('❌ Error calling local AI:', error);
-		
-		// Re-throw with more context for connection errors
-		if (error instanceof TypeError && error.message.includes('fetch')) {
-			throw new Error('Cannot connect to local AI server. Please ensure Ollama is running on localhost:11434');
+			if (responseData.success && responseData.data) {
+				const outerData = responseData.data;
+
+				// Check for double-wrapped structure (apiTryCatch wrapper)
+				if (outerData.success && outerData.data) {
+					const innerData = outerData.data;
+
+					if (
+						innerData.response &&
+						typeof innerData.response === 'string' &&
+						innerData.response.trim()
+					) {
+						finalResponse = innerData.response.trim();
+						console.log('✅ Found response in double-wrapped structure: data.data.response');
+					} else if (
+						innerData.content &&
+						typeof innerData.content === 'string' &&
+						innerData.content.trim()
+					) {
+						finalResponse = innerData.content.trim();
+						console.log('✅ Found response in double-wrapped structure: data.data.content');
+					}
+				}
+				// Check for single-wrapped structure
+				else if (
+					outerData.response &&
+					typeof outerData.response === 'string' &&
+					outerData.response.trim()
+				) {
+					finalResponse = outerData.response.trim();
+					console.log('✅ Found response in single-wrapped structure: data.response');
+				} else if (
+					outerData.content &&
+					typeof outerData.content === 'string' &&
+					outerData.content.trim()
+				) {
+					finalResponse = outerData.content.trim();
+					console.log('✅ Found response in single-wrapped structure: data.content');
+				}
+			}
+
+			// Fallback: check top-level fields
+			if (!finalResponse) {
+				if (
+					responseData.response &&
+					typeof responseData.response === 'string' &&
+					responseData.response.trim()
+				) {
+					finalResponse = responseData.response.trim();
+					console.log('✅ Found response in top-level response field');
+				} else if (
+					responseData.content &&
+					typeof responseData.content === 'string' &&
+					responseData.content.trim()
+				) {
+					finalResponse = responseData.content.trim();
+					console.log('✅ Found response in top-level content field');
+				}
+			}
+
+			if (!finalResponse) {
+				console.error('❌ Could not extract response from local AI');
+				console.error('❌ Complete response structure:', JSON.stringify(responseData, null, 2));
+				console.error('❌ Available top-level keys:', Object.keys(responseData || {}));
+				if (responseData.data) {
+					console.error('❌ Available data keys:', Object.keys(responseData.data || {}));
+				}
+				throw new Error(
+					'Local AI returned empty response. Check the logs for response structure details.'
+				);
+			}
+
+			console.log('🎯 Local AI final response length:', finalResponse.length);
+			console.log(
+				'🎯 Local AI final response preview:',
+				finalResponse.substring(0, 100) + (finalResponse.length > 100 ? '...' : '')
+			);
+			return finalResponse;
+		} catch (error) {
+			console.error('❌ Error calling local AI:', error);
+
+			// Re-throw with more context for connection errors
+			if (error instanceof TypeError && error.message.includes('fetch')) {
+				throw new Error(
+					'Cannot connect to local AI server. Please ensure Ollama is running on localhost:11434'
+				);
+			}
+
+			throw error; // Re-throw the original error if it's already user-friendly
 		}
-		
-		throw error; // Re-throw the original error if it's already user-friendly
 	}
-}
 
 	/**
 	 * Handles replying to a specific message

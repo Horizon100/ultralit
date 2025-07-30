@@ -162,7 +162,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	.dm-chat-drawer {
 		width: auto;

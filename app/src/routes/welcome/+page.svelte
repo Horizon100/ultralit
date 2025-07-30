@@ -147,10 +147,10 @@
 	$: featureCards = $t('features.cards') as FeatureCardType[];
 	$: pricingPlans = $t('pricing.plans') as PricingPlan[];
 	$: introText = $t('landing.introText') as string;
-$: {
-    console.log('Current active section:', $navigationStore.activeSection);
-    console.log('Current page:', $page.url.pathname);
-}
+	$: {
+		console.log('Current active section:', $navigationStore.activeSection);
+		console.log('Current page:', $page.url.pathname);
+	}
 	$: if (
 		browser &&
 		$currentUser &&
@@ -447,7 +447,7 @@ $: {
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

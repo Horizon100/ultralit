@@ -1,6 +1,7 @@
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import { pbTryCatch, unwrap, apiTryCatch } from '$lib/utils/errorUtils';
+import { json } from '@sveltejs/kit';
 
 export const GET: RequestHandler = async ({ cookies }) => {
 	return apiTryCatch(async () => {

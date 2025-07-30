@@ -660,8 +660,9 @@
 								}}
 							/>
 						{:else}
-							<span class="name">{user.name || user.fullName || user.displayName || 'Not set'}</span
-							>
+							<span class="name">
+								{user?.name || user?.fullName || user?.displayName || 'Not set'}
+							</span>
 						{/if}
 					</div>
 					<button class="settings-button done" on:click={saveChanges}>
@@ -1043,7 +1044,6 @@
 		max-width: 600px;
 		border-right: 1px solid var(--line-color);
 		background: var(--bg-gradient-r);
-
 	}
 
 	.key-overlay {

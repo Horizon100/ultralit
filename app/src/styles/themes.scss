@@ -8,8 +8,6 @@
 // @use 'devices/large-screen';
 @use 'sass:map';
 
-// Import fonts
-
 // Theme variables
 $themes: (
 	default: (
@@ -422,28 +420,28 @@ span {
 	background: transparent;
 }
 
-// pre.code-block {
-// 	position: relative;
-// 	color: var(--code-color, #d4d4d4);
-// 	padding: 1rem;
-// 	margin: 1rem 0;
-// 	overflow-x: auto;
-// 	font-family: 'Fira Code', monospace;
-// 	font-size: 0.9rem;
-// 	line-height: 1.5;
-// 	tab-size: 2;
-// }
+pre.code-block {
+	position: relative;
+	color: var(--code-color, #d4d4d4);
+	padding: 1rem;
+	margin: 1rem 0;
+	overflow-x: auto;
+	font-family: 'Fira Code', monospace;
+	font-size: 0.9rem;
+	line-height: 1.5;
+	tab-size: 2;
+}
 
-// /* Inline code styling */
-// code.inline-code {
-// 	background-color: var(--inline-code-bg, rgba(110, 118, 129, 0.1));
-// 	color: var(--inline-code-color, #e83e8c);
-// 	border-radius: var(--radius-s, 0.25rem);
-// 	padding: 0.1rem 0.3rem;
-// 	font-family: 'Fira Code', monospace;
-// 	font-size: 0.9em;
-// 	padding-inline-start: 2rem !important;
-// }
+/* Inline code styling */
+code.inline-code {
+	background-color: var(--inline-code-bg, rgba(110, 118, 129, 0.1));
+	color: var(--inline-code-color, #e83e8c);
+	border-radius: var(--radius-s, 0.25rem);
+	padding: 0.1rem 0.3rem;
+	font-family: 'Fira Code', monospace;
+	font-size: 0.9em;
+	padding-inline-start: 2rem !important;
+}
 
 /* Copy button styling */
 .copy-code-button {

@@ -6,7 +6,7 @@
 	import type { PostAttachment } from '$lib/types/types.posts';
 	import { clientTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
-import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
 
 	export let username: string;
 	export let isActive: boolean = false; // Add this prop to control when to load
@@ -28,15 +28,15 @@ import { goto } from '$app/navigation';
 
 	// Export the total count so parent component can access it
 	export { totalMediaCount };
-$: console.log('🔍 MediaGrid DEBUG:', { 
-    username, 
-    isActive, 
-    browser, 
-    mediaItemsLength: mediaItems.length, 
-    loading 
-});
+	$: console.log('🔍 MediaGrid DEBUG:', {
+		username,
+		isActive,
+		browser,
+		mediaItemsLength: mediaItems.length,
+		loading
+	});
 	async function fetchMediaData(offset = 0, append = false) {
-    if (!username || !browser || !isActive) return; 
+		if (!username || !browser || !isActive) return;
 
 		if (!append) {
 			loading = true;
@@ -51,23 +51,23 @@ $: console.log('🔍 MediaGrid DEBUG:', {
 		try {
 			console.log(`🖼️ Fetching media data with offset: ${offset}, append: ${append}`);
 
-const response = await fetch(
-    `/api/users/username/${username}/media?offset=${offset}&limit=${MEDIA_PER_PAGE}`,
-    {
-        credentials: 'include'  // ADD THIS LINE
-    }
-);
-			
+			const response = await fetch(
+				`/api/users/username/${username}/media?offset=${offset}&limit=${MEDIA_PER_PAGE}`,
+				{
+					credentials: 'include' // ADD THIS LINE
+				}
+			);
+
 			if (!response.ok) {
 				const errorData = await response.json().catch(() => ({}));
-				
+
 				// Handle rate limiting specifically
 				if (response.status === 429) {
 					error = 'Loading too fast, waiting...';
 					console.warn('Rate limit hit, retrying after longer delay');
-					
+
 					// Exponential backoff for rate limits
-					const waitTime = Math.min(10000, 3000 + (retryCount * 2000)); // Max 10 seconds
+					const waitTime = Math.min(10000, 3000 + retryCount * 2000); // Max 10 seconds
 					setTimeout(() => {
 						error = '';
 						retryCount++;
@@ -79,7 +79,7 @@ const response = await fetch(
 					}, waitTime);
 					return;
 				}
-				
+
 				error = errorData.error || `Failed to load media data (${response.status})`;
 				console.error('Media API error:', response.status, errorData);
 				return;
@@ -88,9 +88,9 @@ const response = await fetch(
 			const data = await response.json();
 
 			console.log('🔍 API Response structure:', data);
-			
+
 			const actualData = data.data || data;
-			
+
 			console.log('🔍 Actual data structure:', actualData);
 			console.log('🔍 Items array length:', actualData.items?.length || 0);
 
@@ -102,7 +102,9 @@ const response = await fetch(
 				const existingIds = new Set(mediaItems.map((item) => item.id));
 				const uniqueNewItems = newItems.filter((item: PostAttachment) => !existingIds.has(item.id));
 				mediaItems = [...mediaItems, ...uniqueNewItems];
-				console.log(`🖼️ Added ${uniqueNewItems.length} new unique media items (total: ${mediaItems.length})`);
+				console.log(
+					`🖼️ Added ${uniqueNewItems.length} new unique media items (total: ${mediaItems.length})`
+				);
 			}
 
 			const newItemsCount = (actualData.items || []).length;
@@ -116,12 +118,12 @@ const response = await fetch(
 			}
 
 			currentOffset = append ? currentOffset + newItemsCount : newItemsCount;
-			
+
 			// Update total count from API response
 			if (actualData.totalItems !== undefined) {
 				totalMediaCount = actualData.totalItems;
 			}
-			
+
 			console.log('🖼️ Media pagination state:', {
 				currentOffset,
 				newItemsCount,
@@ -146,7 +148,7 @@ const response = await fetch(
 		} catch (err) {
 			console.error('Error fetching media data:', err);
 			error = 'Failed to load media data';
-			
+
 			// Retry logic for network errors
 			if (retryCount < MAX_RETRIES && !append) {
 				retryCount++;
@@ -167,11 +169,11 @@ const response = await fetch(
 
 	async function loadMoreMedia() {
 		const now = Date.now();
-		if (loadingMore || !hasMore || (now - lastLoadTime) < LOAD_THROTTLE_MS) {
-			console.log('⛔ Load more media skipped:', { 
-				loadingMore, 
-				hasMore, 
-				throttled: (now - lastLoadTime) < LOAD_THROTTLE_MS,
+		if (loadingMore || !hasMore || now - lastLoadTime < LOAD_THROTTLE_MS) {
+			console.log('⛔ Load more media skipped:', {
+				loadingMore,
+				hasMore,
+				throttled: now - lastLoadTime < LOAD_THROTTLE_MS,
 				currentItems: mediaItems.length,
 				currentOffset
 			});
@@ -179,11 +181,14 @@ const response = await fetch(
 		}
 
 		lastLoadTime = now;
-		console.log('🚀 Loading more media from offset:', currentOffset, 'current items:', mediaItems.length);
+		console.log(
+			'🚀 Loading more media from offset:',
+			currentOffset,
+			'current items:',
+			mediaItems.length
+		);
 		await fetchMediaData(currentOffset, true);
 	}
-
-
 
 	function getMediaUrl(attachment: PostAttachment): string {
 		if (!attachment.file_path || !attachment.id) {
@@ -201,107 +206,107 @@ const response = await fetch(
 		return attachment.file_type === 'image' || attachment.mime_type?.startsWith('image/');
 	}
 
-function openMediaModal(attachment: PostAttachment) {
-    // Navigate to the post page using the existing post field
-    const postId = attachment.post;
-    if (postId) {
-        goto(`/${username}/posts/${postId}`);
-    } else {
-        console.warn('No post ID found for attachment:', attachment);
-    }
-}
+	function openMediaModal(attachment: PostAttachment) {
+		// Navigate to the post page using the existing post field
+		const postId = attachment.post;
+		if (postId) {
+			goto(`/${username}/posts/${postId}`);
+		} else {
+			console.warn('No post ID found for attachment:', attachment);
+		}
+	}
 
+	onMount(() => {
+		console.log('🔄 MediaGrid mounted - setting up...');
 
-onMount(() => {
-    console.log('🔄 MediaGrid mounted - setting up...');
-    
-    // Don't auto-load, wait for isActive
-    if (isActive && username) {
-        (async () => {
-            await fetchMediaData(0, false);
-            setupInfiniteScroll();
-            
-            if (infiniteScrollManager) {
-                infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-                    if (success) {
-                        console.log('✅ Media infinite scroll ready!');
-                    } else {
-                        console.error('❌ Failed to setup media infinite scroll');
-                    }
-                });
-            }
-        })();
-    }
-});
+		// Don't auto-load, wait for isActive
+		if (isActive && username) {
+			(async () => {
+				await fetchMediaData(0, false);
+				setupInfiniteScroll();
 
-// Update setupInfiniteScroll to match home page pattern
-function setupInfiniteScroll() {
-    if (infiniteScrollManager) {
-        infiniteScrollManager.destroy();
-    }
+				if (infiniteScrollManager) {
+					infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
+						if (success) {
+							console.log('✅ Media infinite scroll ready!');
+						} else {
+							console.error('❌ Failed to setup media infinite scroll');
+						}
+					});
+				}
+			})();
+		}
+	});
 
-    infiniteScrollManager = new InfiniteScrollManager({
-        loadMore: async () => {
-            try {
-                await loadMoreMedia();
-            } catch (error) {
-                console.error('Error loading more media:', error);
-            }
-        },
-        hasMore: () => hasMore && !loading, // Similar to effectiveHasMore
-        isLoading: () => loadingMore || loading,
-        triggerId: 'media-loading-trigger',
-        debug: true
-    });
+	// Update setupInfiniteScroll to match home page pattern
+	function setupInfiniteScroll() {
+		if (infiniteScrollManager) {
+			infiniteScrollManager.destroy();
+		}
 
-    infiniteScrollManager.setup();
-    return infiniteScrollManager;
-}
+		infiniteScrollManager = new InfiniteScrollManager({
+			loadMore: async () => {
+				try {
+					await loadMoreMedia();
+				} catch (error) {
+					console.error('Error loading more media:', error);
+				}
+			},
+			hasMore: () => hasMore && !loading, // Similar to effectiveHasMore
+			isLoading: () => loadingMore || loading,
+			triggerId: 'media-loading-trigger',
+			debug: true
+		});
 
-// Update the reactive statement to trigger infinite scroll setup
-$: {
-    if (username && browser && isActive && mediaItems.length === 0 && !loading) {
-        console.log('🔄 Loading media for first time:', username);
-        (async () => {
-            await fetchMediaData();
-            if (mediaItems.length > 0 && hasMore) {
-                setupInfiniteScroll();
-                if (infiniteScrollManager) {
-                    infiniteScrollManager.attachWithRetry(3, 100);
-                }
-            }
-        })();
-    }
-}
+		infiniteScrollManager.setup();
+		return infiniteScrollManager;
+	}
 
-// Handle tab changes - disable/enable infinite scroll
-$: {
-    if (infiniteScrollManager) {
-        if (!isActive) {
-            console.log('🔇 Disabling media infinite scroll - tab not active');
-            infiniteScrollManager.detach();
-        } else {
-            console.log('🔊 Re-enabling media infinite scroll - tab active');
-            infiniteScrollManager.attachWithRetry(3, 100);
-        }
-    }
-}
+	// Update the reactive statement to trigger infinite scroll setup
+	$: {
+		if (username && browser && isActive && mediaItems.length === 0 && !loading) {
+			console.log('🔄 Loading media for first time:', username);
+			(async () => {
+				await fetchMediaData();
+				if (mediaItems.length > 0 && hasMore) {
+					setupInfiniteScroll();
+					if (infiniteScrollManager) {
+						infiniteScrollManager.attachWithRetry(3, 100);
+					}
+				}
+			})();
+		}
+	}
+
+	// Handle tab changes - disable/enable infinite scroll
+	$: {
+		if (infiniteScrollManager) {
+			if (!isActive) {
+				console.log('🔇 Disabling media infinite scroll - tab not active');
+				infiniteScrollManager.detach();
+			} else {
+				console.log('🔊 Re-enabling media infinite scroll - tab active');
+				infiniteScrollManager.attachWithRetry(3, 100);
+			}
+		}
+	}
 
 	// Setup infinite scroll after data loads or when state changes
-$: {
-    console.log('🔍 Reactive check values:', { 
-        username: !!username, 
-        browser, 
-        isActive, 
-        mediaItemsLength: mediaItems.length, 
-        loading 
-    });
-    
-    if (username && browser && isActive && mediaItems.length === 0) { // Remove && !loading
-        console.log('🔄 Loading media for first time:', username);
-        fetchMediaData();
-    }
-}
+	$: {
+		console.log('🔍 Reactive check values:', {
+			username: !!username,
+			browser,
+			isActive,
+			mediaItemsLength: mediaItems.length,
+			loading
+		});
+
+		if (username && browser && isActive && mediaItems.length === 0) {
+			// Remove && !loading
+			console.log('🔄 Loading media for first time:', username);
+			fetchMediaData();
+		}
+	}
 
 	onDestroy(() => {
 		if (infiniteScrollManager) {
@@ -309,25 +314,25 @@ $: {
 		}
 	});
 
-// $: if (username && browser && isActive) { // ADD && isActive
-//     console.log('🔄 Username changed, fetching media for:', username);
-//     // Reset infinite scroll when username changes
-//     if (infiniteScrollManager) {
-//         infiniteScrollManager.destroy();
-//         infiniteScrollManager = null;
-//     }
-//     retryCount = 0;
-//     lastLoadTime = 0;
-//     fetchMediaData().then(() => {
-//         if (mediaItems.length > 0 && hasMore) {
-//             setTimeout(() => setupInfiniteScroll(), 100);
-//         }
-//     });
-// }
-// $: if (isActive && username && browser && mediaItems.length === 0 && !loading) {
-//     console.log('🔥 Tab became active, loading media');
-//     fetchMediaData();
-// }
+	// $: if (username && browser && isActive) { // ADD && isActive
+	//     console.log('🔄 Username changed, fetching media for:', username);
+	//     // Reset infinite scroll when username changes
+	//     if (infiniteScrollManager) {
+	//         infiniteScrollManager.destroy();
+	//         infiniteScrollManager = null;
+	//     }
+	//     retryCount = 0;
+	//     lastLoadTime = 0;
+	//     fetchMediaData().then(() => {
+	//         if (mediaItems.length > 0 && hasMore) {
+	//             setTimeout(() => setupInfiniteScroll(), 100);
+	//         }
+	//     });
+	// }
+	// $: if (isActive && username && browser && mediaItems.length === 0 && !loading) {
+	//     console.log('🔥 Tab became active, loading media');
+	//     fetchMediaData();
+	// }
 </script>
 
 <section
@@ -342,12 +347,9 @@ $: {
 	{:else if error}
 		<div class="error-container">
 			<p>Failed to load media: {error}</p>
-			<button class="retry-btn" on:click={retryFetch}>
-				Try Again
-			</button>
+			<button class="retry-btn" on:click={retryFetch}> Try Again </button>
 		</div>
-	{:else}
-		{#if mediaItems.length > 0}
+	{:else if mediaItems.length > 0}
 		<div class="media-grid">
 			{#each mediaItems as item (item.id)}
 				<div
@@ -429,20 +431,19 @@ $: {
 				<p>Total items: {mediaItems.length}</p>
 			</div>
 		{/if}
-		{:else}
-			<div class="empty-state">
-				<p>{username} hasn't shared any media yet.</p>
-			</div>
-		{/if}
+	{:else}
+		<div class="empty-state">
+			<p>{username} hasn't shared any media yet.</p>
+		</div>
 	{/if}
 </section>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
-	}	
-    .media-section {
+	}
+	.media-section {
 		padding: 0;
 		width: 100%;
 	}

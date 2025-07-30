@@ -3,7 +3,6 @@ import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
 import type { Post, PostAttachment, PostWithInteractionsExtended } from '$lib/types/types.posts';
 
-
 export const GET: RequestHandler = async ({ params, url, locals }) => {
 	try {
 		const postId = params.id;
@@ -23,32 +22,32 @@ export const GET: RequestHandler = async ({ params, url, locals }) => {
 
 			// STEP 2: Fetch nested replies (replies to comments)
 			let allComments = [...directCommentsResult.items];
-			
+
 			if (directCommentsResult.items.length > 0) {
-				const commentIds = directCommentsResult.items.map(c => c.id);
-				
+				const commentIds = directCommentsResult.items.map((c) => c.id);
+
 				// Fetch all replies to any of the direct comments
 				const nestedRepliesResult = await pb.collection('posts').getList(1, 200, {
-					filter: commentIds.map(id => `parent = "${id}"`).join(' || '),
+					filter: commentIds.map((id) => `parent = "${id}"`).join(' || '),
 					sort: '-created',
 					expand: 'user'
 				});
-				
+
 				console.log(`📝 Found ${nestedRepliesResult.items.length} nested replies`);
-				
+
 				// Add nested replies to the full comments array
 				allComments = [...allComments, ...nestedRepliesResult.items];
-				
+
 				// STEP 3: Handle deeper nesting (replies to replies) if needed
 				if (nestedRepliesResult.items.length > 0) {
-					const nestedCommentIds = nestedRepliesResult.items.map(c => c.id);
-					
+					const nestedCommentIds = nestedRepliesResult.items.map((c) => c.id);
+
 					const deepNestedResult = await pb.collection('posts').getList(1, 100, {
-						filter: nestedCommentIds.map(id => `parent = "${id}"`).join(' || '),
+						filter: nestedCommentIds.map((id) => `parent = "${id}"`).join(' || '),
 						sort: '-created',
 						expand: 'user'
 					});
-					
+
 					if (deepNestedResult.items.length > 0) {
 						console.log(`📝 Found ${deepNestedResult.items.length} deep nested replies`);
 						allComments = [...allComments, ...deepNestedResult.items];
@@ -165,7 +164,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				quoteCount: 0,
 				readCount: 0,
 				quotedPost: '',
-    			assignedAgents: []
+				assignedAgents: []
 			};
 
 			const comment = await pb.collection('posts').create(commentData);
@@ -234,117 +233,117 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 				expand: commentWithUser.expand
 			};
 
+			console.log('Comment creation successful');
 
-console.log('Comment creation successful');
+			// AUTO-REPLY TRIGGERING - Enhanced to support agents on both parent posts AND comments
+			const autoRepliesCreated = [];
 
-// AUTO-REPLY TRIGGERING - Enhanced to support agents on both parent posts AND comments
-const autoRepliesCreated = [];
+			try {
+				console.log('🤖 Checking for assigned agents on parent post AND new comment...');
 
-try {
-    console.log('🤖 Checking for assigned agents on parent post AND new comment...');
-    
-    // Check parent post for assigned agents (existing logic)
-    const parentPostWithAgents = await pb.collection('posts').getOne(postId);
-    
-    console.log('🤖 Parent post assigned agents:', {
-        hasAssignedAgents: !!parentPostWithAgents.assignedAgents,
-        assignedAgents: parentPostWithAgents.assignedAgents,
-        assignedAgentCount: parentPostWithAgents.assignedAgents?.length || 0
-    });
-    
-    // Check new comment for assigned agents (new logic)
-    const newCommentWithAgents = await pb.collection('posts').getOne(comment.id);
-    
-    console.log('🤖 New comment assigned agents:', {
-        hasAssignedAgents: !!newCommentWithAgents.assignedAgents,
-        assignedAgents: newCommentWithAgents.assignedAgents,
-        assignedAgentCount: newCommentWithAgents.assignedAgents?.length || 0
-    });
-    
-    // Combine agents from both parent and comment (remove duplicates)
-    const parentAgents = parentPostWithAgents.assignedAgents || [];
-    const commentAgents = newCommentWithAgents.assignedAgents || [];
-    const allAssignedAgents = new Set([...parentAgents, ...commentAgents]);
-    
-    console.log('🤖 Combined assigned agents:', {
-        parentAgents: parentAgents,
-        commentAgents: commentAgents,
-        combinedAgents: Array.from(allAssignedAgents),
-        totalCount: allAssignedAgents.size
-    });
-    
-    if (allAssignedAgents.size > 0) {
-        console.log('🤖 Found assigned agents, triggering auto-replies for comment:', comment.id);
-        
-        for (const agentId of allAssignedAgents) {
-            try {
-                console.log('🤖 Processing auto-reply for agent:', agentId);
-                
-                const autoReplyResponse = await fetch(`http://localhost:5173/api/agents/${agentId}/auto-reply`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Cookie': request.headers.get('cookie') || ''
-                    },
-                    body: JSON.stringify({ postId: comment.id })
-                });
-                
-                console.log('🤖 Auto-reply response status:', autoReplyResponse.status);
-                
-                if (autoReplyResponse.ok) {
-                    const autoReplyResult = await autoReplyResponse.json();
-                    console.log('🤖 Full auto-reply response:', autoReplyResult);
-                    
-                    const actualResult = autoReplyResult.data || autoReplyResult;
-                    
-                    if (actualResult.success && !actualResult.skipped) {
-                        let replyId = null;
-                        
-                        if (actualResult.reply?.id) {
-                            replyId = actualResult.reply.id;
-                            console.log('🤖 Found reply ID via reply.id:', replyId);
-                        }
-                        else if (typeof actualResult.reply === 'string') {
-                            replyId = actualResult.reply;
-                            console.log('🤖 Found reply ID as string:', replyId);
-                        }
-                        
-                        console.log('🤖 Auto-reply created successfully:', replyId);
-                        
-                        if (replyId) {
-                            autoRepliesCreated.push(replyId);
-                        } else {
-                            console.warn('🤖 Reply created but no ID found in response structure');
-                        }
-                    } else if (actualResult.skipped) {
-                        console.log('🤖 Auto-reply skipped:', actualResult.reason);
-                        if (actualResult.existing_reply?.id) {
-                            console.log('🤖 Existing reply found:', actualResult.existing_reply.id);
-                        }
-                    } else {
-                        console.error('🤖 Auto-reply failed:', actualResult);
-                    }
-                } else {
-                    const errorText = await autoReplyResponse.text();
-                    console.error('🤖 Auto-reply endpoint error:', autoReplyResponse.status, errorText);
-                }
-                
-            } catch (agentError) {
-                console.error('🤖 Error calling auto-reply for agent', agentId, ':', agentError);
-            }
-        }
-    } else {
-        console.log('🤖 No assigned agents found on parent post or new comment');
-    }
-} catch (autoReplyError) {
-    console.error('🤖 Error in auto-reply process:', autoReplyError);
-}
+				// Check parent post for assigned agents (existing logic)
+				const parentPostWithAgents = await pb.collection('posts').getOne(postId);
 
-return json({ 
-    success: true, 
-    comment: result,
-    autoRepliesCreated: autoRepliesCreated
-});
+				console.log('🤖 Parent post assigned agents:', {
+					hasAssignedAgents: !!parentPostWithAgents.assignedAgents,
+					assignedAgents: parentPostWithAgents.assignedAgents,
+					assignedAgentCount: parentPostWithAgents.assignedAgents?.length || 0
+				});
+
+				// Check new comment for assigned agents (new logic)
+				const newCommentWithAgents = await pb.collection('posts').getOne(comment.id);
+
+				console.log('🤖 New comment assigned agents:', {
+					hasAssignedAgents: !!newCommentWithAgents.assignedAgents,
+					assignedAgents: newCommentWithAgents.assignedAgents,
+					assignedAgentCount: newCommentWithAgents.assignedAgents?.length || 0
+				});
+
+				// Combine agents from both parent and comment (remove duplicates)
+				const parentAgents = parentPostWithAgents.assignedAgents || [];
+				const commentAgents = newCommentWithAgents.assignedAgents || [];
+				const allAssignedAgents = new Set([...parentAgents, ...commentAgents]);
+
+				console.log('🤖 Combined assigned agents:', {
+					parentAgents: parentAgents,
+					commentAgents: commentAgents,
+					combinedAgents: Array.from(allAssignedAgents),
+					totalCount: allAssignedAgents.size
+				});
+
+				if (allAssignedAgents.size > 0) {
+					console.log('🤖 Found assigned agents, triggering auto-replies for comment:', comment.id);
+
+					for (const agentId of allAssignedAgents) {
+						try {
+							console.log('🤖 Processing auto-reply for agent:', agentId);
+
+							const autoReplyResponse = await fetch(
+								`http://localhost:5173/api/agents/${agentId}/auto-reply`,
+								{
+									method: 'POST',
+									headers: {
+										'Content-Type': 'application/json',
+										Cookie: request.headers.get('cookie') || ''
+									},
+									body: JSON.stringify({ postId: comment.id })
+								}
+							);
+
+							console.log('🤖 Auto-reply response status:', autoReplyResponse.status);
+
+							if (autoReplyResponse.ok) {
+								const autoReplyResult = await autoReplyResponse.json();
+								console.log('🤖 Full auto-reply response:', autoReplyResult);
+
+								const actualResult = autoReplyResult.data || autoReplyResult;
+
+								if (actualResult.success && !actualResult.skipped) {
+									let replyId = null;
+
+									if (actualResult.reply?.id) {
+										replyId = actualResult.reply.id;
+										console.log('🤖 Found reply ID via reply.id:', replyId);
+									} else if (typeof actualResult.reply === 'string') {
+										replyId = actualResult.reply;
+										console.log('🤖 Found reply ID as string:', replyId);
+									}
+
+									console.log('🤖 Auto-reply created successfully:', replyId);
+
+									if (replyId) {
+										autoRepliesCreated.push(replyId);
+									} else {
+										console.warn('🤖 Reply created but no ID found in response structure');
+									}
+								} else if (actualResult.skipped) {
+									console.log('🤖 Auto-reply skipped:', actualResult.reason);
+									if (actualResult.existing_reply?.id) {
+										console.log('🤖 Existing reply found:', actualResult.existing_reply.id);
+									}
+								} else {
+									console.error('🤖 Auto-reply failed:', actualResult);
+								}
+							} else {
+								const errorText = await autoReplyResponse.text();
+								console.error('🤖 Auto-reply endpoint error:', autoReplyResponse.status, errorText);
+							}
+						} catch (agentError) {
+							console.error('🤖 Error calling auto-reply for agent', agentId, ':', agentError);
+						}
+					}
+				} else {
+					console.log('🤖 No assigned agents found on parent post or new comment');
+				}
+			} catch (autoReplyError) {
+				console.error('🤖 Error in auto-reply process:', autoReplyError);
+			}
+
+			return json({
+				success: true,
+				comment: result,
+				autoRepliesCreated: autoRepliesCreated
+			});
 		} catch (err) {
 			console.error(`Error creating comment for post ${postId}:`, err);
 			throw err;

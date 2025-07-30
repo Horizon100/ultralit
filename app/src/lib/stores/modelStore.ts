@@ -1,5 +1,5 @@
 import { writable, get } from 'svelte/store';
-import type { AIModel, ProviderType } from '$lib/types/types';
+import type { AIModel, AIProviderType } from '$lib/types/types';
 import { defaultModel, availableModels } from '$lib/features/ai/utils/models';
 import { apiKey } from '$lib/stores/apiKeyStore';
 import { clientTryCatch, isSuccess } from '$lib/utils/errorUtils';
@@ -7,7 +7,7 @@ import type { User } from '$lib/types/types';
 export interface ModelState {
 	models: AIModel[];
 	selectedModel: AIModel | null;
-	selectedProvider: ProviderType | null;
+	selectedProvider: AIProviderType | null;
 	updateStatus: string;
 	isOffline: boolean;
 }
@@ -76,300 +76,342 @@ const createModelStore = () => {
 		}
 	};
 
-async function cleanupDuplicateModels(userId: string): Promise<void> {
-	console.log('🧹 Starting cleanup of duplicate models...');
-	
-	try {
-		// Fetch all models for the user
-		const response = await fetch(`/api/ai/models?userId=${userId}`, {
-			method: 'GET',
-			credentials: 'include'
-		});
+	async function cleanupDuplicateModels(userId: string): Promise<void> {
+		console.log('🧹 Starting cleanup of duplicate models...');
 
-		if (!response.ok) {
-			throw new Error(`Failed to fetch models: ${response.statusText}`);
-		}
-
-		const data = await response.json();
-		if (!data.success) {
-			throw new Error(data.error || 'Failed to fetch models');
-		}
-
-		const allModels = data.data?.models || data.models || [];
-		console.log('📋 Found', allModels.length, 'total models');
-
-		// Group models by provider + api_type to find duplicates
-		const modelGroups: Record<string, AIModel[]> = {};
-		
-		allModels.forEach((model: AIModel) => {
-			const key = `${model.provider}:${model.api_type}`;
-			if (!modelGroups[key]) {
-				modelGroups[key] = [];
-			}
-			modelGroups[key].push(model);
-		});
-
-		// Find and delete duplicates (keep the first one, delete the rest)
-		let deletedCount = 0;
-		for (const [key, models] of Object.entries(modelGroups)) {
-			if (models.length > 1) {
-				console.log(`🔍 Found ${models.length} duplicates for ${key}`);
-				
-				// Keep the first model, delete the rest
-				const toDelete = models.slice(1);
-				
-				for (const model of toDelete) {
-					try {
-						const deleteResponse = await fetch(`/api/ai/models/${model.id}`, {
-							method: 'DELETE',
-							credentials: 'include'
-						});
-						
-						if (deleteResponse.ok) {
-							console.log(`🗑️ Deleted duplicate model: ${model.name} (${model.id})`);
-							deletedCount++;
-						} else {
-							console.warn(`⚠️ Failed to delete model ${model.id}`);
-						}
-					} catch (error) {
-						console.warn(`⚠️ Error deleting model ${model.id}:`, error);
-					}
-				}
-			}
-		}
-
-		console.log(`✅ Cleanup complete! Deleted ${deletedCount} duplicate models`);
-	} catch (error) {
-		console.error('❌ Error during cleanup:', error);
-	}
-}
-
-// Update the loadModels function to prevent loading duplicates
-async function loadModels(userId: string): Promise<boolean> {
-	console.log('🔍 loadModels called for userId:', userId);
-
-	const result = await clientTryCatch(
-		(async () => {
-			const connectionResponse = await fetch('/api/verify/health');
-			const connectionData = await connectionResponse.json();
-			if (!connectionData.success) throw new Error('PocketBase not available');
-
-			console.log('🔍 Fetching models from API for userId:', userId);
+		try {
+			// Fetch all models for the user
 			const response = await fetch(`/api/ai/models?userId=${userId}`, {
 				method: 'GET',
 				credentials: 'include'
 			});
 
-			console.log('🔍 Models API response status:', response.status);
-			if (!response.ok) throw new Error(`Failed to load models: ${response.statusText}`);
+			if (!response.ok) {
+				throw new Error(`Failed to fetch models: ${response.statusText}`);
+			}
 
 			const data = await response.json();
-			console.log('🔍 Raw models API response:', data);
-
-			if (!data.success) throw new Error(data.error || 'Failed to load models');
-
-			let models: AIModel[] = [];
-			if (data.data && data.data.models) {
-				models = data.data.models;
-			} else if (data.models) {
-				models = data.models;
-			} else if (data.data && Array.isArray(data.data)) {
-				models = data.data;
-			} else {
-				console.log('❌ Unexpected models API structure:', data);
-				models = [];
+			if (!data.success) {
+				throw new Error(data.error || 'Failed to fetch models');
 			}
 
-			console.log('🔍 Loaded models from API:', models?.length || 0, 'models');
+			const allModels = data.data?.models || data.models || [];
+			console.log('📋 Found', allModels.length, 'total models');
 
-			// DEDUPLICATE MODELS BY provider + api_type
-			const uniqueModels = models.reduce((acc: AIModel[], model: AIModel) => {
-				const exists = acc.find(m => m.provider === model.provider && m.api_type === model.api_type);
-				if (!exists) {
-					acc.push(model);
-				} else {
-					console.log(`🚫 Skipping duplicate model: ${model.name} (${model.provider}:${model.api_type})`);
+			// Group models by provider + api_type to find duplicates
+			const modelGroups: Record<string, AIModel[]> = {};
+
+			allModels.forEach((model: AIModel) => {
+				const key = `${model.provider}:${model.api_type}`;
+				if (!modelGroups[key]) {
+					modelGroups[key] = [];
 				}
-				return acc;
-			}, []);
-
-			console.log('🔍 After deduplication:', uniqueModels.length, 'unique models');
-
-			// Filter models by available API keys
-			const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'].filter(
-				(provider) => apiKey.hasKey(provider)
-			);
-
-			const filteredModels = uniqueModels.filter((model: AIModel) => {
-				const hasKey = availableKeyProviders.includes(model.provider);
-				if (!hasKey) {
-					console.log(`🚫 Filtered out ${model.name} - no key for ${model.provider}`);
-				}
-				return hasKey;
+				modelGroups[key].push(model);
 			});
 
-			console.log('🔍 Final filtered models:', filteredModels?.length || 0, 'models');
+			// Find and delete duplicates (keep the first one, delete the rest)
+			let deletedCount = 0;
+			for (const [key, models] of Object.entries(modelGroups)) {
+				if (models.length > 1) {
+					console.log(`🔍 Found ${models.length} duplicates for ${key}`);
 
-			if (filteredModels && filteredModels.length > 0) {
-				console.log(
-					'🔍 Valid model details:',
-					filteredModels.map((m) => `${m.provider}-${m.name}-${m.id}`)
-				);
-			}
+					// Keep the first model, delete the rest
+					const toDelete = models.slice(1);
 
-			update((state) => ({
-				...state,
-				models: filteredModels || [],
-				isOffline: false,
-				updateStatus: ''
-			}));
+					for (const model of toDelete) {
+						try {
+							const deleteResponse = await fetch(`/api/ai/models/${model.id}`, {
+								method: 'DELETE',
+								credentials: 'include'
+							});
 
-			return true;
-		})()
-	);
-
-	if (isSuccess(result)) {
-		return result.data;
-	} else {
-		console.warn('❌ Failed to load models:', result.error);
-		update((state) => ({ ...state, isOffline: true }));
-		return false;
-	}
-}
-
-// Update the setSelectedModel function to prevent creating duplicates
-async function setSelectedModel(userId: string, model: AIModel): Promise<boolean> {
-	const result = await clientTryCatch(
-		(async () => {
-			let savedModel = model;
-
-			// Get current state safely
-			let currentState: any = null;
-			const unsubscribe = subscribe((state) => {
-				currentState = state;
-			});
-			unsubscribe();
-
-			// First check if model has an ID (already exists in DB)
-			if (model.id && !model.id.startsWith('template-') && !model.id.startsWith('fallback-')) {
-				// Model already exists, just use it
-				savedModel = model;
-				console.log('✅ Using existing model with ID:', model.id);
-			} else {
-				// Check if a similar model already exists in the store
-				const existingModel = (currentState?.models || []).find(
-					(m: any) =>
-						m.api_type === model.api_type &&
-						m.provider === model.provider
-				);
-
-				if (existingModel) {
-					// Use the existing model from store
-					savedModel = existingModel;
-					console.log('✅ Found existing model in store:', existingModel.id);
-				} else {
-					// Check if model exists in database by searching for similar models
-					console.log('🔍 Checking database for existing model...');
-					const searchResult = await clientTryCatch(
-						fetch(`/api/ai/models?userId=${userId}&provider=${model.provider}&api_type=${model.api_type}`, {
-							method: 'GET',
-							credentials: 'include'
-						}).then(async (response) => {
-							if (!response.ok)
-								throw new Error(`Failed to search models: ${response.statusText}`);
-							const data = await response.json();
-							if (!data.success) throw new Error(data.error || 'Failed to search models');
-							return data.models || data.data?.models || [];
-						})
-					);
-
-					if (isSuccess(searchResult)) {
-						const existingDbModel = searchResult.data.find(
-							(m: AIModel) =>
-								m.api_type === model.api_type &&
-								m.provider === model.provider
-						);
-
-						if (existingDbModel) {
-							// Use existing model from database
-							savedModel = existingDbModel;
-							console.log('✅ Found existing model in database:', existingDbModel.id);
-						} else {
-							// Only create new model if none exists
-							console.log('➕ No existing model found, creating new one');
-							const newModel = await saveModelToPocketBase(model, userId);
-							if (newModel) {
-								savedModel = newModel;
-								console.log('✅ Created new model:', newModel.id);
+							if (deleteResponse.ok) {
+								console.log(`🗑️ Deleted duplicate model: ${model.name} (${model.id})`);
+								deletedCount++;
 							} else {
-								throw new Error('Failed to save new model to API.');
+								console.warn(`⚠️ Failed to delete model ${model.id}`);
 							}
-						}
-					} else {
-						// If search fails, try to create new model
-						console.log('⚠️ Model search failed, attempting to create new model');
-						const newModel = await saveModelToPocketBase(model, userId);
-						if (newModel) {
-							savedModel = newModel;
-						} else {
-							throw new Error('Failed to save new model to API.');
+						} catch (error) {
+							console.warn(`⚠️ Error deleting model ${model.id}:`, error);
 						}
 					}
 				}
 			}
 
-			// Update user's selected model
-			const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				credentials: 'include',
-				body: JSON.stringify({ model: savedModel.id })
-			});
-
-			if (!userUpdateResponse.ok) {
-				throw new Error(
-					`Failed to update user's selected model: ${userUpdateResponse.statusText}`
-				);
-			}
-
-			update((state) => {
-				// Prevent adding duplicates to the store
-				const modelExists = (state.models || []).some((m: any) => m.id === savedModel.id);
-				const updatedModels = modelExists 
-					? state.models 
-					: [...(state.models || []), savedModel];
-
-				return {
-					...state,
-					selectedModel: savedModel,
-					models: updatedModels,
-					isOffline: false,
-					updateStatus: 'Model selected successfully'
-				};
-			});
-
-			return true;
-		})()
-	);
-
-	if (isSuccess(result)) {
-		return result.data;
-	} else {
-		console.error(
-			'Error setting selected model:',
-			result.error,
-			'Model:',
-			model,
-			'UserId:',
-			userId
-		);
-		update((state) => ({ ...state, isOffline: true }));
-		return false;
+			console.log(`✅ Cleanup complete! Deleted ${deletedCount} duplicate models`);
+		} catch (error) {
+			console.error('❌ Error during cleanup:', error);
+		}
 	}
-}
+	async function loadModels(userId: string): Promise<boolean> {
+		console.log('🔍 loadModels called for userId:', userId);
 
+		const result = await clientTryCatch(
+			(async () => {
+				const connectionResponse = await fetch('/api/verify/health');
+				const connectionData = await connectionResponse.json();
+				if (!connectionData.success) throw new Error('PocketBase not available');
 
-	async function setSelectedProvider(userId: string, provider: ProviderType): Promise<boolean> {
+				console.log('🔍 Fetching models from API for userId:', userId);
+				const response = await fetch(`/api/ai/models?userId=${userId}`, {
+					method: 'GET',
+					credentials: 'include'
+				});
+
+				console.log('🔍 Models API response status:', response.status);
+				if (!response.ok) throw new Error(`Failed to load models: ${response.statusText}`);
+
+				const data = await response.json();
+				console.log('🔍 Raw models API response:', data);
+
+				if (!data.success) throw new Error(data.error || 'Failed to load models');
+
+				let models: AIModel[] = [];
+				if (data.data && data.data.models) {
+					models = data.data.models;
+				} else if (data.models) {
+					models = data.models;
+				} else if (data.data && Array.isArray(data.data)) {
+					models = data.data;
+				} else {
+					console.log('❌ Unexpected models API structure:', data);
+					models = [];
+				}
+
+				// FILTER OUT LOCAL MODELS FROM DATABASE RESULTS
+				models = models.filter(
+					(model) =>
+						model.provider !== 'local' &&
+						!model.id.startsWith('local-') &&
+						model.collectionId !== 'local'
+				);
+
+				console.log('🔍 Loaded models from API (excluding local):', models?.length || 0, 'models');
+
+				// DEDUPLICATE MODELS BY provider + api_type (but only for non-local models)
+				const uniqueModels = models.reduce((acc: AIModel[], model: AIModel) => {
+					const exists = acc.find(
+						(m) => m.provider === model.provider && m.api_type === model.api_type
+					);
+					if (!exists) {
+						acc.push(model);
+					} else {
+						console.log(
+							`🚫 Skipping duplicate model: ${model.name} (${model.provider}:${model.api_type})`
+						);
+					}
+					return acc;
+				}, []);
+
+				console.log('🔍 After deduplication:', uniqueModels.length, 'unique models');
+
+				// Filter models by available API keys (exclude local from this check)
+				const availableKeyProviders = ['openai', 'anthropic', 'google', 'grok', 'deepseek'].filter(
+					(provider) => apiKey.hasKey(provider)
+				);
+
+				const filteredModels = uniqueModels.filter((model: AIModel) => {
+					const hasKey = availableKeyProviders.includes(model.provider);
+					if (!hasKey) {
+						console.log(`🚫 Filtered out ${model.name} - no key for ${model.provider}`);
+					}
+					return hasKey;
+				});
+
+				console.log('🔍 Final filtered models:', filteredModels?.length || 0, 'models');
+
+				if (filteredModels && filteredModels.length > 0) {
+					console.log(
+						'🔍 Valid model details:',
+						filteredModels.map((m) => `${m.provider}-${m.name}-${m.id}`)
+					);
+				}
+
+				update((state) => ({
+					...state,
+					models: filteredModels || [],
+					isOffline: false,
+					updateStatus: ''
+				}));
+
+				return true;
+			})()
+		);
+
+		if (isSuccess(result)) {
+			return result.data;
+		} else {
+			console.warn('❌ Failed to load models:', result.error);
+			update((state) => ({ ...state, isOffline: true }));
+			return false;
+		}
+	}
+
+	async function setSelectedModel(userId: string, model: AIModel): Promise<boolean> {
+		const result = await clientTryCatch(
+			(async () => {
+				let savedModel = model;
+
+				if (
+					model.provider === 'local' ||
+					model.id.startsWith('local-') ||
+					model.collectionId === 'local'
+				) {
+					console.log('🏠 Local model detected, skipping database operations');
+
+					update((state) => {
+						return {
+							...state,
+							selectedModel: model,
+							isOffline: false,
+							updateStatus: 'Local model selected successfully'
+						};
+					});
+
+					try {
+						await setSelectedProvider(userId, 'local');
+
+						await fetch(`/api/verify/users/${userId}`, {
+							method: 'PATCH',
+							headers: { 'Content-Type': 'application/json' },
+							credentials: 'include',
+							body: JSON.stringify({
+								local_model_preference: model.api_type || model.name
+							})
+						});
+
+						console.log(`🏠 Saved local model preference: ${model.api_type || model.name}`);
+					} catch (error) {
+						console.warn('Error updating local model settings:', error);
+					}
+					return true;
+				}
+
+				let currentState: any = null;
+				const unsubscribe = subscribe((state) => {
+					currentState = state;
+				});
+				unsubscribe();
+
+				// REST OF THE EXISTING LOGIC FOR NON-LOCAL MODELS...
+				// (keep all the existing database logic for cloud providers)
+
+				// First check if model has an ID (already exists in DB)
+				if (model.id && !model.id.startsWith('template-') && !model.id.startsWith('fallback-')) {
+					// Model already exists, just use it
+					savedModel = model;
+					console.log('✅ Using existing model with ID:', model.id);
+				} else {
+					// Check if a similar model already exists in the store
+					const existingModel = (currentState?.models || []).find(
+						(m: any) => m.api_type === model.api_type && m.provider === model.provider
+					);
+
+					if (existingModel) {
+						// Use the existing model from store
+						savedModel = existingModel;
+						console.log('✅ Found existing model in store:', existingModel.id);
+					} else {
+						// Check if model exists in database by searching for similar models
+						console.log('🔍 Checking database for existing model...');
+						const searchResult = await clientTryCatch(
+							fetch(
+								`/api/ai/models?userId=${userId}&provider=${model.provider}&api_type=${model.api_type}`,
+								{
+									method: 'GET',
+									credentials: 'include'
+								}
+							).then(async (response) => {
+								if (!response.ok)
+									throw new Error(`Failed to search models: ${response.statusText}`);
+								const data = await response.json();
+								if (!data.success) throw new Error(data.error || 'Failed to search models');
+								return data.models || data.data?.models || [];
+							})
+						);
+
+						if (isSuccess(searchResult)) {
+							const existingDbModel = searchResult.data.find(
+								(m: AIModel) => m.api_type === model.api_type && m.provider === model.provider
+							);
+
+							if (existingDbModel) {
+								// Use existing model from database
+								savedModel = existingDbModel;
+								console.log('✅ Found existing model in database:', existingDbModel.id);
+							} else {
+								// Only create new model if none exists
+								console.log('➕ No existing model found, creating new one');
+								const newModel = await saveModelToPocketBase(model, userId);
+								if (newModel) {
+									savedModel = newModel;
+									console.log('✅ Created new model:', newModel.id);
+								} else {
+									throw new Error('Failed to save new model to API.');
+								}
+							}
+						} else {
+							// If search fails, try to create new model
+							console.log('⚠️ Model search failed, attempting to create new model');
+							const newModel = await saveModelToPocketBase(model, userId);
+							if (newModel) {
+								savedModel = newModel;
+							} else {
+								throw new Error('Failed to save new model to API.');
+							}
+						}
+					}
+				}
+
+				// Update user's selected model (only for non-local models)
+				const userUpdateResponse = await fetch(`/api/verify/users/${userId}`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
+					body: JSON.stringify({ model: savedModel.id })
+				});
+
+				if (!userUpdateResponse.ok) {
+					throw new Error(
+						`Failed to update user's selected model: ${userUpdateResponse.statusText}`
+					);
+				}
+
+				update((state) => {
+					// Prevent adding duplicates to the store
+					const modelExists = (state.models || []).some((m: any) => m.id === savedModel.id);
+					const updatedModels = modelExists ? state.models : [...(state.models || []), savedModel];
+
+					return {
+						...state,
+						selectedModel: savedModel,
+						models: updatedModels,
+						isOffline: false,
+						updateStatus: 'Model selected successfully'
+					};
+				});
+
+				return true;
+			})()
+		);
+
+		if (isSuccess(result)) {
+			return result.data;
+		} else {
+			console.error(
+				'Error setting selected model:',
+				result.error,
+				'Model:',
+				model,
+				'UserId:',
+				userId
+			);
+			update((state) => ({ ...state, isOffline: true }));
+			return false;
+		}
+	}
+
+	async function setSelectedProvider(userId: string, provider: AIProviderType): Promise<boolean> {
 		const result = await clientTryCatch(
 			fetch(`/api/verify/users/${userId}`, {
 				method: 'PATCH',
@@ -384,9 +426,10 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 					...state,
 					selectedProvider: provider,
 					isOffline: false,
-					updateStatus: ''
+					updateStatus: provider === 'local' ? 'Local provider selected' : 'Provider updated'
 				}));
 
+				console.log(`✅ Provider updated to: ${provider}`);
 				return true;
 			})
 		);
@@ -410,7 +453,7 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 		setSelectedModel,
 		setSelectedProvider,
 		reset,
-	cleanupDuplicateModels,
+		cleanupDuplicateModels,
 		updateModel(id: string, updatedModel: Partial<AIModel>) {
 			update((state) => ({
 				...state,
@@ -535,25 +578,81 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 
 					const selectedProvider = user.selected_provider || null;
 					const selectedModelId = user.model || null;
+					const selectedLocalModelId = user.local_model_preference || null;
 
 					console.log(
 						'🎯 User preferences - Provider:',
 						selectedProvider,
 						'Model ID:',
-						selectedModelId
+						selectedModelId,
+						'Local model ID:',
+						selectedLocalModelId
 					);
+					if (selectedProvider === 'local') {
+						console.log('🏠 User has selected local provider');
 
-					// If no valid models, use default from available provider
+						if (selectedLocalModelId) {
+							console.log(`🏠 User has local model preference: ${selectedLocalModelId}`);
+
+							const localModel: AIModel = {
+								id: `local-${selectedLocalModelId}`,
+								name: selectedLocalModelId,
+								provider: 'local',
+								api_key: '',
+								base_url: 'http://localhost:11434',
+								api_type: selectedLocalModelId,
+								api_version: 'v1',
+								description: `Local model: ${selectedLocalModelId}`,
+								user: [],
+								created: new Date().toISOString(),
+								updated: new Date().toISOString(),
+								collectionId: 'local',
+								collectionName: 'local_models'
+							};
+
+							update((state) => ({
+								...state,
+								selectedModel: localModel,
+								selectedProvider: 'local'
+							}));
+
+							console.log(`✅ Initialized with local model: ${selectedLocalModelId}`);
+							return localModel;
+						} else {
+							console.log('🏠 Local provider selected but no specific model preference');
+							const defaultLocalModel: AIModel = {
+								id: 'local-default',
+								name: 'Local AI',
+								provider: 'local',
+								api_key: '',
+								base_url: 'http://localhost:11434',
+								api_type: 'llama3.1:8b',
+								api_version: 'v1',
+								description: 'Default local model',
+								user: [],
+								created: new Date().toISOString(),
+								updated: new Date().toISOString(),
+								collectionId: 'local',
+								collectionName: 'local_models'
+							};
+
+							update((state) => ({
+								...state,
+								selectedModel: defaultLocalModel,
+								selectedProvider: 'local'
+							}));
+
+							return defaultLocalModel;
+						}
+					}
 					if (validModels.length === 0) {
 						console.log('❌ NO VALID MODELS - using default from available provider');
 
-						// Find default model for available provider
 						const preferredProviders = ['anthropic', 'deepseek', 'grok'];
 						for (const provider of preferredProviders) {
 							if (availableKeyProviders.includes(provider)) {
 								console.log(`✅ Using default model for available provider: ${provider}`);
 
-								// Use default from availableModels for this provider
 								const defaultForProvider = availableModels.find((m) => m.provider === provider);
 								if (defaultForProvider) {
 									return defaultForProvider;
@@ -564,7 +663,6 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 						return defaultModel;
 					}
 
-					// If user has selected model, try to find it in valid models
 					if (selectedModelId) {
 						const foundModel = validModels.find((m: AIModel) => m.id === selectedModelId);
 						if (foundModel) {
@@ -575,7 +673,6 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 						}
 					}
 
-					// Prioritize providers: anthropic > deepseek > grok > others
 					const preferredProviders = ['anthropic', 'deepseek', 'grok'];
 
 					for (const provider of preferredProviders) {
@@ -593,14 +690,12 @@ async function setSelectedModel(userId: string, model: AIModel): Promise<boolean
 						}
 					}
 
-					// Use first valid model
 					if (validModels.length > 0) {
 						console.log('✅ Using first valid model:', validModels[0].name);
 						await setSelectedModel(userId, validModels[0]);
 						return validModels[0];
 					}
 
-					// Last resort
 					console.log('❌ No valid models found, using default');
 					return defaultModel;
 				})()

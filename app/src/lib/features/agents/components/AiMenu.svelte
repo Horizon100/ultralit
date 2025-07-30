@@ -83,7 +83,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -105,8 +105,7 @@
 		flex-direction: row;
 		justify-content: space-around;
 		width: 100%;
-		height: 50px;
-		margin-top: 1rem;
+		margin-top: 2rem;
 		/* margin: 1rem; */
 		/* padding: 1rem; */
 		/* background-color: rgba(0, 0, 0, 0.2); */
@@ -115,18 +114,18 @@
 
 	.tabs button {
 		display: flex;
-		width: 50%;
+		width: auto;
+		height: auto;
 		flex-direction: row;
 		justify-content: center;
 		align-items: center;
 		/* padding: 5px; */
 		border: none;
 		cursor: pointer;
-		color: white;
-		font-size: 16px;
+		color: var(--placeholder-color);
+		font-size: 1rem;
 		background-color: transparent;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-		transform: scale(1);
 		/* margin: 1rem; */
 		/* padding: 1rem; */
 	}
@@ -138,8 +137,8 @@
 	}
 
 	.tabs button.active {
-		padding: 20px;
-		border-bottom: 2px solid #ffffff;
+		color: var(--tertiary-color);
+		border-bottom: 2px solid var(--tertiary-color);
 		/* transform: scale(1.1); */
 		/* background-color: rgba(255, 255, 255, 0.05); */
 	}
@@ -158,15 +157,17 @@
 		background-color: rgba(255, 255, 255, 0.1);
 		border: none;
 		border-radius: 4px;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.content {
 		position: relative;
-		height: 84vh;
+		height: calc(100% - 6rem);
+
 		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
+
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;

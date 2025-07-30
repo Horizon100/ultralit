@@ -90,7 +90,7 @@ export class PromptService {
 	/**
 	 * Gets random start prompts for suggestions
 	 */
-	static getRandomPrompts(count: number = 3): string[] {
+	static getRandomPrompts(count: number = 10): string[] {
 		const $t = get(t);
 		const prompts = $t('startPrompts');
 
@@ -105,7 +105,7 @@ export class PromptService {
 	/**
 	 * Refreshes prompt suggestions with new random prompts
 	 */
-	static refreshPromptSuggestions(count: number = 3): string[] {
+	static refreshPromptSuggestions(count: number = 10): string[] {
 		return this.getRandomPrompts(count);
 	}
 

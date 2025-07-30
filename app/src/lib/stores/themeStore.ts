@@ -33,95 +33,94 @@ function createThemeStore() {
 
 	const themeOnly = derived(store, ($state) => $state.theme);
 
-const applyTheme = (theme: Theme) => {
-	if (!browser) return;
+	const applyTheme = (theme: Theme) => {
+		if (!browser) return;
 
-	// Remove all available theme classes first
-	document.documentElement.classList.remove(...availableThemes);
-	// Add the current theme class
-	document.documentElement.classList.add(theme);
+		// Remove all available theme classes first
+		document.documentElement.classList.remove(...availableThemes);
+		// Add the current theme class
+		document.documentElement.classList.add(theme);
 
-	store.update((state) => ({ ...state, theme }));
-	localStorage.setItem('theme', theme);
-};
+		store.update((state) => ({ ...state, theme }));
+		localStorage.setItem('theme', theme);
+	};
 
-const initialize = async () => {
-   if (!browser) return;
+	const initialize = async () => {
+		if (!browser) return;
 
-   const state = get(store);
-   if (state.isInitializing || state.isInitialized) return;
+		const state = get(store);
+		if (state.isInitializing || state.isInitialized) return;
 
-   store.update((state) => ({ ...state, isInitializing: true }));
+		store.update((state) => ({ ...state, isInitializing: true }));
 
-   const user = get(currentUser);
-   
-   // For non-authenticated users
-   if (!user?.id) {
-   	const savedTheme = localStorage.getItem('theme') as Theme | null;
-   	const themeToUse = (savedTheme && availableThemes.includes(savedTheme)) 
-   		? savedTheme 
-   		: 'default'; // Set your preferred default theme for non-auth users here
-   			console.log('🎨 Non-auth user theme:', { savedTheme, themeToUse });
+		const user = get(currentUser);
 
-   	applyTheme(themeToUse);
-   	store.update((state) => ({
-   		...state,
-   		isInitializing: false,
-   		isInitialized: true
-   	}));
-   	return;
-   }
+		// For non-authenticated users
+		if (!user?.id) {
+			const savedTheme = localStorage.getItem('theme') as Theme | null;
+			const themeToUse =
+				savedTheme && availableThemes.includes(savedTheme) ? savedTheme : 'default'; // Set your preferred default theme for non-auth users here
+			console.log('🎨 Non-auth user theme:', { savedTheme, themeToUse });
 
-   // For authenticated users - check localStorage first
-   const savedTheme = localStorage.getItem('theme') as Theme | null;
-   if (savedTheme && availableThemes.includes(savedTheme)) {
-   	applyTheme(savedTheme);
-   	store.update((state) => ({
-   		...state,
-   		isInitializing: false,
-   		isInitialized: true
-   	}));
-   	return;
-   }
+			applyTheme(themeToUse);
+			store.update((state) => ({
+				...state,
+				isInitializing: false,
+				isInitialized: true
+			}));
+			return;
+		}
 
-   // Try to fetch from server for authenticated users
-   try {
-   	const controller = new AbortController();
-   	const timeoutId = setTimeout(() => controller.abort(), 3000);
+		// For authenticated users - check localStorage first
+		const savedTheme = localStorage.getItem('theme') as Theme | null;
+		if (savedTheme && availableThemes.includes(savedTheme)) {
+			applyTheme(savedTheme);
+			store.update((state) => ({
+				...state,
+				isInitializing: false,
+				isInitialized: true
+			}));
+			return;
+		}
 
-   	const response = await fetch(`/api/users/${user.id}/themes`, {
-   		signal: controller.signal
-   	});
+		// Try to fetch from server for authenticated users
+		try {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-   	clearTimeout(timeoutId);
+			const response = await fetch(`/api/users/${user.id}/themes`, {
+				signal: controller.signal
+			});
 
-   	if (response.ok) {
-   		const data = await response.json();
-   		const theme = data.theme;
+			clearTimeout(timeoutId);
 
-   		if (theme && availableThemes.includes(theme)) {
-   			applyTheme(theme);
-   			store.update((state) => ({
-   				...state,
-   				isInitializing: false,
-   				isInitialized: true
-   			}));
-   			return;
-   		}
-   	}
-   } catch (err) {
-   	console.error('Failed to load user theme:', err);
-   	// Continue to fallback
-   }
+			if (response.ok) {
+				const data = await response.json();
+				const theme = data.theme;
 
-   // Fallback to default theme for authenticated users
-   applyTheme(DEFAULT_THEME);
-   store.update((state) => ({
-   	...state,
-   	isInitializing: false,
-   	isInitialized: true
-   }));
-};
+				if (theme && availableThemes.includes(theme)) {
+					applyTheme(theme);
+					store.update((state) => ({
+						...state,
+						isInitializing: false,
+						isInitialized: true
+					}));
+					return;
+				}
+			}
+		} catch (err) {
+			console.error('Failed to load user theme:', err);
+			// Continue to fallback
+		}
+
+		// Fallback to default theme for authenticated users
+		applyTheme(DEFAULT_THEME);
+		store.update((state) => ({
+			...state,
+			isInitializing: false,
+			isInitialized: true
+		}));
+	};
 
 	const setTheme = async (theme: Theme) => {
 		if (!browser || !availableThemes.includes(theme)) return;

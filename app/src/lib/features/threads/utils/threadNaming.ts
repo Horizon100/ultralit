@@ -21,21 +21,9 @@ export async function generateThreadName(
 			console.log('Generating thread name for:', {
 				userMessage,
 				aiResponse,
-				modelId: model?.id
+				modelId: model?.id,
+				provider: model?.provider
 			});
-
-			const messages = [
-				{
-					role: 'system' as RoleType,
-					content: `Create a concise, descriptive title (max 50 chars) for a conversation starting with:
-                User: ${userMessage}
-                Assistant: ${aiResponse}
-                Return only the title, no quotes or explanation.`,
-					model: model.id || model.api_type
-				}
-			];
-
-			// Ensure model has all required fields
 			const modelToUse: AIModel = {
 				...model,
 				provider: model.provider || defaultModel.provider,
@@ -44,19 +32,41 @@ export async function generateThreadName(
 				api_version: model.api_version || defaultModel.api_version,
 				api_key: model.api_key || defaultModel.api_key
 			};
+			const messages = [
+				{
+					role: 'user' as RoleType,
+					content:
+						modelToUse.provider === 'local'
+							? `Create a concise, descriptive title (max 50 chars) for a conversation starting with: "${userMessage}"?`
+							: `Create a concise, descriptive title (max 50 chars) for a conversation starting with:
+                User: ${userMessage}
+                Assistant: ${aiResponse}
+                Return only the title, no quotes or explanation.`,
+					model: model.id || model.api_type
+				}
+			];
 
 			console.log('Sending prompt for thread name generation:', messages);
 
+			// Determine which API endpoint to use based on provider
+			const apiEndpoint = modelToUse.provider === 'local' ? '/api/ai/local/chat' : '/api/ai';
+
+			console.log('Using API endpoint:', apiEndpoint, 'for provider:', modelToUse.provider);
+
 			// Direct API call to bypass fetchAIResponse and prompts
-			const fetchResult = await fetchTryCatch('/api/ai', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					messages,
-					model: modelToUse,
-					userId
-				})
-			});
+			const fetchResult = await fetchTryCatch(
+				apiEndpoint,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						messages,
+						model: modelToUse,
+						userId
+					})
+				},
+				60000
+			);
 
 			if (isFailure(fetchResult)) {
 				throw new Error(`Failed to generate thread name: ${fetchResult.error}`);
@@ -64,15 +74,26 @@ export async function generateThreadName(
 
 			const data: any = fetchResult.data;
 
-			// FIX: Handle the wrapped response format like in your main AI client
+			// Handle different response formats based on the API endpoint
 			let responseText: string;
-			if (data && typeof data === 'object' && data.success && data.data && data.data.response) {
-				responseText = data.data.response;
-			} else if (data && typeof data === 'object' && data.response) {
-				responseText = data.response;
+			if (modelToUse.provider === 'local') {
+				// Local API returns response directly in the response field
+				if (data && typeof data === 'object' && data.response) {
+					responseText = data.response;
+				} else {
+					console.error('Unexpected local API response format for thread naming:', data);
+					throw new Error('Could not extract response from local API thread naming');
+				}
 			} else {
-				console.error('Unexpected response format for thread naming:', data);
-				throw new Error('Could not extract response from thread naming API');
+				// Cloud API returns wrapped response format
+				if (data && typeof data === 'object' && data.success && data.data && data.data.response) {
+					responseText = data.data.response;
+				} else if (data && typeof data === 'object' && data.response) {
+					responseText = data.response;
+				} else {
+					console.error('Unexpected cloud API response format for thread naming:', data);
+					throw new Error('Could not extract response from cloud API thread naming');
+				}
 			}
 
 			console.log('Received thread name suggestion:', responseText);
@@ -95,7 +116,6 @@ export async function generateThreadName(
 
 	return result.data;
 }
-
 export async function shouldUpdateThreadName(messages: Messages[]): Promise<boolean> {
 	ensureAuthenticated();
 	console.log('Checking if thread name should be updated. Messages count:', messages?.length);
@@ -176,7 +196,6 @@ export async function updateThreadNameIfNeeded(
 
 			console.log('Updating thread with new name...');
 
-			// First update the local store IMMEDIATELY to prevent UI disappearance
 			threadsStore.update((state) => ({
 				...state,
 				threads: state.threads.map((thread) =>

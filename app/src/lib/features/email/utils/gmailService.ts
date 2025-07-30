@@ -3,6 +3,8 @@
 import { gmail_v1, google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import { simpleParser } from 'mailparser';
+import type { ParsedMail } from 'mailparser';
+
 import fs from 'fs/promises';
 import path from 'path';
 import { EmailService } from './emailUtils';
@@ -43,7 +45,7 @@ export class GmailService extends EmailService {
 
 			for (const message of messages) {
 				try {
-					const fullMessage = await this.getMessage(message.id!);
+					const fullMessage = await this.getMessage(message.id || '');
 					const parsedMessage = await this.parseGmailMessage(fullMessage);
 					parsedMessage.accountId = account.id;
 
@@ -283,7 +285,7 @@ export class GmailService extends EmailService {
 
 		for (const message of messages) {
 			try {
-				const fullMessage = await this.getMessage(message.id!);
+				const fullMessage = await this.getMessage(message.id || '');
 				const parsedMessage = await this.parseGmailMessage(fullMessage);
 				searchResults.push(parsedMessage);
 
@@ -375,7 +377,7 @@ export class GmailService extends EmailService {
 	/**
 	 * Parse raw email using mailparser
 	 */
-	async parseRawEmail(rawEmail: string): Promise<any> {
+	async parseRawEmail(rawEmail: string): Promise<ParsedMail> {
 		return await simpleParser(rawEmail);
 	}
 

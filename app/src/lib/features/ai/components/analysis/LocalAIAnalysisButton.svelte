@@ -5,7 +5,7 @@
 	import { clientTryCatch } from '$lib/utils/errorUtils';
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
-		import { currentUser } from '$lib/pocketbase';
+	import { currentUser } from '$lib/pocketbase';
 	import { toast } from '$lib/utils/toastUtils';
 	import Toast from '$lib/components/modals/Toast.svelte';
 	import type { PostWithInteractions, CommentWithInteractions } from '$lib/types/types.posts';
@@ -722,18 +722,18 @@
 		pdfAnalysisLoading = false;
 	}
 
-function handleAnalyze() {
-	if (!$currentUser) {
-		toast.warning('Please sign in to analyze posts');
-		return;
-	}
+	function handleAnalyze() {
+		if (!$currentUser) {
+			toast.warning('Please sign in to analyze posts');
+			return;
+		}
 
-	if (analysisType.startsWith('pdf_')) {
-		analyzePdf();
-	} else {
-		analyzePost();
+		if (analysisType.startsWith('pdf_')) {
+			analyzePdf();
+		} else {
+			analyzePost();
+		}
 	}
-}
 
 	function isAnyAnalysisLoading(): boolean {
 		return loading || pdfAnalysisLoading || autoAnalyzingPdf || transcriptionLoading;
@@ -1127,12 +1127,10 @@ function handleAnalyze() {
 						{:else}
 							<div class="spinner"></div>
 						{/if}
+					{:else if analysisType.startsWith('pdf_')}
+						Analyze PDF
 					{:else}
-						{#if analysisType.startsWith('pdf_')}
-							Analyze PDF
-						{:else}
-							<Icon name="RefreshCcw" size={14} />
-						{/if}
+						<Icon name="RefreshCcw" size={14} />
 					{/if}
 				</button>
 			</div>
@@ -1159,7 +1157,7 @@ function handleAnalyze() {
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1251,10 +1249,10 @@ function handleAnalyze() {
 		}
 	}
 
-.spinner {
-	width: 0.5rem;
-	height: 0.5rem;
-}
+	.spinner {
+		width: 0.5rem;
+		height: 0.5rem;
+	}
 
 	.type-btn {
 		display: flex;

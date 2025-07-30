@@ -87,7 +87,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	* {
 		font-family: var(--font-family);

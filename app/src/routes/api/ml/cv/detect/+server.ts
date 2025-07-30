@@ -2,7 +2,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { CV_DETECTION_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -30,14 +30,14 @@ export const POST: RequestHandler = async ({ request }) => {
 		};
 
 		console.log('Sending to FastAPI /detect-frame:', {
-			endpoint: `${CV_DETECTION_URL}/detect-frame`,
+			endpoint: `${env.CV_DETECTION_URL}/detect-frame`,
 			hasFrameData: !!fastApiPayload.frame_data,
 			frameLength: fastApiPayload.frame_data?.frame?.length || 'undefined',
 			confidence: fastApiPayload.frame_data?.confidence
 		});
 
 		// Send to FastAPI /detect-frame endpoint (not /detect)
-		const response = await fetch(`${CV_DETECTION_URL}/detect-frame`, {
+		const response = await fetch(`${env.CV_DETECTION_URL}/detect-frame`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
@@ -67,7 +67,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 export const GET: RequestHandler = async () => {
 	try {
-		const response = await fetch(`${CV_DETECTION_URL}/health`);
+		const response = await fetch(`${env.CV_DETECTION_URL}/health`);
 
 		if (!response.ok) {
 			return json({ status: 'unavailable', error: 'CV service down' }, { status: 503 });

@@ -50,15 +50,15 @@ export function getAvatarUrl(user: AvatarUser | null): string {
 // New function that includes identicon fallback
 export function getAvatarUrlWithFallback(user: AvatarUser | null, size: number = 64): string {
 	if (!user) return '';
-	
+
 	// Try to get uploaded avatar first
 	const uploadedAvatar = getAvatarUrl(user);
-	
+
 	// If no uploaded avatar, generate identicon
 	if (!uploadedAvatar) {
 		return generateUserIdenticon(getUserIdentifier(user), size);
 	}
-	
+
 	return uploadedAvatar;
 }
 
@@ -107,12 +107,12 @@ export function getExpandedUserAvatarUrlWithFallback(
 ): string {
 	// Try to get uploaded avatar first
 	const uploadedAvatar = getExpandedUserAvatarUrl(expandedUser, timestamp);
-	
+
 	// If no uploaded avatar, generate identicon
 	if (!uploadedAvatar) {
 		return generateUserIdenticon(getUserIdentifier(expandedUser), size);
 	}
-	
+
 	return uploadedAvatar;
 }
 

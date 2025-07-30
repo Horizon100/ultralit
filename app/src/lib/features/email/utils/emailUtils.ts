@@ -15,7 +15,7 @@ import type {
 
 export class EmailService {
 	private oauth2Client: OAuth2Client;
-	private gmail: gmail_v1.Gmail;
+	protected gmail: gmail_v1.Gmail; // Changed from private to protected
 
 	constructor(private config: EmailAuthConfig) {
 		this.oauth2Client = new OAuth2Client(config.clientId, config.clientSecret, config.redirectUri);
@@ -43,7 +43,7 @@ export class EmailService {
 			return tokens;
 		} catch (error) {
 			console.error('Token exchange error:', error);
-			throw new Error(`Failed to exchange authorization code: ${error.message}`);
+			throw new Error(`Failed to exchange authorization code: ${error}`);
 		}
 	}
 	/**
@@ -74,8 +74,8 @@ export class EmailService {
 
 			return {
 				...account,
-				accessToken: credentials.access_token!,
-				tokenExpiry: new Date(credentials.expiry_date!)
+				accessToken: credentials.access_token || '',
+				tokenExpiry: new Date(credentials.expiry_date || Date.now())
 			};
 		}
 		return account;
@@ -135,8 +135,8 @@ export class EmailService {
 		const message: EmailMessage = {
 			id: '', // Will be set by PocketBase
 			accountId: '', // Will be set by caller
-			messageId: gmailMessage.id!,
-			threadId: gmailMessage.threadId!,
+			messageId: gmailMessage.id || '',
+			threadId: gmailMessage.threadId || '',
 			subject: getHeader('Subject') || '(No Subject)',
 			from: this.parseEmailAddress(getHeader('From') || ''),
 			to: this.parseEmailAddresses(getHeader('To') || ''),
@@ -225,13 +225,15 @@ export class EmailService {
 
 		const processPart = (part: gmail_v1.Schema$MessagePart) => {
 			if (part.filename && part.body?.attachmentId) {
+				const contentIdHeader = part.headers?.find((h) => h.name === 'Content-ID');
+
 				attachments.push({
 					id: '', // Will be set by PocketBase
 					filename: part.filename,
 					mimeType: part.mimeType || 'application/octet-stream',
 					size: part.body.size || 0,
 					attachmentId: part.body.attachmentId,
-					contentId: part.headers?.find((h) => h.name === 'Content-ID')?.value,
+					contentId: contentIdHeader?.value || undefined, // Fixed null handling
 					isInline:
 						part.headers?.some(
 							(h) => h.name === 'Content-Disposition' && h.value?.includes('inline')

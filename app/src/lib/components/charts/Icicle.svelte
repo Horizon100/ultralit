@@ -277,7 +277,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	.chart-container {
 		margin: 0;

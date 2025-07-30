@@ -6,9 +6,26 @@ import type { RequestHandler } from './$types';
 import { apiTryCatch } from '$lib/utils/errorUtils';
 import * as pbServer from '$lib/server/pocketbase';
 import { dev } from '$app/environment';
-import { OLLAMA_DEV_URL, OLLAMA_PROD_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-const OLLAMA_BASE_URL = dev ? OLLAMA_DEV_URL : OLLAMA_PROD_URL;
+const OLLAMA_BASE_URL = dev ? env.OLLAMA_DEV_URL : env.OLLAMA_PROD_URL;
+
+// Define interfaces for better type safety
+interface TestResult {
+	test: string;
+	url: string;
+	status?: number;
+	ok?: boolean;
+	result: 'PASS' | 'FAIL';
+	data?:
+		| string
+		| Record<string, unknown>
+		| { hasResponse: boolean; responseLength: number }
+		| { modelExists: boolean; family: string };
+	error?: string;
+	model?: string;
+	models?: string[];
+}
 
 export const GET: RequestHandler = async (event) =>
 	apiTryCatch(async () => {
@@ -24,7 +41,7 @@ export const GET: RequestHandler = async (event) =>
 		const debugResults = {
 			environment: dev ? 'development' : 'production',
 			baseUrl: OLLAMA_BASE_URL,
-			tests: []
+			tests: [] as TestResult[] // Type the array explicitly
 		};
 
 		// Test 1: Check if Ollama server is running
@@ -69,7 +86,7 @@ export const GET: RequestHandler = async (event) =>
 				ok: response.ok,
 				result: response.ok ? 'PASS' : 'FAIL',
 				data: data,
-				models: response.ok && data.models ? data.models.map((m) => m.name) : []
+				models: response.ok && data.models ? data.models.map((m: any) => m.name) : []
 			});
 		} catch (error) {
 			debugResults.tests.push({
@@ -83,7 +100,7 @@ export const GET: RequestHandler = async (event) =>
 		// Test 3: Test generate endpoint with a simple prompt
 		try {
 			console.log('🔍 Testing generate endpoint...');
-			const testModel = 'qwen2.5:0.5b'; // The model from your logs
+			const testModel = 'qwen2.5:0.5b';
 
 			const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
 				method: 'POST',

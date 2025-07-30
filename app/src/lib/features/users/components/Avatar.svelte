@@ -7,7 +7,7 @@
 	$: displayName = user?.name || user?.username || 'User';
 
 	// Always try server avatar if we have a user ID - server will handle identicon fallback
-	$: avatarUrl = user?.id 
+	$: avatarUrl = user?.id
 		? `/api/users/${user.id}/avatar${timestamp ? `?t=${timestamp}` : ''}`
 		: '';
 
@@ -65,7 +65,8 @@
 	<!-- Show initials fallback (only if server completely fails) -->
 	<div
 		class="avatar-placeholder {className}"
-		style="width: {size}px; height: {size}px; background-color: {backgroundColor}; border-radius: 50%; font-size: {size * 0.4}px;"
+		style="width: {size}px; height: {size}px; background-color: {backgroundColor}; border-radius: 50%; font-size: {size *
+			0.4}px;"
 	>
 		{initials}
 	</div>

@@ -14,9 +14,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 	});
 
 	// Rate limiting for API endpoints (skip debug endpoints in development)
-if (event.url.pathname.startsWith('/api/') && 
-    !event.url.pathname.startsWith('/api/debug/') &&
-    !event.url.pathname.includes('/media')) { // ADD THIS LINE TO EXCLUDE MEDIA
+	if (
+		event.url.pathname.startsWith('/api/') &&
+		!event.url.pathname.startsWith('/api/debug/') &&
+		!event.url.pathname.includes('/media')
+	) {
+		// ADD THIS LINE TO EXCLUDE MEDIA
 		// Different limits for different endpoints
 		let maxRequests = 300;
 		let windowMs = 60000; // 1 minute
@@ -44,7 +47,7 @@ if (event.url.pathname.startsWith('/api/') &&
 	// Get the cookie header (declare outside try block so it's accessible later)
 	const cookieHeader = event.request.headers.get('cookie') || '';
 	console.log('🍪 Cookie header exists:', !!cookieHeader);
-
+	console.log('🍪 Full cookie header:', cookieHeader);
 	if (cookieHeader) {
 		console.log('🍪 Cookie header content:', cookieHeader);
 	}
@@ -56,6 +59,7 @@ if (event.url.pathname.startsWith('/api/') &&
 		console.log('🔐 After loading cookie - authStore valid:', pb.authStore.isValid);
 		console.log('🔐 AuthStore token exists:', !!pb.authStore.token);
 		console.log('🔐 AuthStore model exists:', !!pb.authStore.model);
+		console.log('🔐 Full auth token (first 20 chars):', pb.authStore.token?.substring(0, 20));
 
 		// Verify the auth token if it exists
 		if (pb.authStore.isValid && pb.authStore.model) {

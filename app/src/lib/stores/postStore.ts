@@ -385,6 +385,8 @@ function createPostStore() {
 			return result.data;
 		},
 
+		// Fix your postStore fetchPosts method:
+
 		fetchPosts: async (limit = 20, offset = 0, parentId?: string) => {
 			const result = await clientTryCatch(
 				(async () => {
@@ -405,22 +407,33 @@ function createPostStore() {
 						params.append('parent', parentId);
 					}
 
-					const fetchResult = await fetchTryCatch<{ success: boolean; data: PostsApiResponse }>(
-						`/api/posts?${params}`,
-						{
-							credentials: 'include'
-						}
-					);
+					const fetchResult = await fetchTryCatch<{
+						success: boolean;
+						posts: any[];
+						totalPages: number;
+						totalItems: number;
+						filters: any;
+					}>(`/api/posts?${params}`, {
+						credentials: 'include'
+					});
 
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to fetch posts: ${fetchResult.error}`);
 					}
 
+					// FIXED: Access posts directly from the API response
 					const apiResponse = fetchResult.data.data;
 					const posts = apiResponse.posts || [];
 					const hasMore = posts.length === limit;
 
-					console.log('✅ FIXED - Successfully extracted posts:', posts.length);
+					console.log('✅ API Response structure:', {
+						success: apiResponse.success,
+						postsCount: apiResponse.posts?.length,
+						totalPages: apiResponse.totalPages,
+						totalItems: apiResponse.totalItems
+					});
+
+					console.log('✅ Successfully extracted posts:', posts.length);
 
 					update((state) => ({
 						...state,
@@ -466,21 +479,31 @@ function createPostStore() {
 						offset: offset.toString()
 					});
 
-					const fetchResult = await fetchTryCatch<{ success: boolean; data: PostsApiResponse }>(
-						`/api/posts?${params}`,
-						{
-							credentials: 'include'
-						}
-					);
+					const fetchResult = await fetchTryCatch<{
+						success: boolean;
+						posts: any[];
+						totalPages: number;
+						totalItems: number;
+						filters: any;
+					}>(`/api/posts?${params}`, {
+						credentials: 'include'
+					});
 
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to fetch posts: ${fetchResult.error}`);
 					}
 
-					// Same fix: double nesting
+					// ✅ FIXED: Remove the extra .data - same as fetchPosts
 					const apiResponse = fetchResult.data.data;
 					const posts = apiResponse.posts || [];
 					const hasMore = posts.length === limit;
+
+					console.log('✅ loadMorePosts - API Response structure:', {
+						success: apiResponse.success,
+						postsCount: apiResponse.posts?.length,
+						totalPages: apiResponse.totalPages,
+						totalItems: apiResponse.totalItems
+					});
 
 					update((state) => ({
 						...state,
@@ -1189,160 +1212,164 @@ function createPostStore() {
 			update((state) => ({ ...state, loading: false }));
 		},
 
-/**
- * Check if a post has been analyzed by any agent
- */
-checkPostAnalyzed: async (postId: string): Promise<boolean> => {
-	const result = await clientTryCatch(
-		(async () => {
-			const response = await fetch(`/api/posts/${postId}/analysis-status`, {
-				method: 'GET',
-				credentials: 'include'
-			});
+		/**
+		 * Check if a post has been analyzed by any agent
+		 */
+		checkPostAnalyzed: async (postId: string): Promise<boolean> => {
+			const result = await clientTryCatch(
+				(async () => {
+					const response = await fetch(`/api/posts/${postId}/analysis-status`, {
+						method: 'GET',
+						credentials: 'include'
+					});
 
-			if (!response.ok) {
-				throw new Error('Failed to check analysis status');
-			}
-
-			const data = await response.json();
-			return data.analyzed || false;
-		})(),
-		'Checking post analysis status'
-	);
-
-	if (isFailure(result)) {
-		console.error('Error checking analysis status:', result.error);
-		return false;
-	}
-
-	return result.data;
-},
-
-/**
- * Trigger agent auto-reply for assigned agents
- */
-triggerAgentAutoReply: async (postId: string, agentIds: string[]) => {
-	const result = await clientTryCatch(
-		(async () => {
-			console.log('🤖 Triggering auto-reply for agents:', { postId, agentIds });
-
-			// First check if post has already been analyzed
-			const isAnalyzed = await postStore.checkPostAnalyzed(postId);
-			if (isAnalyzed) {
-				console.log('🤖 Post already analyzed, skipping auto-reply');
-				return { skipped: true, reason: 'already_analyzed' };
-			}
-
-			// Trigger auto-reply for each agent
-			const responses = await Promise.all(
-				agentIds.map(async (agentId) => {
-					try {
-						const response = await fetch(`/api/agents/${agentId}/auto-reply`, {
-							method: 'POST',
-							headers: { 'Content-Type': 'application/json' },
-							credentials: 'include',
-							body: JSON.stringify({ postId })
-						});
-
-						if (!response.ok) {
-							throw new Error(`Agent ${agentId} auto-reply failed: ${response.statusText}`);
-						}
-
-						const data = await response.json();
-						console.log(`🤖 Agent ${agentId} auto-reply success:`, data);
-						return { agentId, success: true, data };
-					} catch (error) {
-						console.error(`🤖 Agent ${agentId} auto-reply error:`, error);
-						return { agentId, success: false, error: error.message };
+					if (!response.ok) {
+						throw new Error('Failed to check analysis status');
 					}
-				})
+
+					const data = await response.json();
+					return data.analyzed || false;
+				})(),
+				'Checking post analysis status'
 			);
 
-			// Mark post as analyzed
-			await fetch(`/api/posts/${postId}/mark-analyzed`, {
-				method: 'POST',
-				credentials: 'include'
-			});
-
-			return { responses, analyzed: true };
-		})(),
-		'Triggering agent auto-reply'
-	);
-
-	if (isFailure(result)) {
-		console.error('Error triggering agent auto-reply:', result.error);
-		throw new Error(result.error);
-	}
-
-	return result.data;
-},
-
-/**
- * Enhanced toggleAgentAssignment with auto-reply
- */
-assignAgentWithAutoReply: async (postId: string, agentId: string, currentAgentIds: string[]) => {
-	const result = await clientTryCatch(
-		(async () => {
-			const isCurrentlyAssigned = currentAgentIds.includes(agentId);
-			let newAgentIds: string[];
-
-			if (isCurrentlyAssigned) {
-				// Remove agent
-				newAgentIds = currentAgentIds.filter((id) => id !== agentId);
-			} else {
-				// Add agent
-				newAgentIds = [...currentAgentIds, agentId];
+			if (isFailure(result)) {
+				console.error('Error checking analysis status:', result.error);
+				return false;
 			}
 
-			// Update post with new agent assignments
-			const response = await fetch(`/api/posts/${postId}`, {
-				method: 'PATCH',
-				headers: { 'Content-Type': 'application/json' },
-				credentials: 'include',
-				body: JSON.stringify({
-					assignedAgents: newAgentIds  // Changed from 'agents' to 'assignedAgents'
-				})
-			});
+			return result.data;
+		},
 
-			if (!response.ok) {
-				throw new Error('Failed to update agent assignment');
+		/**
+		 * Trigger agent auto-reply for assigned agents
+		 */
+		triggerAgentAutoReply: async (postId: string, agentIds: string[]) => {
+			const result = await clientTryCatch(
+				(async () => {
+					console.log('🤖 Triggering auto-reply for agents:', { postId, agentIds });
+
+					// First check if post has already been analyzed
+					const isAnalyzed = await postStore.checkPostAnalyzed(postId);
+					if (isAnalyzed) {
+						console.log('🤖 Post already analyzed, skipping auto-reply');
+						return { skipped: true, reason: 'already_analyzed' };
+					}
+
+					// Trigger auto-reply for each agent
+					const responses = await Promise.all(
+						agentIds.map(async (agentId) => {
+							try {
+								const response = await fetch(`/api/agents/${agentId}/auto-reply`, {
+									method: 'POST',
+									headers: { 'Content-Type': 'application/json' },
+									credentials: 'include',
+									body: JSON.stringify({ postId })
+								});
+
+								if (!response.ok) {
+									throw new Error(`Agent ${agentId} auto-reply failed: ${response.statusText}`);
+								}
+
+								const data = await response.json();
+								console.log(`🤖 Agent ${agentId} auto-reply success:`, data);
+								return { agentId, success: true, data };
+							} catch (error) {
+								console.error(`🤖 Agent ${agentId} auto-reply error:`, error);
+								return { agentId, success: false, error: error.message };
+							}
+						})
+					);
+
+					// Mark post as analyzed
+					await fetch(`/api/posts/${postId}/mark-analyzed`, {
+						method: 'POST',
+						credentials: 'include'
+					});
+
+					return { responses, analyzed: true };
+				})(),
+				'Triggering agent auto-reply'
+			);
+
+			if (isFailure(result)) {
+				console.error('Error triggering agent auto-reply:', result.error);
+				throw new Error(result.error);
 			}
 
-			const updatedPost = await response.json();
+			return result.data;
+		},
 
-			// Update local store
-			update((state) => ({
-				...state,
-				posts: state.posts.map((post) =>
-					post.id === postId
-						? { ...post, assignedAgents: newAgentIds }  // Changed from 'agents' to 'assignedAgents'
-						: post
-				)
-			}));
+		/**
+		 * Enhanced toggleAgentAssignment with auto-reply
+		 */
+		assignAgentWithAutoReply: async (
+			postId: string,
+			agentId: string,
+			currentAgentIds: string[]
+		) => {
+			const result = await clientTryCatch(
+				(async () => {
+					const isCurrentlyAssigned = currentAgentIds.includes(agentId);
+					let newAgentIds: string[];
 
-			// If agent was assigned (not removed) and post is not analyzed, trigger auto-reply
-			if (!isCurrentlyAssigned && newAgentIds.length > 0) {
-				console.log('🤖 New agent assigned, checking for auto-reply...');
-				
-				try {
-					await postStore.triggerAgentAutoReply(postId, [agentId]);
-				} catch (error) {
-					console.warn('🤖 Auto-reply failed, but assignment was successful:', error);
-				}
+					if (isCurrentlyAssigned) {
+						// Remove agent
+						newAgentIds = currentAgentIds.filter((id) => id !== agentId);
+					} else {
+						// Add agent
+						newAgentIds = [...currentAgentIds, agentId];
+					}
+
+					// Update post with new agent assignments
+					const response = await fetch(`/api/posts/${postId}`, {
+						method: 'PATCH',
+						headers: { 'Content-Type': 'application/json' },
+						credentials: 'include',
+						body: JSON.stringify({
+							assignedAgents: newAgentIds // Changed from 'agents' to 'assignedAgents'
+						})
+					});
+
+					if (!response.ok) {
+						throw new Error('Failed to update agent assignment');
+					}
+
+					const updatedPost = await response.json();
+
+					// Update local store
+					update((state) => ({
+						...state,
+						posts: state.posts.map((post) =>
+							post.id === postId
+								? { ...post, assignedAgents: newAgentIds } // Changed from 'agents' to 'assignedAgents'
+								: post
+						)
+					}));
+
+					// If agent was assigned (not removed) and post is not analyzed, trigger auto-reply
+					if (!isCurrentlyAssigned && newAgentIds.length > 0) {
+						console.log('🤖 New agent assigned, checking for auto-reply...');
+
+						try {
+							await postStore.triggerAgentAutoReply(postId, [agentId]);
+						} catch (error) {
+							console.warn('🤖 Auto-reply failed, but assignment was successful:', error);
+						}
+					}
+
+					return { updatedPost, newAgentIds, autoReplyTriggered: !isCurrentlyAssigned };
+				})(),
+				'Assigning agent with auto-reply'
+			);
+
+			if (isFailure(result)) {
+				console.error('Error assigning agent:', result.error);
+				throw new Error(result.error);
 			}
 
-			return { updatedPost, newAgentIds, autoReplyTriggered: !isCurrentlyAssigned };
-		})(),
-		'Assigning agent with auto-reply'
-	);
-
-	if (isFailure(result)) {
-		console.error('Error assigning agent:', result.error);
-		throw new Error(result.error);
-	}
-
-	return result.data;
-},
+			return result.data;
+		},
 
 		clear: () => {
 			set({

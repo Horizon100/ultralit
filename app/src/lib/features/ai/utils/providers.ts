@@ -1,4 +1,4 @@
-import type { AIModel, ProviderType } from '$lib/types/types';
+import type { AIModel, AIProviderType, SelectableAIModel } from '$lib/types/types';
 import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
 import googleIcon from '$lib/assets/icons/providers/google.svg';
@@ -32,12 +32,11 @@ const handleFetchError = (providerName: string) => (error: unknown) => {
 	throw new Error(`Failed to fetch ${providerName} models: ${message}`);
 };
 
-export const providers: Record<ProviderType, ProviderConfig> = {
+export const providers: Record<AIProviderType, ProviderConfig> = {
 	local: {
-		name: 'Local Models',
-		icon: ollamaIcon, // You'll need to create this icon or use a placeholder
+		name: 'Local Models', // Static name in the providers config
+		icon: ollamaIcon,
 		validateApiKey: async (): Promise<boolean> => {
-			// Local models don't need API key validation, check server availability instead
 			try {
 				const response = await fetch('/api/ai/local/models');
 				const result = await response.json();
@@ -47,16 +46,15 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			}
 		},
 		fetchModels: async (): Promise<AIModel[]> => {
-			// Fetch local models from your local API
 			try {
 				const response = await fetch('/api/ai/local/models');
 				const result = await response.json();
-				
+
 				if (result.success && result.data?.models) {
-					return result.data.models.map((model: any) => ({
+					return result.data.models.map((model: AIModel) => ({
 						id: `local-${model.api_type}`,
 						name: model.name,
-						provider: 'local' as ProviderType,
+						provider: 'local' as AIProviderType,
 						api_key: '', // Local models don't need API keys
 						base_url: 'http://localhost:11434',
 						api_type: model.api_type,
@@ -69,7 +67,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						collectionName: 'local_models'
 					}));
 				}
-				
+
 				return [];
 			} catch (error) {
 				console.error('Error fetching local models:', error);
@@ -112,7 +110,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						.map((model: OpenAIModel) => ({
 							id: `openai-${model.id}`,
 							name: model.id,
-							provider: 'openai' as ProviderType,
+							provider: 'openai' as AIProviderType,
 							api_key: apiKey,
 							base_url: 'https://api.openai.com/v1',
 							api_type: model.id,
@@ -159,7 +157,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						{
 							id: 'anthropic-claude-3-opus',
 							name: 'Claude 3 Opus',
-							provider: 'anthropic' as ProviderType,
+							provider: 'anthropic' as AIProviderType,
 							api_key: apiKey,
 							base_url: 'https://api.anthropic.com/v1',
 							api_type: 'claude-3-opus-20240229',
@@ -174,7 +172,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						{
 							id: 'anthropic-claude-3-sonnet',
 							name: 'Claude 3 Sonnet',
-							provider: 'anthropic' as ProviderType,
+							provider: 'anthropic' as AIProviderType,
 							api_key: apiKey,
 							base_url: 'https://api.anthropic.com/v1',
 							api_type: 'claude-3-sonnet-20240229',
@@ -189,7 +187,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 						{
 							id: 'anthropic-claude-3-haiku',
 							name: 'Claude 3 Haiku',
-							provider: 'anthropic' as ProviderType,
+							provider: 'anthropic' as AIProviderType,
 							api_key: apiKey,
 							base_url: 'https://api.anthropic.com/v1',
 							api_type: 'claude-3-haiku-20240307',
@@ -268,7 +266,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 								{
 									id: 'grok-grok-1',
 									name: 'Grok-1',
-									provider: 'grok' as ProviderType,
+									provider: 'grok' as AIProviderType,
 									api_key: apiKey,
 									base_url: 'https://api.x.ai/v1',
 									api_type: 'grok-1',
@@ -283,7 +281,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 								{
 									id: 'grok-grok-beta',
 									name: 'Grok Beta',
-									provider: 'grok' as ProviderType,
+									provider: 'grok' as AIProviderType,
 									api_key: apiKey,
 									base_url: 'https://api.x.ai/v1',
 									api_type: 'grok-beta',
@@ -305,7 +303,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					return data.data.map((model: OpenAIModel) => ({
 						id: `grok-${model.id}`,
 						name: model.id,
-						provider: 'grok' as ProviderType,
+						provider: 'grok' as AIProviderType,
 						api_key: apiKey,
 						base_url: 'https://api.x.ai/v1',
 						api_type: model.id,
@@ -322,14 +320,13 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 			);
 
 			if (isFailure(result)) {
-				// Final fallback for any other errors
 				if (result.error.includes('429') || result.error.includes('rate limit')) {
 					console.warn('Grok API rate limited, returning minimal fallback models');
 					return [
 						{
 							id: 'grok-grok-1',
 							name: 'Grok-1',
-							provider: 'grok' as ProviderType,
+							provider: 'grok' as AIProviderType,
 							api_key: apiKey,
 							base_url: 'https://api.x.ai/v1',
 							api_type: 'grok-1',
@@ -381,7 +378,7 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 					return data.data.map((model: OpenAIModel) => ({
 						id: `deepseek-${model.id}`,
 						name: model.id,
-						provider: 'deepseek' as ProviderType,
+						provider: 'deepseek' as AIProviderType,
 						api_key: apiKey,
 						base_url: 'https://api.deepseek.com/v1',
 						api_type: model.id,
@@ -407,8 +404,8 @@ export const providers: Record<ProviderType, ProviderConfig> = {
 };
 
 export const fetchAllProviderModels = async (
-	selectedProviders: ProviderType[],
-	apiKeys: Record<ProviderType, string>
+	selectedProviders: AIProviderType[],
+	apiKeys: Record<AIProviderType, string>
 ): Promise<AIModel[]> => {
 	const result = await clientTryCatch(
 		(async () => {
@@ -460,11 +457,17 @@ export const fetchAllProviderModels = async (
 	return result.data;
 };
 
-export function getProviderFromModel(modelName: string): ProviderType {
+export function getProviderFromModel(modelName: string): AIProviderType {
 	const model = modelName.toLowerCase();
 
-		if (model.includes('qwen') || model.includes('llama') || model.includes('tinyllama') || 
-		model.includes('deepseek-r1') || model.includes('ollama') || model.includes('local')) {
+	if (
+		model.includes('qwen') ||
+		model.includes('llama') ||
+		model.includes('tinyllama') ||
+		model.includes('deepseek-r1') ||
+		model.includes('ollama') ||
+		model.includes('local')
+	) {
 		return 'local';
 	}
 
@@ -491,7 +494,7 @@ export function getProviderFromModel(modelName: string): ProviderType {
 	return 'openai';
 }
 
-export function getProviderIcon(provider: ProviderType): string {
+export function getProviderIcon(provider: AIProviderType): string {
 	switch (provider) {
 		case 'local':
 			return ollamaIcon;

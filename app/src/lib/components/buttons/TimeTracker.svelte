@@ -123,7 +123,6 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -156,7 +155,7 @@
 	}
 
 	button {
-		color: var(--text-color);
+		color: var(--placeholder-color);
 		background: transparent;
 		font-size: 1rem;
 		border: none;
@@ -172,7 +171,8 @@
 	}
 
 	button:hover {
-		background-color: #c0392b !important;
+		background-color: var(--primary-color) !important;
+		color: var(--tertiary-color);
 	}
 
 	.time-display {

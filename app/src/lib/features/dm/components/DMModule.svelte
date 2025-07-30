@@ -396,7 +396,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	.dm-module {
 		position: relative;

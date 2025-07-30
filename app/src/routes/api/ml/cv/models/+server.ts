@@ -1,10 +1,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from '@sveltejs/kit';
-import { CV_DETECTION_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export const GET: RequestHandler = async () => {
 	try {
-		const response = await fetch(`${CV_DETECTION_URL}/models`);
+		const response = await fetch(`${env.CV_DETECTION_URL}/models`);
 
 		if (!response.ok) {
 			return json({ error: 'Models service unavailable' }, { status: 503 });
@@ -27,7 +27,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		}
 
 		// Switch model on CV service
-		const response = await fetch(`${CV_DETECTION_URL}/models/${model_name}`, {
+		const response = await fetch(`${env.CV_DETECTION_URL}/models/${model_name}`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'

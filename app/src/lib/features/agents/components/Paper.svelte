@@ -371,7 +371,7 @@
 <div bind:this={paperContainer} id="paper-container"></div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}

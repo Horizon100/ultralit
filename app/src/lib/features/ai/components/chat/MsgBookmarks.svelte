@@ -146,7 +146,7 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	.loading-container {
 		display: flex;
 		align-items: center;

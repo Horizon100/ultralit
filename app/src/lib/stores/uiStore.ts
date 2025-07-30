@@ -184,13 +184,17 @@ function createUIStore() {
 
 		// Expanded sections
 		toggleSection: (section: keyof ExpandedSections) => {
-			update((state) => ({
-				...state,
-				expandedSections: {
-					...state.expandedSections,
-					[section]: !state.expandedSections[section]
-				}
-			}));
+			update((state) => {
+				const isCurrentlyExpanded = state.expandedSections[section];
+
+				return {
+					...state,
+					expandedSections: {
+						...collapsedSections,
+						[section]: !isCurrentlyExpanded
+					}
+				};
+			});
 		},
 
 		closeAllSections: () => {
@@ -404,12 +408,12 @@ function createUIStore() {
 					isLoadingProject,
 					isCreatingThread
 				};
-				
+
 				// Close sections if any loading/creating operation is starting
 				if (isLoadingThreads || isLoadingProject || isCreatingThread) {
 					updatedState = collapseExpandedSections(updatedState);
 				}
-				
+
 				return updatedState;
 			});
 		},
@@ -418,7 +422,7 @@ function createUIStore() {
 		handleThreadOperation: (operation: 'loading' | 'creating' | 'editing', state: boolean) => {
 			update((currentState) => {
 				const updates: Partial<UIState> = {};
-				
+
 				switch (operation) {
 					case 'loading':
 						updates.isLoadingThreads = state;
@@ -432,7 +436,7 @@ function createUIStore() {
 				}
 
 				const updatedState = { ...currentState, ...updates };
-				
+
 				// Close expanded sections when starting any thread operation
 				return state ? collapseExpandedSections(updatedState) : updatedState;
 			});
@@ -451,7 +455,10 @@ export const showBookmarks = derived(uiStore, ($store) => $store.showBookmarks);
 export const showCites = derived(uiStore, ($store) => $store.showCites);
 export const showSysPrompt = derived(uiStore, ($store) => $store.showSysPrompt);
 export const showAgentPicker = derived(uiStore, ($store) => $store.showAgentPicker);
-export const showNetworkVisualization = derived(uiStore, ($store) => $store.showNetworkVisualization);
+export const showNetworkVisualization = derived(
+	uiStore,
+	($store) => $store.showNetworkVisualization
+);
 export const isLoading = derived(uiStore, ($store) => $store.isLoading);
 export const isEditingThreadName = derived(uiStore, ($store) => $store.isEditingThreadName);
 export const isEditingProjectName = derived(uiStore, ($store) => $store.isEditingProjectName);
@@ -476,12 +483,16 @@ export const isLoadingProject = derived(uiStore, ($store) => $store.isLoadingPro
 // NEW: Composite derived stores for better performance
 export const isAnyLoading = derived(
 	uiStore,
-	($store) => $store.isLoading || $store.isLoadingThreads || $store.isLoadingProject || $store.isCreatingThread || $store.isCreatingProject
+	($store) =>
+		$store.isLoading ||
+		$store.isLoadingThreads ||
+		$store.isLoadingProject ||
+		$store.isCreatingThread ||
+		$store.isCreatingProject
 );
 
-export const hasAnyExpandedSection = derived(
-	expandedSections,
-	($sections) => Object.values($sections).some(Boolean)
+export const hasAnyExpandedSection = derived(expandedSections, ($sections) =>
+	Object.values($sections).some(Boolean)
 );
 
 export const isInEditMode = derived(

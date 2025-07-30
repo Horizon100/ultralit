@@ -253,8 +253,6 @@
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
-
 	.icon-container {
 		display: inline-flex;
 		align-items: center;

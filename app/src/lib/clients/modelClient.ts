@@ -1,4 +1,6 @@
-import type { AIModel, ProviderType } from '$lib/types/types';
+//src/lib/clients/modelClient.ts
+
+import type { AIModel, AIProviderType } from '$lib/types/types';
 import { fetchTryCatch, validationTryCatch, isFailure, type Result } from '$lib/utils/errorUtils';
 
 /**
@@ -180,7 +182,7 @@ export async function fetchUserModels(userId: string): Promise<Result<AIModel[],
  * Imports a model from a provider via API
  */
 export async function importProviderModel(
-	provider: ProviderType,
+	provider: AIProviderType,
 	apiType: string,
 	apiKey: string,
 	userId: string
@@ -247,7 +249,7 @@ export async function importProviderModel(
  * Fetches models from a specific provider for a user via API
  */
 export async function fetchProviderModels(
-	provider: ProviderType,
+	provider: AIProviderType,
 	userId: string
 ): Promise<Result<AIModel[], string>> {
 	// Validate inputs
@@ -293,7 +295,7 @@ export async function fetchProviderModels(
  * Deletes all models from a specific provider for a user via API
  */
 export async function deleteProviderModels(
-	provider: ProviderType,
+	provider: AIProviderType,
 	userId: string
 ): Promise<Result<boolean, string>> {
 	// Validate inputs

@@ -72,7 +72,7 @@
 </div>
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 
 	.dm-input-container {
 		padding: 0.25rem 0.5rem;

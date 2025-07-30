@@ -1,6 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, loadEnv } from 'vite';
 import os from 'os';
+import path from 'path';
 
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
@@ -13,7 +14,7 @@ export default defineConfig(({ mode }) => {
 	const devOrigins = [
 		'http://localhost:5173',
 		'http://127.0.0.1:5173',
-		env.VITE_POCKETBASE_URL || 'http://localhost:8090'
+		env.PUBLIC_POCKETBASE_URL || env.VITE_POCKETBASE_URL || 'http://localhost:8090'
 	];
 
 	// Add code-server URL if specified in environment
@@ -28,9 +29,19 @@ export default defineConfig(({ mode }) => {
 	return {
 		plugins: [sveltekit()],
 		assetsInclude: ['**/*.svg'],
+		resolve: {
+			alias: {
+				'@styles': path.resolve('./src/lib/styles'),
+				'@themes': path.resolve('./src/lib/styles/themes.scss')
+			}
+		},
 		css: {
 			preprocessorOptions: {
-				scss: {}
+				scss: {
+					api: 'modern-compiler',
+					silenceDeprecations: ['legacy-js-api'],
+					additionalData: `@use '${path.join(process.cwd(), 'src', 'lib', 'styles', 'themes.scss')}' as *;\n`
+				}
 			}
 		},
 		server: {

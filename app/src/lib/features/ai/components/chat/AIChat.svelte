@@ -4,7 +4,7 @@
 	import { get, writable, derived } from 'svelte/store';
 	import { fade, fly, scale, slide } from 'svelte/transition';
 	import { elasticOut, cubicIn, cubicOut } from 'svelte/easing';
-import { currentLanguage } from '$lib/stores/languageStore';
+	import { currentLanguage } from '$lib/stores/languageStore';
 
 	// ===== STORE IMPORTS =====
 	import {
@@ -208,24 +208,24 @@ import { currentLanguage } from '$lib/stores/languageStore';
 	} = pageHoverManager;
 
 	// ===== REACTIVE STATEMENTS (simplified) =====
-	$: filteredThreads = (() => {
-		let filtered = threads || [];
-		if (
-			showFavoriteThreads &&
-			$currentUser?.favoriteThreads &&
-			$currentUser.favoriteThreads.length > 0
-		) {
-			if ($threadsStore.showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
-				const favoriteThreads = $currentUser.favoriteThreads;
-				filtered = filtered.filter((thread) => favoriteThreads.includes(thread.id));
-			}
-		}
-		if ($searchQuery?.trim()) {
-			const query = $searchQuery.toLowerCase();
-			filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
-		}
-		return filtered;
-	})();
+	// $: filteredThreads = (() => {
+	// 	let filtered = threads || [];
+	// 	if (
+	// 		showFavoriteThreads &&
+	// 		$currentUser?.favoriteThreads &&
+	// 		$currentUser.favoriteThreads.length > 0
+	// 	) {
+	// 		if ($threadsStore.showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
+	// 			const favoriteThreads = $currentUser.favoriteThreads;
+	// 			filtered = filtered.filter((thread) => favoriteThreads.includes(thread.id));
+	// 		}
+	// 	}
+	// 	if ($searchQuery?.trim()) {
+	// 		const query = $searchQuery.toLowerCase();
+	// 		filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
+	// 	}
+	// 	return filtered;
+	// })();
 
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
 
@@ -286,22 +286,6 @@ import { currentLanguage } from '$lib/stores/languageStore';
 			cleanup();
 		}
 	}
-
-	// ===== EVENT HANDLERS =====
-// const onTextareaFocus = () => {
-//     // Only handle external side effects
-//     sidenavStore.hideThreadList();
-//     uiStore.setCurrentPlaceholder(PromptService.getRandomQuote());
-//     // Let MessageInput handle its own focus state
-// };
-
-// 	const onTextareaBlur = () => {
-// 		// handleTextareaBlur();
-// 	};
-
-	// function handleTextSelection() {
-	// 	chatStore.setActiveSelection(TextUtils.getTextSelection());
-	// }
 
 	function handleSearchChange(event?: Event) {
 		if (event) {
@@ -510,11 +494,13 @@ import { currentLanguage } from '$lib/stores/languageStore';
 	// ===== LIFECYCLE HOOKS =====
 	onMount(async () => {
 		console.log('Starting app initialization...');
-		pageCleanup = pageHoverManager.initialize();
 
+		// 1. Initialize critical UI elements first (synchronous, fast)
+		pageCleanup = pageHoverManager.initialize();
+		messagesStore.setSelectedDate(new Date().toISOString());
+
+		// 2. Initialize core app with minimal blocking
 		try {
-			// 1. Initialize the core application first
-			messagesStore.setSelectedDate(new Date().toISOString());
 			await initializeApp(
 				textareaElement,
 				chatMessagesDiv,
@@ -527,57 +513,85 @@ import { currentLanguage } from '$lib/stores/languageStore';
 				handleSendMessage
 			);
 
-			// 2. Setup scroll management
+			// 3. Setup DOM-dependent features immediately after core init
 			if (chatMessagesDiv) {
 				const cleanup = setupScrollObserver(chatMessagesDiv);
 				addCleanupFunction(cleanup);
 			}
 
-			// 3. Setup project subscription
-			const unsubscribeProject = setupProjectSubscription(
-				(id) => (currentProjectId = id),
-				(editing) => uiStore.setEditingProjectName(editing),
-				(name) => {
-					/* handled in store */
-				},
-				(projectId) => ThreadService.loadProjectThreads(projectId ?? undefined),
-				$searchQuery
-			);
-			addCleanupFunction(unsubscribeProject);
-
-			// 4. Setup model subscription
-			const unsubscribeModel = modelStore.subscribe((state) => {
-				if (state.selectedModel && (!aiModel || aiModel.id !== state.selectedModel.id)) {
-					aiModel = state.selectedModel;
-					selectedModelLabel = aiModel.name || '';
-				}
-			});
-			addCleanupFunction(unsubscribeModel);
-
-			// 5. Initialize prompts
-			promptSuggestions = PromptService.getRandomPrompts();
-			uiStore.setCurrentPlaceholder(PromptService.getRandomQuestion());
-
-			// 6. Load user prompt data
-			await PromptService.loadUserPrompt();
-
-			// 7. ONLY NOW load user profiles for existing messages (if any)
-			// Wait a bit to ensure everything else is settled
-			setTimeout(async () => {
-				if ($chatMessages && $chatMessages.length > 0) {
-					console.log('Loading user profiles for existing messages...');
-					try {
-						await UserService.preloadUserProfilesBatch($chatMessages);
-					} catch (error) {
-						console.error('Error preloading user profiles:', error);
-					}
-				}
-			}, 500); // Wait 500ms after everything else is done
-
-			console.log('App initialization completed successfully');
+			console.log('Core initialization completed');
 		} catch (error) {
-			console.error('Error during app initialization:', error);
+			console.error('Error during core initialization:', error);
+			return; // Don't continue if core fails
 		}
+
+		// 4. Setup subscriptions (these are fast and non-blocking)
+		const unsubscribeProject = setupProjectSubscription(
+			(id) => (currentProjectId = id),
+			(editing) => uiStore.setEditingProjectName(editing),
+			(name) => {
+				/* handled in store */
+			},
+			(projectId) => ThreadService.loadProjectThreads(projectId ?? undefined),
+			$searchQuery
+		);
+		addCleanupFunction(unsubscribeProject);
+
+		const unsubscribeModel = modelStore.subscribe((state) => {
+			if (state.selectedModel && (!aiModel || aiModel.id !== state.selectedModel.id)) {
+				aiModel = state.selectedModel;
+				selectedModelLabel = aiModel.name || '';
+			}
+		});
+		addCleanupFunction(unsubscribeModel);
+
+		// 5. Load UI content that doesn't block interaction
+		promptSuggestions = PromptService.getRandomPrompts();
+		uiStore.setCurrentPlaceholder(PromptService.getRandomQuestion());
+
+		// 6. Defer heavy operations to avoid blocking the UI
+		// Use requestIdleCallback for better performance, fallback to setTimeout
+		const scheduleWork = (callback: () => Promise<void>, delay = 0) => {
+			if ('requestIdleCallback' in window) {
+				requestIdleCallback(() => {
+					setTimeout(callback, delay);
+				});
+			} else {
+				setTimeout(callback, delay);
+			}
+		};
+
+		// Load user prompts (non-critical, can be delayed)
+		scheduleWork(async () => {
+			try {
+				await PromptService.loadUserPrompt();
+			} catch (error) {
+				console.error('Error loading user prompts:', error);
+			}
+		}, 100);
+
+		// Preload user profiles only if there are messages and after everything settles
+		scheduleWork(async () => {
+			const messages = $chatMessages;
+			if (messages && messages.length > 0) {
+				console.log('Loading user profiles for existing messages...');
+				try {
+					// Process in smaller chunks to avoid blocking
+					const chunkSize = 10;
+					for (let i = 0; i < messages.length; i += chunkSize) {
+						const chunk = messages.slice(i, i + chunkSize);
+						await UserService.preloadUserProfilesBatch(chunk);
+
+						// Yield control back to the browser between chunks
+						await new Promise((resolve) => setTimeout(resolve, 0));
+					}
+				} catch (error) {
+					console.error('Error preloading user profiles:', error);
+				}
+			}
+		}, 300);
+
+		console.log('App initialization completed successfully');
 	});
 
 	afterUpdate(() => {
@@ -603,88 +617,80 @@ import { currentLanguage } from '$lib/stores/languageStore';
 			pageCleanup();
 		}
 		if (threadsDebounceTimer) clearTimeout(threadsDebounceTimer);
-    if (messageProcessingTimer) clearTimeout(messageProcessingTimer);
+		if (messageProcessingTimer) clearTimeout(messageProcessingTimer);
 	});
 
-	// ===== REACTIVE STATEMENTS =====
-	// $: filteredThreads = (() => {
-	// 	let filtered = threads || [];
-	// 	if ($showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
-	// 		const favoriteThreads = $currentUser.favoriteThreads;
-	// 		filtered = filtered.filter((thread) => favoriteThreads.includes(thread.id));
-	// 	}
-	// 	if ($searchQuery?.trim()) {
-	// 		const query = $searchQuery.toLowerCase();
-	// 		filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
-	// 	}
-	// 	return filtered;
-	// })();
-let threadsDebounceTimer: NodeJS.Timeout;
-$: {
-    if (threadsDebounceTimer) clearTimeout(threadsDebounceTimer);
-    
-    threadsDebounceTimer = setTimeout(() => {
-        let allThreads = $threadsStore.threads || [];
-        // ... your existing filtering logic
-        threads = allThreads;
-    }, 100);
-}
+	let threadsDebounceTimer: number;
+
+	$: {
+		// Only trigger when these specific values change - NOT when threads changes
+		const deps = [
+			$threadsStore.threads,
+			$threadsStore.project_id,
+			$projectStore.currentProjectId,
+			$showFavoriteThreads,
+			$currentUser?.favoriteThreads,
+			$searchQuery
+		];
+
+		if (threadsDebounceTimer) clearTimeout(threadsDebounceTimer);
+
+		threadsDebounceTimer = setTimeout(() => {
+			let allThreads = $threadsStore.threads || [];
+			const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
+
+			if (currentProjectId) {
+				allThreads = allThreads.filter((thread) => thread.project_id === currentProjectId);
+			}
+			if ($showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
+				const favoriteThreads = $currentUser.favoriteThreads;
+				allThreads = allThreads.filter((thread) => favoriteThreads.includes(thread.id));
+			}
+			if ($searchQuery?.trim()) {
+				const query = $searchQuery.toLowerCase();
+				allThreads = allThreads.filter(
+					(thread) =>
+						thread.name?.toLowerCase().includes(query) ||
+						thread.last_message?.content?.toLowerCase().includes(query)
+				);
+			}
+			threads = allThreads;
+		}, 150) as unknown as number;
+	}
 	$: groupedThreads = DateUtils.groupThreadsByTime(threads);
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
-$: placeholderText = $t('chat.manualPlaceholder');
+	$: placeholderText = $t('chat.manualPlaceholder');
 
-	// ===== REACTIVE PROMPT UPDATES =====
-	// $: {
-	// 	const greetings = $t('extras.greetings') as string[];
-	// 	// if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
-	// 	// 	currentGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-	// 	// }
-	// }
+	let cachedGreeting: string;
+	let cachedQuestion: string;
+	let cachedQuote: string;
+	let lastLanguageUpdate = '';
 
-	// $: {
-	// 	const questions = $t('extras.questions') as string[];
-	// 	// if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
-	// 	// 	currentQuestion = questions[Math.floor(Math.random() * questions.length)];
-	// 	// }
-	// }
+	$: {
+		const currentLang = $currentLanguage; // Use your currentLanguage store
+		if (currentLang !== lastLanguageUpdate) {
+			const greetings = $t('extras.greetings') as string[];
+			if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
+				cachedGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+			}
 
-	// $: {
-	// 	const quotes = $t('extras.quotes') as string[];
-	// 	// if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
-	// 	// 	currentQuote = quotes[Math.floor(Math.random() * quotes.length)];
-	// 	// }
-	// }
+			const questions = $t('extras.questions') as string[];
+			if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
+				cachedQuestion = questions[Math.floor(Math.random() * questions.length)];
+			}
 
-let cachedGreeting: string;
-let cachedQuestion: string; 
-let cachedQuote: string;
-let lastLanguageUpdate = '';
+			const quotes = $t('extras.quotes') as string[];
+			if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
+				cachedQuote = quotes[Math.floor(Math.random() * quotes.length)];
+			}
 
-$: {
-    const currentLang = $currentLanguage; // Use your currentLanguage store
-    if (currentLang !== lastLanguageUpdate) {
-        const greetings = $t('extras.greetings') as string[];
-        if (Array.isArray(greetings) && greetings.every((item) => typeof item === 'string')) {
-            cachedGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-        }
-        
-        const questions = $t('extras.questions') as string[];
-        if (Array.isArray(questions) && questions.every((item) => typeof item === 'string')) {
-            cachedQuestion = questions[Math.floor(Math.random() * questions.length)];
-        }
-        
-        const quotes = $t('extras.quotes') as string[];
-        if (Array.isArray(quotes) && quotes.every((item) => typeof item === 'string')) {
-            cachedQuote = quotes[Math.floor(Math.random() * quotes.length)];
-        }
-        
-        lastLanguageUpdate = currentLang;
-    }
-}
+			lastLanguageUpdate = currentLang;
+		}
+	}
 
-$: currentGreeting = cachedGreeting;
-$: currentQuestion = cachedQuestion;
-$: currentQuote = cachedQuote;
+	$: currentGreeting = cachedGreeting;
+	$: currentQuestion = cachedQuestion;
+	$: currentQuote = cachedQuote;
 
 	$: {
 		const prompts = $t('startPrompts') as string[];
@@ -693,27 +699,6 @@ $: currentQuote = cachedQuote;
 		}
 	}
 
-	// ===== THREAD REACTIVE UPDATES =====
-	$: threads = (() => {
-		let allThreads = $threadsStore.threads || [];
-		const currentProjectId = $threadsStore.project_id || $projectStore.currentProjectId;
-		if (currentProjectId) {
-			allThreads = allThreads.filter((thread) => thread.project_id === currentProjectId);
-		}
-		if ($showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
-			const favoriteThreads = $currentUser.favoriteThreads;
-			allThreads = allThreads.filter((thread) => favoriteThreads.includes(thread.id));
-		}
-		if ($searchQuery?.trim()) {
-			const query = $searchQuery.toLowerCase();
-			allThreads = allThreads.filter(
-				(thread) =>
-					thread.name?.toLowerCase().includes(query) ||
-					thread.last_message?.content?.toLowerCase().includes(query)
-			);
-		}
-		return allThreads;
-	})();
 	$: sortOptionInfo = threadsStore.sortOptionInfo;
 	$: allSortOptions = threadsStore.allSortOptions;
 	$: selectedUserIds = threadsStore.selectedUserIds;
@@ -745,56 +730,33 @@ $: currentQuote = cachedQuote;
 		threadsStore.setSearchQuery($searchQuery);
 	}
 
-	// ===== UI SECTION MANAGEMENT =====
-	// $: if ($expandedSections.models) {
-	// 	uiStore.setExpandedSectionExclusive('models', true);
-	// } else if ($expandedSections.collaborators) {
-	// 	uiStore.setExpandedSectionExclusive('collaborators', true);
-	// } else if ($expandedSections.sysprompts) {
-	// 	uiStore.setExpandedSectionExclusive('sysprompts', true);
-	// } else if ($expandedSections.prompts) {
-	// 	uiStore.setExpandedSectionExclusive('prompts', true);
-	// } else if ($expandedSections.cites) {
-	// 	uiStore.setExpandedSectionExclusive('cites', true);
-	// } else if ($expandedSections.bookmarks) {
-	// 	uiStore.setExpandedSectionExclusive('bookmarks', true);
-	// }
-
-$: {
-    const sections: Array<keyof ExpandedSections> = ['models', 'collaborators', 'sysprompts', 'prompts', 'cites', 'bookmarks'];
-    const currentExpanded = sections.find(section => $expandedSections[section]);
-    
-    if (currentExpanded) {
-        uiStore.setExpandedSectionExclusive(currentExpanded, true);
-    }
-}
-function areSetsEqual(set1: Set<string>, set2: Set<string>): boolean {
-    if (set1.size !== set2.size) return false;
-    for (const item of set1) {
-        if (!set2.has(item)) return false;
-    }
-    return true;
-}
+	function areSetsEqual(set1: Set<string>, set2: Set<string>): boolean {
+		if (set1.size !== set2.size) return false;
+		for (const item of set1) {
+			if (!set2.has(item)) return false;
+		}
+		return true;
+	}
 	let lastProcessedMessageIds = new Set<string>();
-let messageProcessingTimer: NodeJS.Timeout;
+	let messageProcessingTimer: number;
 
-$: if ($chatMessages && $chatMessages.length > 0) {
-    if (messageProcessingTimer) clearTimeout(messageProcessingTimer);
-    
-    messageProcessingTimer = setTimeout(() => {
-        const currentMessageIds = new Set($chatMessages.map((m) => m.id));
-        const hasNewMessages = 
-            $chatMessages.length !== lastMessageCount ||
-            !areSetsEqual(currentMessageIds, lastProcessedMessageIds);
+	$: if ($chatMessages && $chatMessages.length > 0) {
+		if (messageProcessingTimer) clearTimeout(messageProcessingTimer);
 
-        if (hasNewMessages) {
-            console.log('Messages changed, deduping...');
-            MessageService.dedupeCurrentMessages();
-            lastMessageCount = $chatMessages.length;
-            lastProcessedMessageIds = currentMessageIds;
-        }
-    }, 50);
-}
+		messageProcessingTimer = setTimeout(() => {
+			const currentMessageIds = new Set($chatMessages.map((m) => m.id));
+			const hasNewMessages =
+				$chatMessages.length !== lastMessageCount ||
+				!areSetsEqual(currentMessageIds, lastProcessedMessageIds);
+
+			if (hasNewMessages) {
+				console.log('Messages changed, deduping...');
+				MessageService.dedupeCurrentMessages();
+				lastMessageCount = $chatMessages.length;
+				lastProcessedMessageIds = currentMessageIds;
+			}
+		}, 200) as unknown as number;
+	}
 </script>
 
 {#if $currentUser}
@@ -895,7 +857,6 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 					<ChatHeader
 						{currentThread}
 						{userId}
-						{name}
 						{isUpdatingThreadName}
 						{editedThreadName}
 						{isMinimized}
@@ -915,11 +876,8 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 						{aiModel}
 						{selectedModelLabel}
 						{selectedPromptLabel}
-						{selectedIcon}
-						currentPlaceholder={$currentPlaceholder || ''}
 						placeholderText={String($currentPlaceholder || '')}
 						showTextModal={$showTextModal}
-						textTooLong={$textTooLong}
 						createHovered={$createHovered}
 						isPlaceholder={true}
 						bind:textareaElement
@@ -967,11 +925,8 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 								{aiModel}
 								{selectedModelLabel}
 								{selectedPromptLabel}
-								{selectedIcon}
-								currentPlaceholder={$currentPlaceholder || ''}
 								placeholderText={String($currentPlaceholder || '')}
 								showTextModal={$showTextModal}
-								textTooLong={$textTooLong}
 								createHovered={$createHovered}
 								isPlaceholder={true}
 								bind:textareaElement
@@ -1018,14 +973,14 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 	<p>User is not authenticated</p>
 {/if}
 
-<link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet" />
+<!-- <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet" /> -->
 
 <style lang="scss">
 	$breakpoint-sm: 576px;
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1438,9 +1393,55 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 			margin-top: 1rem;
 			color: var(--text-color);
 			max-width: 800px !important;
-			display: flex;
+			/* Remove or comment out this line: */
+			/* display: flex; */
 			font-size: 1rem;
+
+			/* Add these instead: */
+			display: block;
+			white-space: pre-wrap;
 		}
+		.syntax-keyword {
+			color: #c678dd;
+			font-weight: 600;
+		}
+
+		.syntax-string {
+			color: #98c379;
+		}
+
+		.syntax-comment {
+			color: #5c6370;
+			font-style: italic;
+		}
+
+		.syntax-number {
+			color: #d19a66;
+		}
+		.syntax-selector {
+			color: #e06c75;
+		}
+
+		.syntax-property {
+			color: #61dafb;
+		}
+
+		.syntax-value {
+			color: #98c379;
+		}
+
+		.syntax-tag {
+			color: #e06c75;
+		}
+
+		.syntax-attr-name {
+			color: #d19a66;
+		}
+
+		.syntax-attr-value {
+			color: #98c379;
+		}
+
 		code.language-json {
 			display: block;
 			color: #d4d4d4;
@@ -2393,7 +2394,7 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 		// Code block styling
 		margin: 0;
 		padding: 10px;
-		background-color: #f5f5f5 !important;
+		background-color: r#f5f5f5 !important;
 		border-radius: 4px;
 		overflow-x: auto;
 	}
@@ -3895,6 +3896,8 @@ $: if ($chatMessages && $chatMessages.length > 0) {
 
 	pre.code-block {
 		position: relative;
+		flex-direction: column;
+		display: flex;
 		color: var(--code-color, #d4d4d4);
 		border-radius: var(--radius-m, 0.375rem);
 		padding: 1rem;

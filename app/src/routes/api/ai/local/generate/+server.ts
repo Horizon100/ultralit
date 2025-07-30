@@ -10,9 +10,9 @@ import type {
 	GenerateRequest,
 	OllamaGenerateResponse
 } from '$lib/types/types.localModels';
-import { OLLAMA_DEV_URL, OLLAMA_PROD_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
-const OLLAMA_BASE_URL = dev ? OLLAMA_DEV_URL : OLLAMA_PROD_URL;
+const OLLAMA_BASE_URL = dev ? env.OLLAMA_DEV_URL : env.OLLAMA_PROD_URL;
 
 interface ExtendedGenerateRequest extends GenerateRequest {
 	image_url?: string;
@@ -51,7 +51,6 @@ async function imageUrlToBase64(imageUrl: string): Promise<string> {
 			return base64;
 		}
 
-		// Use original for JPEG/PNG
 		const base64 = Buffer.from(arrayBuffer).toString('base64');
 		console.log('🖼️ Image converted to base64, size:', base64.length);
 		return base64;
@@ -66,7 +65,6 @@ export const POST: RequestHandler = async (event) =>
 	apiTryCatch(async () => {
 		const { request, cookies } = event;
 
-		// Authentication (same pattern as your main AI API)
 		const authCookie = cookies.get('pb_auth');
 		console.log('🔍 Auth cookie exists:', !!authCookie);
 

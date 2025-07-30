@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { WHISPER_DAEMON_URL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -11,7 +11,7 @@ export const POST: RequestHandler = async ({ request }) => {
 			throw error(400, 'Missing audioUrl or attachmentId');
 		}
 
-		const response = await fetch(`${WHISPER_DAEMON_URL}/transcribe`, {
+		const response = await fetch(`${env.WHISPER_DAEMON_URL}/transcribe`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'

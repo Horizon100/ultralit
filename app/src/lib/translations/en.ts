@@ -1,6 +1,5 @@
 import { type IconName } from '$lib/utils/lucideIcons';
 
-
 export default {
 	nav: {
 		home: 'Home',
@@ -31,6 +30,7 @@ export default {
 		posts: 'Posts',
 		filters: 'Filters',
 		agents: 'Agents',
+		threads: 'threads'
 	},
 	generic: {
 		created: 'Created',
@@ -43,9 +43,11 @@ export default {
 		deleteWarning: 'This action cannot be undone.',
 		attachments: 'Attachments',
 		show: 'Show',
+		hide: 'Hide',
 		only: 'only',
 		all: 'all',
 		filter: 'Filter',
+		filters: 'filters',
 		sort: 'Sort',
 		share: 'Share',
 		copy: 'Copy',
@@ -72,6 +74,8 @@ export default {
 		new: 'New',
 		and: 'and',
 		for: 'for',
+		user: 'User',
+		clear: 'Clear'
 	},
 	posts: {
 		loginPrompt: 'Please sign in to create a post.',
@@ -110,6 +114,8 @@ export default {
 		historySignin: 'Sign in to browse this user`s complete post history',
 		seeAll: 'See all',
 		joinConversation: 'Join Conversation',
+		noMorePosts: 'No more posts to load',
+		hasntPosted: 'has not posted anything yet.'
 	},
 	lang: {
 		notification: 'Language: English',
@@ -464,7 +470,7 @@ export default {
 		months: 'months',
 		now: 'Now',
 		online: 'Online',
-		offline: 'Offline',
+		offline: 'Offline'
 	},
 	months: {
 		january: 'January',
@@ -567,6 +573,10 @@ export default {
 		threads: 'Threads',
 		local: 'Local',
 		locals: 'Locals',
+		bookmark: 'Bookmark',
+		bookmarks: 'Bookmarks',
+		sysPrompt: 'System Prompt',
+		sysPrompts: 'System Prompts'
 	},
 
 	profile: {
@@ -634,12 +644,17 @@ export default {
 		followers: 'followers',
 		following: 'following',
 		follow: 'Follow',
+		favorite: 'Favorite',
 		favorites: 'Favorites',
-		stats: 'Stats'
+		stats: 'Stats',
+		timeTracker: 'TimeTracker',
+		yourPosts: 'Your Posts'
 	},
 	agents: {
 		title: 'Agent',
 		agents: 'Agents',
+		model: 'Model',
+		models: 'Models',
 		analysis: 'Analysis',
 		response: 'Response',
 		summary: 'Summary',
@@ -648,7 +663,7 @@ export default {
 		ai: 'AI',
 		analyze: 'Analyze',
 		autoreply: 'auto-reply',
-		autoReply: 'Auto-reply',
+		autoReply: 'Auto-reply'
 	},
 	status: {
 		download: 'Download',
@@ -706,7 +721,7 @@ export default {
 		unassigning: 'Unassigning...',
 		unassigned: 'unassigned',
 		trigger: 'Trigger',
-		triggered: 'triggered',
+		triggered: 'triggered'
 	},
 	button: {
 		tags: 'Tags'
@@ -727,35 +742,82 @@ export default {
 		'Communing with the AI hive mind...'
 	],
 	startPrompts: [
-		'How can I improve my daily workflow?',
-		"What's the best way to prioritize competing tasks?",
-		'How do you structure effective team meetings?',
-		'What tools help you stay organized?',
-		'How can I better communicate with remote colleagues?',
-		"What's your approach to managing deadlines?",
-		'How do you handle interruptions while working?',
-		'What makes a project successful from start to finish?',
-		'How can I give more constructive feedback?',
-		"What's the key to effective delegation?",
-		'How do you maintain focus during long work sessions?',
-		'What strategies help resolve team conflicts?',
-		'How can I better track my progress on goals?',
-		"What's the best way to onboard new team members?",
-		'How do you balance individual work with collaboration?',
-		'What makes virtual teamwork more effective?',
-		'How can I improve my time management skills?',
-		"What's your process for brainstorming new ideas?",
-		'How do you handle multiple projects simultaneously?',
-		'What makes documentation actually useful?',
-		'How can I build stronger working relationships?',
-		"What's the best way to run a retrospective?",
-		'How do you stay motivated on long-term projects?',
-		'What tools help your team collaborate better?',
-		'How can I make my presentations more engaging?',
-		"What's your approach to knowledge sharing?",
-		'How do you handle scope creep in projects?',
-		'What makes cross-functional teams work well?',
-		'How can I improve my decision-making process?',
-		'What strategies help maintain team momentum?'
+		// Productivity & Workflow
+		'🚀 How can I improve my daily workflow?',
+		"⚖️ What's the best way to prioritize competing tasks?",
+		'🎯 How do you structure effective team meetings?',
+		'🧰 What tools help you stay organized?',
+		'💻 How can I better communicate with remote colleagues?',
+		"⏰ What's your approach to managing deadlines?",
+		'🚫 How do you handle interruptions while working?',
+		'🏁 What makes a project successful from start to finish?',
+		'💡 How can I give more constructive feedback?',
+		"🤝 What's the key to effective delegation?",
+		'🎯 How do you maintain focus during long work sessions?',
+		'🤝 What strategies help resolve team conflicts?',
+		'📊 How can I better track my progress on goals?',
+		"👋 What's the best way to onboard new team members?",
+		'⚖️ How do you balance individual work with collaboration?',
+		'⚡ What makes virtual teamwork more effective?',
+		'⏱️ How can I improve my time management skills?',
+		"💭 What's your process for brainstorming new ideas?",
+		'🤹 How do you handle multiple projects simultaneously?',
+		'📝 What makes documentation actually useful?',
+		'🌟 How can I build stronger working relationships?',
+		"🔄 What's the best way to run a retrospective?",
+		'🎯 How do you stay motivated on long-term projects?',
+		'🛠️ What tools help your team collaborate better?',
+		'🎤 How can I make my presentations more engaging?',
+		"🧠 What's your approach to knowledge sharing?",
+		'🛡️ How do you handle scope creep in projects?',
+		'🎭 What makes cross-functional teams work well?',
+		'🤔 How can I improve my decision-making process?',
+		'🚀 What strategies help maintain team momentum?',
+
+		// Fun & Creative
+		'🐱 What would happen if cats ruled the world?',
+		'🌳 Design the perfect treehouse office space',
+		'🦸 If you could have any superpower for work, what would it be?',
+		'🤖 What would your dream collaboration with an AI look like?',
+		'👨‍🍳 Create a recipe for the perfect work-life balance',
+		'🏆 If meetings were a sport, what would the rules be?',
+		'⏰ Design the ultimate workspace for a time traveler',
+		'🚀 What would LinkedIn look like on Mars?',
+		'🎵 Create a theme song for your current project',
+		'💻 If your code could talk, what would it complain about?',
+		'🎮 Design a game that teaches project management',
+		'👔 What would happen if everyone worked in pajamas forever?',
+		'🍕 Create the perfect snack for late-night coding sessions',
+		'🦸‍♀️ If productivity tools were Marvel characters, who would win?',
+		'🎉 Design a holiday celebrating remote work',
+
+		// Quirky Professional
+		'🐛 How do you debug life problems like code issues?',
+		'📚 What would your autobiography chapter titles be?',
+		'🤖 If you could automate one annoying task, what would it be?',
+		'🎧 Create the perfect playlist for deep focus work',
+		'📖 What would your personal user manual say?',
+		'☕ Design the ideal coffee break conversation starter',
+		'📧 If work emails had mood indicators, what would yours show?',
+		'🌅 Create a survival guide for Monday mornings',
+		'🍔 What would your work personality type be if described as food?',
+		'🎯 Design the ultimate procrastination recovery plan',
+		'💭 If you could give past-you one piece of career advice, what would it be?',
+		'💪 Create a workout routine using only office supplies',
+		'🔔 What would your dream notification sound be?',
+		'🏃 Design the perfect excuse for being 5 minutes late',
+		'✨ If your desk could grant three wishes, what would you ask for?',
+
+		// Thoughtful & Reflective
+		'📈 What skill would you love to master in the next year?',
+		'🎯 How do you define success in your current role?',
+		'⏰ What would you do if you had an extra hour every day?',
+		'💪 Share your best "failure that led to success" story',
+		'🌟 What legacy do you want to leave in your industry?',
+		'🔄 How has your definition of productivity changed over time?',
+		'🎓 What would you teach in a masterclass about your expertise?',
+		'🎉 How do you celebrate small wins?',
+		'🤔 What question do you wish people asked you more often?',
+		'🔍 How do you stay curious in your field?'
 	]
 };

@@ -2,7 +2,13 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount, onDestroy } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import type { AIAgent, AIModel, Actions, ProviderType, SelectableAIModel} from '$lib/types/types';
+	import type {
+		AIAgent,
+		AIModel,
+		Actions,
+		AIProviderType,
+		SelectableAIModel
+	} from '$lib/types/types';
 	import { agentStore } from '$lib/stores/agentStore';
 	import { modelStore } from '$lib/stores/modelStore';
 	import { actionStore } from '$lib/stores/actionStore';
@@ -18,8 +24,8 @@
 	import AgentGen from '$lib/features/agents/components/AgentGen.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { t } from '$lib/stores/translationStore';
-import { ensureModelsExist } from '$lib/features/ai/utils/modelUtils';
-import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
+	import { ensureModelsExist } from '$lib/features/ai/utils/modelUtils';
+	import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 
 	let showCreateForm = false;
 	let selectedAgent: AIAgent | null = null;
@@ -29,12 +35,12 @@ import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
 	let avatarFile: File | null = null;
 	let showGeneratorForm = false;
 	let tagInput = '';
-let localModels: SelectableAIModel[] = [];
-let localServerStatus: 'online' | 'offline' | 'unknown' = 'unknown';
-let isLoadingLocalModels = false;
+	let localModels: SelectableAIModel[] = [];
+	let localServerStatus: 'online' | 'offline' | 'unknown' = 'unknown';
+	let isLoadingLocalModels = false;
 	let availableModels: AIModel[] = [];
 	let availableActions: Actions[] = [];
-	let selectedProvider: ProviderType | null = null;
+	let selectedProvider: AIProviderType | null = null;
 
 	// Form fields
 	let agentName = '';
@@ -93,137 +99,138 @@ let isLoadingLocalModels = false;
 			tagInput = '';
 		}
 	}
-$: modelsByProvider = availableModels.reduce(
-	(acc, model) => {
-		if (!acc[model.provider]) {
-			acc[model.provider] = [];
+	$: modelsByProvider = availableModels.reduce(
+		(acc, model) => {
+			if (!acc[model.provider]) {
+				acc[model.provider] = [];
+			}
+			acc[model.provider].push(model);
+			return acc;
+		},
+		{} as Record<AIProviderType, AIModel[]>
+	);
+	async function cleanupDuplicateModels() {
+		if (!$currentUser) return;
+
+		console.log('🧹 Starting model cleanup...');
+		showLoading();
+
+		try {
+			await modelStore.cleanupDuplicateModels($currentUser.id);
+			// Reload models after cleanup
+			await modelStore.loadModels($currentUser.id);
+			updateStatus = 'Duplicate models cleaned up successfully!';
+		} catch (error) {
+			console.error('Cleanup failed:', error);
+			updateStatus = 'Failed to cleanup models';
+		} finally {
+			hideLoading();
+			setTimeout(() => (updateStatus = ''), 3000);
 		}
-		acc[model.provider].push(model);
-		return acc;
-	},
-	{} as Record<ProviderType, AIModel[]>
-);
-async function cleanupDuplicateModels() {
-	if (!$currentUser) return;
-	
-	console.log('🧹 Starting model cleanup...');
-	showLoading();
-	
-	try {
-		await modelStore.cleanupDuplicateModels($currentUser.id);
-		// Reload models after cleanup
-		await modelStore.loadModels($currentUser.id);
-		updateStatus = 'Duplicate models cleaned up successfully!';
-	} catch (error) {
-		console.error('Cleanup failed:', error);
-		updateStatus = 'Failed to cleanup models';
-	} finally {
-		hideLoading();
-		setTimeout(() => updateStatus = '', 3000);
 	}
-}
 
-$: allProviders = [...Object.keys(modelsByProvider), 'local'] as ProviderType[];
-$: providers = allProviders;
+	$: allProviders = [...Object.keys(modelsByProvider), 'local'] as AIProviderType[];
+	$: providers = allProviders;
 
-$: if (!selectedProvider && providers.length > 0) {
-	selectedProvider = providers[0] as ProviderType;
-}
-$: if (selectedProvider && selectedProvider !== 'local') {
-	console.log(`Debug: Provider ${selectedProvider} has ${modelsByProvider[selectedProvider]?.length || 0} models:`, 
-		modelsByProvider[selectedProvider]?.map(m => m.name) || []);
-}
-async function loadLocalModels() {
-	isLoadingLocalModels = true;
-	try {
-		console.log('Loading local models for agent management...');
-		
-		const response = await fetch('/api/ai/local/models');
-		const result = await response.json();
+	$: if (!selectedProvider && providers.length > 0) {
+		selectedProvider = providers[0] as AIProviderType;
+	}
+	$: if (selectedProvider && selectedProvider !== 'local') {
+		console.log(
+			`Debug: Provider ${selectedProvider} has ${modelsByProvider[selectedProvider]?.length || 0} models:`,
+			modelsByProvider[selectedProvider]?.map((m) => m.name) || []
+		);
+	}
+	async function loadLocalModels() {
+		isLoadingLocalModels = true;
+		try {
+			console.log('Loading local models for agent management...');
 
-		if (result.success) {
-			const data = result.data;
-			localServerStatus = data.server_info?.status === 'connected' ? 'online' : 'offline';
-			
-			// Convert local models to SelectableAIModel format
-			localModels = (data.models || []).map((model: any) => ({
-				id: model.api_type,
-				name: model.name,
-				provider: 'local' as ProviderType,
-				context_length: model.context_length || 4096,
-				description: model.description || `Local model: ${model.name}`,
-				api_type: model.api_type,
-				size: model.size,
-				parameters: model.parameters,
-				families: model.families || [],
-				available: true
-			}));
-			
-			console.log(`Loaded ${localModels.length} local models, status: ${localServerStatus}`);
-		} else {
-			console.warn('Failed to load local models:', result.error);
+			const response = await fetch('/api/ai/local/models');
+			const result = await response.json();
+
+			if (result.success) {
+				const data = result.data;
+				localServerStatus = data.server_info?.status === 'connected' ? 'online' : 'offline';
+
+				// Convert local models to SelectableAIModel format
+				localModels = (data.models || []).map((model: any) => ({
+					id: model.api_type,
+					name: model.name,
+					provider: 'local' as AIProviderType,
+					context_length: model.context_length || 4096,
+					description: model.description || `Local model: ${model.name}`,
+					api_type: model.api_type,
+					size: model.size,
+					parameters: model.parameters,
+					families: model.families || [],
+					available: true
+				}));
+
+				console.log(`Loaded ${localModels.length} local models, status: ${localServerStatus}`);
+			} else {
+				console.warn('Failed to load local models:', result.error);
+				localServerStatus = 'offline';
+				localModels = [];
+			}
+		} catch (error) {
+			console.error('Error loading local models:', error);
 			localServerStatus = 'offline';
 			localModels = [];
+		} finally {
+			isLoadingLocalModels = false;
 		}
-	} catch (error) {
-		console.error('Error loading local models:', error);
-		localServerStatus = 'offline';
-		localModels = [];
-	} finally {
-		isLoadingLocalModels = false;
 	}
-}
-function toggleModel(modelId: string) {
-	if (agentModel.includes(modelId)) {
-		agentModel = agentModel.filter((id) => id !== modelId);
-	} else {
-		agentModel = [...agentModel, modelId];
+	function toggleModel(modelId: string) {
+		if (agentModel.includes(modelId)) {
+			agentModel = agentModel.filter((id) => id !== modelId);
+		} else {
+			agentModel = [...agentModel, modelId];
+		}
 	}
-}
-function isLocalProvider(provider: ProviderType): boolean {
-	return provider === 'local';
-}
-
-function getLocalServerStatus(): 'success' | 'error' | 'loading' {
-	if (isLoadingLocalModels) return 'loading';
-	if (localServerStatus === 'online') return 'success';
-	return 'error';
-}
-
-
-function selectProvider(provider: ProviderType) {
-	selectedProvider = provider;
-	
-	// If selecting local provider and models aren't loaded, load them
-	if (provider === 'local' && localModels.length === 0) {
-		loadLocalModels();
+	function isLocalProvider(provider: AIProviderType): boolean {
+		return provider === 'local';
 	}
-}
-function getProviderDisplayName(provider: ProviderType): string {
-	const names = {
-		openai: 'OpenAI',
-		anthropic: 'Anthropic',
-		google: 'Google',
-		grok: 'Grok',
-		deepseek: 'DeepSeek',
-		local: `Local Models ${localServerStatus === 'online' ? '🟢' : localServerStatus === 'offline' ? '🔴' : '⚪'}`
-	};
-	return names[provider] || provider;
-}
-function getModelDisplayInfo(model: AIModel): { name: string; info: string } {
-	if (model.provider === 'local') {
-		const localModel = localModels.find(lm => lm.id === model.id);
+
+	function getLocalServerStatus(): 'success' | 'error' | 'loading' {
+		if (isLoadingLocalModels) return 'loading';
+		if (localServerStatus === 'online') return 'success';
+		return 'error';
+	}
+
+	function selectProvider(provider: AIProviderType) {
+		selectedProvider = provider;
+
+		// If selecting local provider and models aren't loaded, load them
+		if (provider === 'local' && localModels.length === 0) {
+			loadLocalModels();
+		}
+	}
+	function getProviderDisplayName(provider: AIProviderType): string {
+		const names = {
+			openai: 'OpenAI',
+			anthropic: 'Anthropic',
+			google: 'Google',
+			grok: 'Grok',
+			deepseek: 'DeepSeek',
+			local: `Local Models ${localServerStatus === 'online' ? '🟢' : localServerStatus === 'offline' ? '🔴' : '⚪'}`
+		};
+		return names[provider] || provider;
+	}
+	function getModelDisplayInfo(model: AIModel): { name: string; info: string } {
+		if (model.provider === 'local') {
+			const localModel = localModels.find((lm) => lm.id === model.id);
+			return {
+				name: model.name,
+				info: localModel?.parameters ? `${localModel.parameters} params` : 'Local model'
+			};
+		}
+
 		return {
 			name: model.name,
-			info: localModel?.parameters ? `${localModel.parameters} params` : 'Local model'
+			info: model.description || `${model.provider} model`
 		};
 	}
-	
-	return {
-		name: model.name,
-		info: model.description || `${model.provider} model`
-	};
-}
 
 	function toggleFilters() {
 		showFilters = !showFilters;
@@ -286,24 +293,24 @@ function getModelDisplayInfo(model: AIModel): { name: string; info: string } {
 		selectedTags = [];
 	}
 
-onMount(async () => {
-	if (!$currentUser) {
-		console.log('User not authenticated, redirecting to login...');
-		goto('/login');
-		return;
-	}
+	onMount(async () => {
+		if (!$currentUser) {
+			console.log('User not authenticated, redirecting to login...');
+			goto('/login');
+			return;
+		}
 
-	showLoading();
-	try {
-		await loadAgents();
-		await modelStore.loadModels($currentUser.id);
-		await actionStore.loadActions();
-		await loadLocalModels(); 
-	} finally {
-		hideLoading();
-		isLoading = false;
-	}
-});
+		showLoading();
+		try {
+			await loadAgents();
+			await modelStore.loadModels($currentUser.id);
+			await actionStore.loadActions();
+			await loadLocalModels();
+		} finally {
+			hideLoading();
+			isLoading = false;
+		}
+	});
 
 	const unsubscribeAgent = agentStore.subscribe((state) => {
 		agents = state.agents || [];
@@ -442,178 +449,180 @@ onMount(async () => {
 		if (uploadInput) uploadInput.click();
 	}
 
-async function handleSubmit() {
-	// Enhanced validation for required fields
-	const missingFields = [];
-	
-	if (!agentName?.trim()) {
-		missingFields.push('Name');
-	}
-	
-	if (!agentPrompt?.trim()) {
-		missingFields.push('Prompt');
-	}
-	
-	if (!selectedRole) {
-		missingFields.push('Role');
-	}
-	
-	if (agentModel.length === 0) {
-		missingFields.push('Model');
-	}
+	async function handleSubmit() {
+		// Enhanced validation for required fields
+		const missingFields = [];
 
-	if (missingFields.length > 0) {
-		updateStatus = `Please fill in all required fields: ${missingFields.join(', ')}.`;
-		setTimeout(() => {
-			updateStatus = '';
-		}, 5000);
-		return;
-	}
-
-	try {
-		console.log('🔄 Processing agent submission...');
-		updateStatus = 'Processing models...';
-		
-		// Ensure models exist in the models collection and get their IDs
-		const modelIds = await ensureModelsExist(agentModel, $currentUser?.id || '');
-		
-		const agentData: Partial<AIAgent> = {
-			name: agentName.trim(),
-			description: agentDescription?.trim() || '',
-			max_attempts: agentMaxAttempts,
-			user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
-			prompt: agentPrompt.trim(),
-			// Use the model IDs for the relation field
-			model: modelIds,
-			role: selectedRole!.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
-			status: 'active'
-		};
-
-		// Handle actions - store as JSON if it's a text field, or as array if it's JSON field
-		if (agentActions.length > 0) {
-			agentData.actions = agentActions;
+		if (!agentName?.trim()) {
+			missingFields.push('Name');
 		}
 
-		// Handle tags - store as JSON if it's a text field, or as array if it's JSON field
-		if (selectedTags.length > 0) {
-			agentData.tags = selectedTags;
+		if (!agentPrompt?.trim()) {
+			missingFields.push('Prompt');
 		}
 
-		console.log('📤 Submitting agent data:', agentData);
-		updateStatus = 'Saving agent...';
-		
-		if (selectedAgent) {
-			// For updates
-			const result = await agentStore.updateAgentAPI(
-				selectedAgent.id,
-				avatarFile
-					? (() => {
-							const formData = new FormData();
-							if (avatarFile) formData.append('avatar', avatarFile);
-							
-							// Add all other fields to FormData
-							for (const [key, value] of Object.entries(agentData)) {
-								if (value !== undefined && value !== null) {
-									if (Array.isArray(value)) {
-										// For relation fields, send as JSON array
-										formData.append(key, JSON.stringify(value));
-									} else {
-										formData.append(key, String(value));
+		if (!selectedRole) {
+			missingFields.push('Role');
+		}
+
+		if (agentModel.length === 0) {
+			missingFields.push('Model');
+		}
+
+		if (missingFields.length > 0) {
+			updateStatus = `Please fill in all required fields: ${missingFields.join(', ')}.`;
+			setTimeout(() => {
+				updateStatus = '';
+			}, 5000);
+			return;
+		}
+
+		try {
+			console.log('🔄 Processing agent submission...');
+			updateStatus = 'Processing models...';
+
+			// Ensure models exist in the models collection and get their IDs
+			const modelIds = await ensureModelsExist(agentModel, $currentUser?.id || '');
+
+			const agentData: Partial<AIAgent> = {
+				name: agentName.trim(),
+				description: agentDescription?.trim() || '',
+				max_attempts: agentMaxAttempts,
+				user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
+				prompt: agentPrompt.trim(),
+				// Use the model IDs for the relation field
+				model: modelIds,
+				role: selectedRole!.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
+				status: 'active'
+			};
+
+			// Handle actions - store as JSON if it's a text field, or as array if it's JSON field
+			if (agentActions.length > 0) {
+				agentData.actions = agentActions;
+			}
+
+			// Handle tags - store as JSON if it's a text field, or as array if it's JSON field
+			if (selectedTags.length > 0) {
+				agentData.tags = selectedTags;
+			}
+
+			console.log('📤 Submitting agent data:', agentData);
+			updateStatus = 'Saving agent...';
+
+			if (selectedAgent) {
+				// For updates
+				const result = await agentStore.updateAgentAPI(
+					selectedAgent.id,
+					avatarFile
+						? (() => {
+								const formData = new FormData();
+								if (avatarFile) formData.append('avatar', avatarFile);
+
+								// Add all other fields to FormData
+								for (const [key, value] of Object.entries(agentData)) {
+									if (value !== undefined && value !== null) {
+										if (Array.isArray(value)) {
+											// For relation fields, send as JSON array
+											formData.append(key, JSON.stringify(value));
+										} else {
+											formData.append(key, String(value));
+										}
 									}
 								}
-							}
-							return formData;
-						})()
-					: agentData
-			);
-			
-			if (!result) {
-				throw new Error('Failed to update agent');
-			}
-			
-			console.log('✅ Agent updated successfully:', result);
-		} else {
-			// For creation
-			const result = await agentStore.createAgent(
-				avatarFile
-					? (() => {
-							const formData = new FormData();
-							if (avatarFile) formData.append('avatar', avatarFile);
-							
-							// Add all other fields to FormData
-							for (const [key, value] of Object.entries(agentData)) {
-								if (value !== undefined && value !== null) {
-									if (Array.isArray(value)) {
-										// For relation fields, send as JSON array
-										formData.append(key, JSON.stringify(value));
-									} else {
-										formData.append(key, String(value));
+								return formData;
+							})()
+						: agentData
+				);
+
+				if (!result) {
+					throw new Error('Failed to update agent');
+				}
+
+				console.log('✅ Agent updated successfully:', result);
+			} else {
+				// For creation
+				const result = await agentStore.createAgent(
+					avatarFile
+						? (() => {
+								const formData = new FormData();
+								if (avatarFile) formData.append('avatar', avatarFile);
+
+								// Add all other fields to FormData
+								for (const [key, value] of Object.entries(agentData)) {
+									if (value !== undefined && value !== null) {
+										if (Array.isArray(value)) {
+											// For relation fields, send as JSON array
+											formData.append(key, JSON.stringify(value));
+										} else {
+											formData.append(key, String(value));
+										}
 									}
 								}
-							}
-							return formData;
-						})()
-					: agentData
-			);
-			
-			if (!result) {
-				throw new Error('Failed to create agent');
+								return formData;
+							})()
+						: agentData
+				);
+
+				if (!result) {
+					throw new Error('Failed to create agent');
+				}
+
+				console.log('✅ Agent created successfully:', result);
 			}
-			
-			console.log('✅ Agent created successfully:', result);
+
+			// Success - clean up the form
+			showCreateForm = false;
+			selectedAgent = null;
+			resetForm();
+			avatarFile = null;
+
+			// Reload agents to ensure we have the latest data
+			await agentStore.loadAgents();
+			updateStatus = 'Agent saved successfully!';
+			setTimeout(() => {
+				updateStatus = '';
+			}, 3000);
+		} catch (error) {
+			console.error('Error saving agent:', error);
+			if (error instanceof Error) {
+				updateStatus = `Error saving agent: ${error.message}`;
+			} else {
+				updateStatus = 'Error saving agent. Please try again.';
+			}
+			// Clear error status after 5 seconds
+			setTimeout(() => {
+				updateStatus = '';
+			}, 5000);
 		}
-		
-		// Success - clean up the form
-		showCreateForm = false;
-		selectedAgent = null;
-		resetForm();
-		avatarFile = null;
-		
-		// Reload agents to ensure we have the latest data
-		await agentStore.loadAgents();
-		updateStatus = 'Agent saved successfully!';
-		setTimeout(() => {
-			updateStatus = '';
-		}, 3000);
-		
-	} catch (error) {
-		console.error('Error saving agent:', error);
-		if (error instanceof Error) {
-			updateStatus = `Error saving agent: ${error.message}`;
-		} else {
-			updateStatus = 'Error saving agent. Please try again.';
-		}
-		// Clear error status after 5 seconds
-		setTimeout(() => {
-			updateStatus = '';
-		}, 5000);
 	}
-}
-$: {
-	console.log('=== DEBUG AVAILABLE MODELS ===');
-	console.log('Total availableModels:', availableModels.length);
-	
-	// Group by provider to see duplicates
-	const grouped = availableModels.reduce((acc, model) => {
-		if (!acc[model.provider]) acc[model.provider] = [];
-		acc[model.provider].push({ id: model.id, name: model.name, api_type: model.api_type });
-		return acc;
-	}, {} as Record<string, any[]>);
-	
-	Object.entries(grouped).forEach(([provider, models]) => {
-		console.log(`${provider}:`, models.length, 'models');
-		models.forEach(m => console.log(`  - ${m.name} (${m.id}) [${m.api_type}]`));
-		
-		// Check for duplicates within provider
-		const duplicates = models.filter((model, index) => 
-			models.findIndex(m => m.api_type === model.api_type) !== index
+	$: {
+		console.log('=== DEBUG AVAILABLE MODELS ===');
+		console.log('Total availableModels:', availableModels.length);
+
+		// Group by provider to see duplicates
+		const grouped = availableModels.reduce(
+			(acc, model) => {
+				if (!acc[model.provider]) acc[model.provider] = [];
+				acc[model.provider].push({ id: model.id, name: model.name, api_type: model.api_type });
+				return acc;
+			},
+			{} as Record<string, any[]>
 		);
-		if (duplicates.length > 0) {
-			console.log(`  ⚠️ DUPLICATES in ${provider}:`, duplicates);
-		}
-	});
-	console.log('================================');
-}
+
+		Object.entries(grouped).forEach(([provider, models]) => {
+			console.log(`${provider}:`, models.length, 'models');
+			models.forEach((m) => console.log(`  - ${m.name} (${m.id}) [${m.api_type}]`));
+
+			// Check for duplicates within provider
+			const duplicates = models.filter(
+				(model, index) => models.findIndex((m) => m.api_type === model.api_type) !== index
+			);
+			if (duplicates.length > 0) {
+				console.log(`  ⚠️ DUPLICATES in ${provider}:`, duplicates);
+			}
+		});
+		console.log('================================');
+	}
 	function showRoleInfo() {
 		// Implement role info modal or tooltip
 	}
@@ -627,15 +636,11 @@ $: {
 	function removeTag(tag: string) {
 		selectedTags = selectedTags.filter((t) => t !== tag);
 	}
-	  const getText = (key: string): string => $t(key) as string;
-  
+	const getText = (key: string): string => $t(key) as string;
 </script>
 
 <div class="agents-config">
-	<div 
-	class="column agents-column"
-	class:shrink={showCreateForm}
-	>
+	<div class="column agents-column" class:shrink={showCreateForm}>
 		<!-- <hr> -->
 		{#if isLoading}
 			<LoadingSpinner />
@@ -645,7 +650,11 @@ $: {
 			<div class="search-and-sort-container">
 				<div class="search-container">
 					<Icon name="Search" size={24} />
-				<input type="text" bind:value={searchQuery} placeholder={`${getText('nav.search')} ${getText('nav.agents')}`} />
+					<input
+						type="text"
+						bind:value={searchQuery}
+						placeholder={`${getText('nav.search')} ${getText('nav.agents')}`}
+					/>
 				</div>
 				<div class="options">
 					<button class="filter-toggle-button" on:click={toggleFilters} class:active={showFilters}>
@@ -670,23 +679,7 @@ $: {
 			<div class="button-grid" transition:fade={{ duration: 300 }}>
 				{#each filteredAgents as agent (agent.id)}
 					{#if showCreateForm}
-
-								<button class="mini-button" on:click={() => showEdit(agent)}>
-								
-															<div class="avatar-container">
-								{#if agent.avatar}
-									<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
-								{:else}
-									<div class="avatar-placeholder">
-										<Icon name="Bot" size={20} />
-									</div>
-								{/if}
-					</div>
-
-								</button>
-					{:else}
-					<div class="agent-item">
-						<div class="agent-wrapper">
+						<button class="mini-button" on:click={() => showEdit(agent)}>
 							<div class="avatar-container">
 								{#if agent.avatar}
 									<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
@@ -696,37 +689,50 @@ $: {
 									</div>
 								{/if}
 							</div>
-							<div class="name-container">
-								<div class="status-badge {agent.status}">{agent.status}</div>
-								<div class="agent-name">{agent.name}</div>
+						</button>
+					{:else}
+						<div class="agent-item">
+							<div class="agent-wrapper">
+								<div class="avatar-container">
+									{#if agent.avatar}
+										<img src={getAgentAvatarUrl(agent)} alt="Agent avatar" class="avatar" />
+									{:else}
+										<div class="avatar-placeholder">
+											<Icon name="Bot" size={20} />
+										</div>
+									{/if}
+								</div>
+								<div class="name-container">
+									<div class="status-badge {agent.status}">{agent.status}</div>
+									<div class="agent-name">{agent.name}</div>
+								</div>
 							</div>
-						</div>
 
-						<div class="container-row">
-							<div class="data-counts">
-								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									<Icon name="Trash2" size={16} />
-								</button>
-								<button class="mini-button" on:click={() => showEdit(agent)}>
-									<Icon name="Settings" size={16} />
-								</button>
-								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									<Icon name="RefreshCcw" size={16} />
-								</button>
-							</div>
-							<div class="action-buttons">
-								<button class="delete-button" on:click={() => handleDelete(agent)}>
-									<Icon name="Trash2" size={16} />
-								</button>
-								<button class="mini-button" on:click={() => showEdit(agent)}>
-									<Icon name="Settings" size={16} />
-								</button>
-								<button class="mini-button" on:click={() => showGenerator(agent)}>
-									<Icon name="RefreshCcw" size={16} />
-								</button>
+							<div class="container-row">
+								<div class="data-counts">
+									<button class="delete-button" on:click={() => handleDelete(agent)}>
+										<Icon name="Trash2" size={16} />
+									</button>
+									<button class="mini-button" on:click={() => showEdit(agent)}>
+										<Icon name="Settings" size={16} />
+									</button>
+									<button class="mini-button" on:click={() => showGenerator(agent)}>
+										<Icon name="RefreshCcw" size={16} />
+									</button>
+								</div>
+								<div class="action-buttons">
+									<button class="delete-button" on:click={() => handleDelete(agent)}>
+										<Icon name="Trash2" size={16} />
+									</button>
+									<button class="mini-button" on:click={() => showEdit(agent)}>
+										<Icon name="Settings" size={16} />
+									</button>
+									<button class="mini-button" on:click={() => showGenerator(agent)}>
+										<Icon name="RefreshCcw" size={16} />
+									</button>
+								</div>
 							</div>
 						</div>
-					</div>
 					{/if}
 				{/each}
 			</div>
@@ -808,292 +814,273 @@ $: {
 		<div class="column form-column" transition:fly={{ x: 300, duration: 300 }}>
 			<div class="form-content">
 				<div class="form-group header-row">
-								<div class="button-group">
-				<button class="cancel-button" on:click={handleCancel}>
-					<Icon name="ArrowLeft" size={24} />
-				</button>
-
-			</div>
-
-<div class="agent-header-wrapper">
-					<div class="avatar-upload" on:click={triggerAvatarUpload}>
-						<div class="avatar-preview">
-							{#if avatarFile}
-								<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
-							{:else if selectedAgent && selectedAgent.avatar}
-								<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
-							{:else}
-								<Icon name="Bot" size={16} />
-							{/if}
-						</div>
-						<div class="upload-overlay">
-							<Icon name="Upload" size={16} />
-						</div>
-						<input
-							type="file"
-							id="avatar-upload"
-							accept="image/*"
-							on:change={handleAvatarUpload}
-							style="display: none;"
-						/>
+					<div class="button-group">
+						<button class="cancel-button" on:click={handleCancel}>
+							<Icon name="ArrowLeft" size={24} />
+						</button>
 					</div>
-					<h3>{selectedAgent ? 'Edit Agent' : 'Create New Agent'}</h3>
 
-
-				</div>
-								<div class="button-group">
-
-				<button class="submit-button" on:click={handleSubmit}>
-					{#if selectedAgent}
-						<Icon name="RefreshCcw" size={24} />
-					{:else}
-						<Icon name="Save" size={24} />
-					{/if}
-				</button>
-
-			</div>
-				</div>
-
-				<div class="form-group input">
-					<label for="agentPrompt">PROMPT</label>
-					<textarea id="agentPrompt" bind:value={agentPrompt} placeholder="Enter agent prompt..."
-					></textarea>
-				</div>
-				<hr />
-				<div class="form-group input">
-					<label for="agentName">NAME</label>
-					<input
-						type="text"
-						id="agentName"
-						bind:value={agentName}
-						placeholder="Enter agent name..."
-					/>
-				</div>
-
-				<div class="form-group input">
-					<label for="agentDescription">DESCRIPTION</label>
-					<textarea
-						id="agentDescription"
-						bind:value={agentDescription}
-						placeholder="Enter agent description..."
-					></textarea>
-				</div>
-
-				<div class="form-group input">
-					<label for="agentMaxAttempts">MAX ATTEMPTS {agentMaxAttempts}</label>
-					<input
-						type="range"
-						id="agentMaxAttempts"
-						bind:value={agentMaxAttempts}
-						min={MIN_ATTEMPTS}
-						max={MAX_ATTEMPTS}
-					/>
-				</div>
-
-				<div class="form-group">
-					<label for="agentUserInput">USER INPUT</label>
-					<select id="agentUserInput" bind:value={agentUserInput}>
-						{#each agentUserInputs as type}
-							<option value={type.value}>{type.label}</option>
-						{/each}
-					</select>
-				</div>
-
-				<div class="form-group models">
-					<label>MODEL</label>
-
-					<!-- Provider Tabs -->
-<!-- Replace the existing MODEL section in your form with this updated version -->
-<div class="form-group models">
-	<label>MODEL</label>
-
-	<!-- Provider Tabs -->
-	<div class="provider-tabs">
-		{#each providers as provider (provider)}
-			<button
-				type="button"
-				class="provider-tab"
-				class:active={selectedProvider === provider}
-				on:click={() => selectProvider(provider)}
-			>
-				{#if provider === 'local'}
-					Local
-					{#if isLoadingLocalModels}
-						<Icon name="Loader2" size={12} />
-					{:else if localServerStatus === 'offline'}
-						<Icon name="AlertCircle" size={12}  />
-					{:else if localServerStatus === 'online'}
-						<Icon name="CheckCircle" size={12}  />
-					{/if}
-				{:else}
-					{provider.charAt(0).toUpperCase() + provider.slice(1)}
-				{/if}
-			</button>
-		{/each}
-	</div>
-
-	<!-- Models for Selected Provider -->
-	{#if selectedProvider === 'local'}
-		{#if localServerStatus === 'offline'}
-			<div class="local-server-offline">
-				<div class="offline-message">
-					<Icon name="AlertTriangle" size={20} />
-					<div>
-						<strong>Local Server Offline</strong>
-						<p>Make sure your local AI server (like Ollama) is running on http://localhost:11434</p>
-						<button
-							type="button"
-							class="retry-button"
-							on:click={loadLocalModels}
-						>
-							Retry connection
+					<div class="agent-header-wrapper">
+						<div class="avatar-upload" on:click={triggerAvatarUpload}>
+							<div class="avatar-preview">
+								{#if avatarFile}
+									<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
+								{:else if selectedAgent && selectedAgent.avatar}
+									<img src={getAgentAvatarUrl(selectedAgent)} alt="Current avatar" />
+								{:else}
+									<Icon name="Bot" size={16} />
+								{/if}
+							</div>
+							<div class="upload-overlay">
+								<Icon name="Upload" size={16} />
+							</div>
+							<input
+								type="file"
+								id="avatar-upload"
+								accept="image/*"
+								on:change={handleAvatarUpload}
+								style="display: none;"
+							/>
+						</div>
+						<h3>{selectedAgent ? 'Edit Agent' : 'Create New Agent'}</h3>
+					</div>
+					<div class="button-group">
+						<button class="submit-button" on:click={handleSubmit}>
+							{#if selectedAgent}
+								<Icon name="RefreshCcw" size={24} />
+							{:else}
+								<Icon name="Save" size={24} />
+							{/if}
 						</button>
 					</div>
 				</div>
-			</div>
-		{:else if isLoadingLocalModels}
-			<div class="spinner-container">
-					<div class="spinner"></div>
-			</div>
-		{:else}
-			<div class="models-grid">
-				{#each localModels as model (model.id)}
-					<button
-						type="button"
-						class="model-button"
-						class:selected={agentModel.includes(model.id)}
-						on:click={() => toggleModel(model.id)}
-					>
-						<span class="model-name">{model.name}</span>
-						<span class="model-description">
-							{model.parameters ? `${model.parameters} params` : 'Local model'}
-						</span>
-						<span class="badge-wrapper">
-						<span class="model-provider-badge">
-							<!-- <Icon name="Brain" size={12} /> -->
-							{$t('chat.local')}
-						</span>
-						</span>
-
-					</button>
-				{:else}
-					<div class="no-models">
-						No local models available
+				<div class="scroll-wrapper">
+					<div class="form-group input">
+						<label for="agentPrompt">PROMPT</label>
+						<textarea id="agentPrompt" bind:value={agentPrompt} placeholder="Enter agent prompt..."
+						></textarea>
 					</div>
-				{/each}
-			</div>
-			
-			{#if localModels.length > 0}
-				<div class="models-footer">
-					<span class="models-count">
-						{localModels.length} local model{localModels.length !== 1 ? 's' : ''} available
-					</span>
-					<button
-						type="button"
-						class="refresh-models"
-						on:click={loadLocalModels}
-						disabled={isLoadingLocalModels}
-					>
-						<!-- <Icon name={isLoadingLocalModels ? "RefreshCcw" : "RefreshCw"} 
-							  size={14} 
-							 /> -->
-						Refresh
-					</button>
-				</div>
-			{/if}
-		{/if}
-{:else if selectedProvider && modelsByProvider[selectedProvider]}
-	<div class="models-grid">
-		{#each modelsByProvider[selectedProvider] as model (model.id)}
-			<button
-				type="button"
-				class="model-button"
-				class:selected={agentModel.includes(model.id)}
-				on:click={() => toggleModel(model.id)}
-			>
-				<span class="model-name">{model.name}</span>
-				{#if model.description}
-					<span class="model-description">{model.description}</span>
-				{/if}
-			</button>
-		{/each}
-	</div>
-{/if}
-</div>
-					<!-- Models for Selected Provider -->
-					<!-- {#if selectedProvider && modelsByProvider[selectedProvider]}
-						<div class="models-grid">
-							{#each modelsByProvider[selectedProvider] as model (model.id)}
+					<hr />
+					<div class="form-group input">
+						<label for="agentName">NAME</label>
+						<input
+							type="text"
+							id="agentName"
+							bind:value={agentName}
+							placeholder="Enter agent name..."
+						/>
+					</div>
+
+					<div class="form-group input">
+						<label for="agentDescription">DESCRIPTION</label>
+						<textarea
+							id="agentDescription"
+							bind:value={agentDescription}
+							placeholder="Enter agent description..."
+						></textarea>
+					</div>
+
+					<div class="form-group input">
+						<label for="agentMaxAttempts">MAX ATTEMPTS {agentMaxAttempts}</label>
+						<input
+							type="range"
+							id="agentMaxAttempts"
+							bind:value={agentMaxAttempts}
+							min={MIN_ATTEMPTS}
+							max={MAX_ATTEMPTS}
+						/>
+					</div>
+
+					<div class="form-group">
+						<label for="agentUserInput">USER INPUT</label>
+						<select id="agentUserInput" bind:value={agentUserInput}>
+							{#each agentUserInputs as type}
+								<option value={type.value}>{type.label}</option>
+							{/each}
+						</select>
+					</div>
+
+					<!-- Provider Tabs -->
+					<!-- Replace the existing MODEL section in your form with this updated version -->
+					<div class="form-group models">
+						<label>MODEL</label>
+
+						<!-- Provider Tabs -->
+						<div class="provider-tabs">
+							{#each providers as provider (provider)}
 								<button
 									type="button"
-									class="model-button"
-									class:selected={agentModel.includes(model.id)}
-									on:click={() => toggleModel(model.id)}
+									class="provider-tab"
+									class:active={selectedProvider === provider}
+									on:click={() => selectProvider(provider)}
 								>
-									<span class="model-name">{model.name}</span>
-									{#if model.description}
-										<span class="model-description">{model.description}</span>
+									{#if provider === 'local'}
+										Local
+										{#if isLoadingLocalModels}
+											<Icon name="Loader2" size={12} />
+										{:else if localServerStatus === 'offline'}
+											<Icon name="AlertCircle" size={12} />
+										{:else if localServerStatus === 'online'}
+											<Icon name="CheckCircle" size={12} />
+										{/if}
+									{:else}
+										{provider.charAt(0).toUpperCase() + provider.slice(1)}
 									{/if}
 								</button>
 							{/each}
 						</div>
-					{/if} -->
-				</div>
-				<div class="form-group">
-					<label>ACTIONS</label>
-					<div class="action-grid">
-						{#each availableActions as action (action.id)}
-							<button
-								class="action-button"
-								class:selected={agentActions.includes(action.id)}
-								on:click={() => toggleAction(action.id)}
-							>
-								<h4>
-									{action.name}
-								</h4>
-								{action.description}
-							</button>
-						{/each}
-					</div>
-				</div>
 
-<div class="form-group">
-	<label>ROLE *</label>
-	<div class="role-selection">
-		{#each roles as role}
-			<label class="role-option">
-				<input 
-					type="radio" 
-					bind:group={selectedRole} 
-					value={role}
-					name="agent-role"
-				/>
-				<span>{role}</span>
-			</label>
-		{/each}
-	</div>
-	<button class="info-button" on:click={showRoleInfo}>i</button>
-</div>
+						<!-- Models for Selected Provider -->
+						{#if selectedProvider === 'local'}
+							{#if localServerStatus === 'offline'}
+								<div class="local-server-offline">
+									<div class="offline-message">
+										<Icon name="AlertTriangle" size={20} />
+										<div>
+											<strong>Local Server Offline</strong>
+											<p>
+												Make sure your local AI server (like Ollama) is running on
+												http://localhost:11434
+											</p>
+											<button type="button" class="retry-button" on:click={loadLocalModels}>
+												Retry connection
+											</button>
+										</div>
+									</div>
+								</div>
+							{:else if isLoadingLocalModels}
+								<div class="spinner-container">
+									<div class="spinner"></div>
+								</div>
+							{:else}
+								<div class="models-grid">
+									{#each localModels as model (model.id)}
+										<button
+											type="button"
+											class="model-button"
+											class:selected={agentModel.includes(model.id)}
+											on:click={() => toggleModel(model.id)}
+										>
+											<span class="model-name">{model.name}</span>
+											<span class="model-description">
+												{model.parameters ? `${model.parameters} params` : 'Local model'}
+											</span>
+											<span class="badge-wrapper">
+												<span class="model-provider-badge">
+													<!-- <Icon name="Brain" size={12} /> -->
+													{$t('chat.local')}
+												</span>
+											</span>
+										</button>
+									{:else}
+										<div class="no-models">No local models available</div>
+									{/each}
+								</div>
 
-				<div class="form-group">
-					<label>TAGS</label>
-					<div class="tag-input">
-						<input
-							type="text"
-							placeholder="Add a tag"
-							bind:value={tagInput}
-							on:keydown={handleKeydown}
-						/>
+								{#if localModels.length > 0}
+									<div class="models-footer">
+										<span class="models-count">
+											{localModels.length} local model{localModels.length !== 1 ? 's' : ''} available
+										</span>
+										<button
+											type="button"
+											class="refresh-models"
+											on:click={loadLocalModels}
+											disabled={isLoadingLocalModels}
+										>
+											<!-- <Icon name={isLoadingLocalModels ? "RefreshCcw" : "RefreshCw"} 
+								size={14} 
+								/> -->
+											Refresh
+										</button>
+									</div>
+								{/if}
+							{/if}
+						{:else if selectedProvider && modelsByProvider[selectedProvider]}
+							<div class="models-grid">
+								{#each modelsByProvider[selectedProvider] as model (model.id)}
+									<button
+										type="button"
+										class="model-button"
+										class:selected={agentModel.includes(model.id)}
+										on:click={() => toggleModel(model.id)}
+									>
+										<span class="model-name">{model.name}</span>
+										{#if model.description}
+											<span class="model-description">{model.description}</span>
+										{/if}
+									</button>
+								{/each}
+							</div>
+						{/if}
 					</div>
-					<div class="tag-list">
-						{#each selectedTags as tag}
-							<span class="tag">{tag} <button on:click={() => removeTag(tag)}>×</button></span>
-						{/each}
+					<!-- Models for Selected Provider -->
+					<!-- {#if selectedProvider && modelsByProvider[selectedProvider]}
+							<div class="models-grid">
+								{#each modelsByProvider[selectedProvider] as model (model.id)}
+									<button
+										type="button"
+										class="model-button"
+										class:selected={agentModel.includes(model.id)}
+										on:click={() => toggleModel(model.id)}
+									>
+										<span class="model-name">{model.name}</span>
+										{#if model.description}
+											<span class="model-description">{model.description}</span>
+										{/if}
+									</button>
+								{/each}
+							</div>
+						{/if} -->
+					<div class="form-group">
+						<label>ACTIONS</label>
+						<div class="action-grid">
+							{#each availableActions as action (action.id)}
+								<button
+									class="action-button"
+									class:selected={agentActions.includes(action.id)}
+									on:click={() => toggleAction(action.id)}
+								>
+									<h4>
+										{action.name}
+									</h4>
+									{action.description}
+								</button>
+							{/each}
+						</div>
+					</div>
+
+					<div class="form-group">
+						<label>ROLE *</label>
+						<div class="role-selection">
+							{#each roles as role}
+								<label class="role-option">
+									<input type="radio" bind:group={selectedRole} value={role} name="agent-role" />
+									<span>{role}</span>
+								</label>
+							{/each}
+						</div>
+						<button class="info-button" on:click={showRoleInfo}>i</button>
+					</div>
+
+					<div class="form-group">
+						<label>TAGS</label>
+						<div class="tag-input">
+							<input
+								type="text"
+								placeholder="Add a tag"
+								bind:value={tagInput}
+								on:keydown={handleKeydown}
+							/>
+						</div>
+						<div class="tag-list">
+							{#each selectedTags as tag}
+								<span class="tag">{tag} <button on:click={() => removeTag(tag)}>×</button></span>
+							{/each}
+						</div>
 					</div>
 				</div>
 			</div>
-
-
 		</div>
 	{/if}
 
@@ -1166,8 +1153,6 @@ $: {
 					</select>
 				</div>
 			</div>
-
-
 		</div>
 	{/if}
 </div>
@@ -1179,12 +1164,15 @@ $: {
 {/if}
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
 	.agents-config {
 		display: flex;
+		justify-content: flex-start;
+		align-items: flex-start;
+		height: 100%;
 		gap: 0;
 		z-index: 1000;
 		width: auto;
@@ -1202,6 +1190,7 @@ $: {
 	.agents-column {
 		display: flex;
 		flex-direction: column;
+		justify-content: flex-start;
 		/* align-items: flex-start; */
 		height: 100%;
 		width: 100%;
@@ -1211,14 +1200,14 @@ $: {
 		scrollbar-color: var(--secondary-color) transparent;
 		transition: all 0.3s ease;
 		&.shrink {
-
 			justify-content: center;
 			width: auto;
 			& .button-grid {
 				width: auto;
 				margin-left: 0;
+				height: 100%;
 				& .mini-button {
-					transition: all	0.3s ease;
+					transition: all 0.3s ease;
 					&:hover {
 						transform: scale(0.9);
 						background: var(--tertiary-color);
@@ -1228,7 +1217,7 @@ $: {
 				& button.model-button {
 					&:hover {
 						transform: scale(1.1);
-					};
+					}
 				}
 			}
 			& .search-and-sort-container {
@@ -1247,25 +1236,23 @@ $: {
 		background: var(--primary-color);
 		border-radius: 1rem;
 		padding: 0 0.5rem;
-		
-
 		font-size: 0.7rem;
 		color: var(--placeholder-color);
-	}	
+	}
 	.form-column {
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		position: relative;
 		/* padding: 20px; */
-		height: calc(100% - 6rem);
+		height: calc(100%);
 		width: 100%;
+		overflow: hidden;
 		top: 0;
 
-		background: var(--bg-gradient-r);
+		// background: var(--bg-gradient-r);
 		overflow-y: hidden;
 
-		border: 1px solid var(--line-color);
 		/* width: auto; */
 
 		/* width: 70vh; */
@@ -1282,7 +1269,7 @@ $: {
 		/* height: 80vh; */
 		display: flex;
 		flex-direction: column;
-		width: 90%;
+		width: calc(100% - 1rem);
 	}
 
 	.generator-content {
@@ -1306,24 +1293,45 @@ $: {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		padding: 0.5rem;
+		// padding: 0.5rem;
 		z-index: 1000;
+		margin: 0.5rem 0;
 	}
 	.form-group.input {
 		display: flex;
-		flex-direction: row !important;
+		flex-direction: column;
 		width: 100%;
+		gap: 0;
+		height: auto;
 		& input {
-			width: 100%;
+			width: auto;
+			&:focus {
+				background-color: var(--secondary-color);
+			}
 		}
 		& label {
-			position: absolute;
-			transform: translateY(-0.75rem);
+			position: relative;
+			// margin-bottom: 0.5rem;
+			// transform: translateY(-0.75rem);
 			color: var(--placeholder-color);
 		}
 	}
 	.form-group.models {
 		flex-direction: column !important;
+		gap: 0;
+		background: var(--primary-color);
+		border-radius: 1rem;
+		margin-bottom: 1rem;
+		padding: 0.5rem;
+		height: 3.75rem;
+		overflow: hidden;
+		transition: all 0.2s ease-in-out;
+		&:hover {
+			height: auto;
+			padding: 1rem;
+			overflow: visible;
+			background-color: var(--secondary-color);
+		}
 	}
 	.form-group label {
 		display: flex;
@@ -1331,10 +1339,31 @@ $: {
 		max-width: 200px;
 		margin: 0;
 		padding: 0;
-		margin-bottom: 0.5rem;
 		font-weight: 600;
-		font-size: 0.7rem;
+		font-size: 0.8rem;
 		color: var(--text-color);
+		margin: 0.5rem 0;
+	}
+
+	.scroll-wrapper {
+		height: calc(100vh - 10rem);
+		display: flex;
+		flex-direction: column;
+
+		overflow-y: scroll;
+		overflow-x: hidden;
+
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.agent-header-wrapper {
@@ -1345,7 +1374,6 @@ $: {
 		align-items: center;
 		width: auto;
 		flex: 1;
-
 	}
 
 	.provider-tabs {
@@ -1380,9 +1408,9 @@ $: {
 	}
 
 	.provider-tab.active {
-		background: var(--primary-color);
+		background: var(--tertiary-color);
 		border-color: var(--primary-color);
-		color: white;
+		color: var(--primary-color);
 		opacity: 1;
 	}
 	.models-grid {
@@ -1391,8 +1419,23 @@ $: {
 		justify-content: flex-start;
 		align-items: stretch;
 		gap: 0.5rem;
-		max-height: 200px;
-		overflow-x: auto;
+		border-radius: 1rem;
+		max-height: 400px;
+		padding: 0.5rem;
+		overflow-y: scroll;
+		overflow-x: hidden;
+
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--tertiary-color);
+			border-radius: 1rem;
+		}
 	}
 
 	.model-button {
@@ -1410,13 +1453,14 @@ $: {
 		align-items: flex-start;
 		flex-direction: column;
 		gap: 0.25rem;
-		width: 100px;
+		width: auto;
 	}
 
 	.model-button:hover {
-		background: var(--secondary-color);
+		background: var(--tertiary-color);
 		border-color: var(--primary-color);
 		transform: translateY(-1px);
+		color: var(--primary-color);
 	}
 
 	.model-button.selected {
@@ -1427,13 +1471,13 @@ $: {
 
 	.model-name {
 		font-weight: 600;
-		font-size: 0.875rem;
+		font-size: 0.7rem;
 	}
 
 	.model-description {
-		font-size: 0.75rem;
+		font-size: 0.7rem;
+		color: var(--placeholder-color);
 		opacity: 0.8;
-		line-height: 1.3;
 	}
 
 	.model-button.selected .model-description {
@@ -1469,9 +1513,9 @@ $: {
 	select {
 		padding: 0 0.5rem;
 		border: 1px solid var(--line-color);
-		background: var(--bg-color);
+		background: var(--primary-color);
 		color: var(--text-color);
-		font-size: 1rem;
+		font-size: 0.8rem;
 		width: auto;
 		height: 2rem;
 		border-radius: 1rem;
@@ -1484,17 +1528,32 @@ $: {
 
 	textarea {
 		/* height: 100px; */
-		width: 100%;
+		height: 30px !important;
+		width: auto;
 		padding: 0.5rem;
 		border: none;
-		font-size: 1rem;
+		font-size: 0.8rem;
 		background: var(--primary-color);
 		resize: none;
+		overflow: hidden;
 		box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 		border-radius: 1rem;
 		color: var(--text-color);
+		transition: height 0.2s ease-in-out;
+		&:focus {
+			height: 400px !important;
+			background: var(--secondary-color);
+		}
 	}
+	.tag-input {
+		display: flex;
+		flex-direction: column;
 
+		width: 100%;
+		& input {
+			width: auto;
+		}
+	}
 	.button-grid {
 		display: flex;
 		flex-direction: column;
@@ -1504,7 +1563,7 @@ $: {
 		// width: calc(100% - 2rem);
 		// width: calc(100% - 2rem);
 		gap: 0.5rem;
-		padding: 0.5rem 1rem;
+		padding: 0.5rem;
 		/* border-radius: 12px; */
 		/* max-width: 300px; */
 		/* background: radial-gradient(circle at center, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 90%); */
@@ -1556,8 +1615,8 @@ $: {
 		transition: background-color 0.3s;
 	}
 
-
-	.submit-button, .cancel-button {
+	.submit-button,
+	.cancel-button {
 		gap: 5px;
 		padding: 5px;
 		background-color: var(--primary-color);
@@ -1566,8 +1625,8 @@ $: {
 		border-radius: 14px;
 		cursor: pointer;
 		transition: background-color 0.3s;
-		width: 3rem;
-		height: 3rem;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
 		display: flex;
 		right: 0;
@@ -1703,7 +1762,11 @@ $: {
 		justify-content: center;
 		align-items: center;
 	}
-
+	button.refresh-models {
+		background-color: var(--tertiary-color);
+		color: var(--primary-color);
+		width: auto;
+	}
 	.delete-button:hover {
 		color: #ff0000;
 	}
@@ -1738,9 +1801,9 @@ $: {
 	}
 
 	.avatar-container {
-		width: 60px !important;
+		width: 40px !important;
 		/* height: 100%; */
-		height: 60px !important;
+		height: 40px !important;
 		// margin-left: 0.5rem;
 		border-radius: 50%;
 		/* scale: 1.5; */
@@ -1800,9 +1863,8 @@ $: {
 		text-align: left;
 		align-items: center;
 		justify-content: left;
-		border-radius: 10px;
-		font-size: 12px;
-		font-weight: bold;
+		border-radius: 0.5rem;
+		font-size: 0.7rem;
 		color: white;
 	}
 
@@ -2005,14 +2067,14 @@ $: {
 
 	.avatar-upload {
 		position: relative;
-		width: 3rem;
-		height: 3rem;
+		width: 2rem;
+		height: 2rem;
 		cursor: pointer;
 	}
 
 	.avatar-preview {
-		width: 100%;
-		height: 100%;
+		width: 2rem;
+		height: 2rem;
 		border-radius: 50%;
 		overflow: hidden;
 		display: flex;
@@ -2023,8 +2085,8 @@ $: {
 	}
 
 	.avatar-preview img {
-		width: 100%;
-		height: 100%;
+		width: 2rem;
+		height: 2rem;
 		object-fit: cover;
 	}
 
@@ -2156,20 +2218,29 @@ $: {
 	}
 
 	p {
-		color: #ffffff;
-		font-size: 20px;
-		padding: 20px;
+		color: var(--text-color);
+		font-size: 1rem;
+		padding: 1rem;
 	}
-
+	.models-footer {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+		align-items: center;
+		flex-direction: row;
+		margin: 0.5rem 1rem;
+	}
+	.models-count {
+		color: var(--tertiary-color);
+		font-size: 0.7rem;
+		user-select: none;
+		padding: 0;
+		margin: 0;
+	}
 	@media (max-width: 1700px) {
 	}
 
 	@media (max-width: 750px) {
-		.agent-item {
-			width: 70px;
-			/* border-radius: 50%; */
-		}
-
 		.agent-name {
 			display: none;
 			font-size: 12px;

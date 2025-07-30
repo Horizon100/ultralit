@@ -204,9 +204,9 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			}
 		});
 
-// Collect all unique user IDs from posts
+		// Collect all unique user IDs from posts
 		const userIds = new Set<string>();
-		allPosts.forEach(post => {
+		allPosts.forEach((post) => {
 			if (post.user) userIds.add(post.user);
 		});
 
@@ -217,14 +217,14 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				const userIdArray = Array.from(userIds);
 				const usersResult = await pbTryCatch(
 					pb.collection('users').getList(1, userIdArray.length, {
-						filter: userIdArray.map(id => `id = "${id}"`).join(' || '),
+						filter: userIdArray.map((id) => `id = "${id}"`).join(' || '),
 						fields: 'id,username,name,avatar'
 					}),
 					'fetch post authors'
 				);
-				
+
 				if (usersResult.success) {
-					usersResult.data.items.forEach(user => {
+					usersResult.data.items.forEach((user) => {
 						usersMap.set(user.id, user);
 					});
 				}
@@ -240,7 +240,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 				post.author_name = post.expand.user.name;
 				post.author_username = post.expand.user.username;
 				post.author_avatar = post.expand.user.avatar;
-			} 
+			}
 			// Fallback to separately fetched user data
 			else if (post.user && usersMap.has(post.user)) {
 				const userData = usersMap.get(post.user);
@@ -252,7 +252,7 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			else {
 				post.author_name = post.author_name || 'User';
 				post.author_username = post.author_username || 'user';
-				post.author_avatar = post.author_avatar || null;
+				post.author_avatar = post.author_avatar ?? undefined;
 			}
 		});
 

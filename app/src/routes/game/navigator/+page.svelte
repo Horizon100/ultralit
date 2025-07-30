@@ -365,7 +365,7 @@
 a
 
 <style lang="scss">
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	.map-navigator {
 		height: 100%;
 		width: 100%;

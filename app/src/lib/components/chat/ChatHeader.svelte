@@ -11,15 +11,18 @@
 	import type { Threads } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { fly } from 'svelte/transition';
-	// Props
+	import type { User } from '$lib/types/types';
+	import { currentUser } from '$lib/pocketbase';
+
 	export let currentThread: Threads | null = null;
 	export let userId: string;
-	export let name: string = 'You';
+	export let user: User | null = null;
 	export let isUpdatingThreadName = false;
 	export let isEditingThreadName = false;
 	export let editedThreadName = '';
 	export let isMinimized = false;
 	export let promptSuggestions: string[] = [];
+	$: currentUserName = $currentUser?.name || $currentUser?.username || 'You';
 
 	const dispatch = createEventDispatcher();
 
@@ -53,9 +56,7 @@
 	transition:slide={{ duration: 300, easing: cubicOut }}
 >
 	{#if currentThread}
-		<div class="chat-header-thread"
-
-		>
+		<div class="chat-header-thread">
 			{#if currentThread && (currentThread.user === userId || currentThread.op === userId)}
 				{#if isUpdatingThreadName}
 					<div class="spinner-container">
@@ -93,7 +94,7 @@
 						<span class="start" in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
 							<h3 in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
 								{getRandomGreeting()}
-								{name},
+								{currentUserName},
 							</h3>
 							<p>
 								{getRandomQuestions()}
@@ -113,6 +114,7 @@
 									>
 										{prompt}
 									</span>
+									|
 								{/each}
 							</span>
 						{/if}
@@ -128,7 +130,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	@use 'src/lib/styles/themes.scss' as *;
+	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -165,7 +167,7 @@
 		justify-content: left;
 		align-items: center;
 		color: var(--text-color);
-
+		transition: all 0.2s ease;
 		&.btn {
 			display: flex;
 			width: auto;
@@ -182,34 +184,35 @@
 				background: var(--bg-gradient-left);
 			}
 		}
-
 		&.start {
 			display: flex;
 			flex-direction: column;
 			justify-content: center;
 			align-items: center;
 			height: auto !important;
-			width: auto;
+			width: 100%;
 			margin-bottom: 0 !important;
-			max-width: 800px;
-			gap: 0.5rem;
 			margin: 0;
 			position: relative;
 			transition: all 0.3s ease;
 			& p {
-				font-size: 1.5rem;
+				font-size: 1.25rem;
+				text-align: right;
+				width: 100%;
+				margin: 0;
+				padding: 0.5rem 0;
 			}
 			&:hover {
 				animation: shake 2.8s ease;
 			}
 			& h3 {
-				font-size: 2rem;
+				font-size: 2rem !important;
 				display: flex;
 				width: auto;
-				max-width: 800px;
-				justify-content: center !important;
+				justify-content: flex-end !important;
 				align-items: center !important;
 				padding: 0 !important;
+				width: 100%;
 			}
 
 			& img.logo {
@@ -222,7 +225,34 @@
 				align-items: center;
 			}
 		}
+		&.prompts {
+			display: flex;
+			flex-direction: row;
+			width: 100%;
+			flex-wrap: wrap;
+			justify-content: flex-end;
+			align-items: center;
+			margin-top: 1rem;
+			gap: 0.5rem;
+			color: var(--placeholder-color);
+		}
+		&.prompt {
+			font-size: 0.8rem;
+			padding: 0.75rem 1rem;
+			color: var(--placeholder-color);
+			max-height: 4rem;
+			height: auto;
+			word-wrap: break-word;
+			overflow-wrap: break-word;
+		}
+		.prompt:hover {
+			color: var(--tertiary-color);
+		}
 
+		.prompt:focus {
+			outline: 2px solid var(--focus-color, #007acc);
+			outline-offset: 2px;
+		}
 		&.icon {
 			transition: all 0.2s ease-in-out;
 			gap: 0.5rem;

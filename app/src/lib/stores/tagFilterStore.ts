@@ -7,7 +7,11 @@ export interface TagCount {
 	count: number;
 	selected: boolean;
 }
-
+interface TagObject {
+	name?: string;
+	title?: string;
+	label?: string;
+}
 // Create the stores
 export const selectedTags = writable<string[]>([]);
 export const tagCounts = writable<TagCount[]>([]);
@@ -67,13 +71,12 @@ export const tagFilterStore = {
 						tagCountMap.set(normalizedTag, currentCount + 1);
 						// console.log(`🏷️ Added tag "${normalizedTag}", count: ${currentCount + 1}`);
 					} else if (typeof tag === 'object' && tag !== null) {
-						// Handle case where tag might be an object with name property
-						const tagName = tag.name || tag.title || tag.label;
+						const tagObj = tag as TagObject;
+						const tagName = tagObj.name || tagObj.title || tagObj.label;
 						if (tagName && typeof tagName === 'string' && tagName.trim()) {
 							const normalizedTag = tagName.trim().toLowerCase();
 							const currentCount = tagCountMap.get(normalizedTag) || 0;
 							tagCountMap.set(normalizedTag, currentCount + 1);
-							// console.log(`🏷️ Added object tag "${normalizedTag}", count: ${currentCount + 1}`);
 						}
 					}
 				});

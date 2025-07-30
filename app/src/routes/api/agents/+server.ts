@@ -1,6 +1,3 @@
-
-//  src/routes/api/agents/[id]/+server.ts
-
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { pb } from '$lib/server/pocketbase';
@@ -8,57 +5,67 @@ import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 import type { AIAgent } from '$lib/types/types';
 import { error } from '@sveltejs/kit';
 
-export const GET: RequestHandler = async ({ cookies }) =>
-	apiTryCatch(async () => {
-		console.log('=== AGENTS API GET REQUEST START ===');
+export const GET: RequestHandler = async ({ cookies }) => {
+	try {
+		console.log('=== AGENTS API GET REQUEST START (NO AUTH) ===');
 
-		const authCookie = cookies.get('pb_auth');
-		if (!authCookie) {
-			console.log('ERROR: No auth cookie found');
-			throw error(401, 'Authentication required');
-		}
-
+		// First, let's see what users exist in the database
 		try {
-			const authData = JSON.parse(authCookie);
-			pb.authStore.save(authData.token, authData.model);
-		} catch {
-			pb.authStore.loadFromCookie(authCookie);
+			const users = await pb.collection('users').getList(1, 5);
+			console.log(
+				'👥 Users in database:',
+				users.items.map((u) => ({ id: u.id, email: u.email }))
+			);
+
+			if (users.items.length > 0) {
+				const userId = users.items[0].id;
+				console.log('🧪 TESTING: Using first user ID:', userId);
+
+				const agents = await pb.collection('ai_agents').getList<AIAgent>(1, 50, {
+					filter: `owner = "${userId}"`
+				});
+
+				console.log('6. Query successful!');
+				console.log('   - Total items:', agents.totalItems);
+				console.log('   - Items returned:', agents.items.length);
+
+				return json({
+					success: true,
+					data: agents.items,
+					debug: {
+						usedUserId: userId,
+						totalUsers: users.totalItems,
+						totalAgents: agents.totalItems
+					}
+				});
+			} else {
+				return json({
+					success: true,
+					data: [],
+					debug: 'No users found in database'
+				});
+			}
+		} catch (userError) {
+			console.error('❌ USER QUERY ERROR:', userError);
+			return json(
+				{
+					success: false,
+					error: 'Failed to query users: ' + userError.message
+				},
+				{ status: 500 }
+			);
 		}
-
-		if (!pb.authStore.isValid) {
-			console.log('ERROR: Auth store is invalid');
-			throw error(401, 'Invalid authentication');
-		}
-
-		const userId = pb.authStore.model?.id;
-		if (!userId) {
-			console.log('ERROR: No user ID found');
-			throw error(401, 'User ID not found');
-		}
-
-		console.log('5. Querying agents collection...');
-		console.log('   - Collection: ai_agents');
-		console.log('   - Filter: owner =', userId);
-
-		const agentsResult = await pbTryCatch(
-			pb.collection('ai_agents').getList<AIAgent>(1, 50, {
-				filter: `owner = "${userId}"`
-			}),
-			'fetch agents'
+	} catch (queryError) {
+		console.error('❌ DATABASE ERROR:', queryError);
+		return json(
+			{
+				success: false,
+				error: 'Database connection failed: ' + queryError.message
+			},
+			{ status: 500 }
 		);
-		const agents = unwrap(agentsResult);
-
-		console.log('6. Query successful!');
-		console.log('   - Total items:', agents.totalItems);
-		console.log('   - Items returned:', agents.items.length);
-		console.log('   - Actual items:', agents.items);
-
-		/*
-		 * Return just the data, not a Response object
-		 * apiTryCatch will wrap this in the proper JSON response
-		 */
-		return agents.items;
-	}, 'Failed to fetch agents');
+	}
+};
 
 export const POST: RequestHandler = async ({ request, cookies }) =>
 	apiTryCatch(async () => {

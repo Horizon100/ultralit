@@ -46,8 +46,37 @@ class ClientFetchManager {
 	}
 
 	private static async executeFetch(threadId: string): Promise<Messages[]> {
-		// Your existing fetchMessagesForThread implementation here
-		// Move the actual fetch logic into this method
+		console.log(`🔍 threadsClient.executeFetch: Starting fetch for thread ${threadId}`);
+
+		try {
+			const response = await fetch(`/api/keys/threads/${threadId}/messages`, {
+				method: 'GET',
+				credentials: 'include',
+				headers: {
+					'Content-Type': 'application/json'
+				}
+			});
+
+			console.log(`🔍 threadsClient.executeFetch: Response status:`, response.status);
+
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+			}
+
+			const data = await response.json();
+			console.log(`🔍 threadsClient.executeFetch: Response data:`, data);
+
+			if (data.success) {
+				const messages = data.messages || [];
+				console.log(`🔍 threadsClient.executeFetch: Returning ${messages.length} messages`);
+				return messages;
+			} else {
+				throw new Error(data.error || 'Failed to fetch messages');
+			}
+		} catch (error) {
+			console.error(`🔍 threadsClient.executeFetch: Error:`, error);
+			throw error;
+		}
 	}
 }
 // Thread list visibility functions
@@ -175,37 +204,7 @@ export async function fetchAllThreads(): Promise<Result<Threads[], string>> {
 }
 
 export async function fetchMessagesForThread(threadId: string): Promise<Messages[]> {
-	console.log(`🔍 threadsClient.fetchMessagesForThread: Starting fetch for thread ${threadId}`);
-
-	try {
-		const response = await fetch(`/api/keys/threads/${threadId}/messages`, {
-			method: 'GET',
-			credentials: 'include',
-			headers: {
-				'Content-Type': 'application/json'
-			}
-		});
-
-		console.log(`🔍 threadsClient.fetchMessagesForThread: Response status:`, response.status);
-
-		if (!response.ok) {
-			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-		}
-
-		const data = await response.json();
-		console.log(`🔍 threadsClient.fetchMessagesForThread: Response data:`, data);
-
-		if (data.success) {
-			const messages = data.messages || [];
-			console.log(`🔍 threadsClient.fetchMessagesForThread: Returning ${messages.length} messages`);
-			return messages;
-		} else {
-			throw new Error(data.error || 'Failed to fetch messages');
-		}
-	} catch (error) {
-		console.error(`🔍 threadsClient.fetchMessagesForThread: Error:`, error);
-		throw error;
-	}
+	return await ClientFetchManager.debouncedFetchMessages(threadId);
 }
 
 export async function resetThread(threadId: string): Promise<Result<void, string>> {

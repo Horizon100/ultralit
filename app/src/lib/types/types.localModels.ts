@@ -73,7 +73,8 @@ export interface OllamaResponse {
 	model: string;
 	created_at: string;
 	response?: string; // For /api/generate endpoint
-	message?: {        // For /api/chat endpoint
+	message?: {
+		// For /api/chat endpoint
 		role: string;
 		content: string;
 	};
