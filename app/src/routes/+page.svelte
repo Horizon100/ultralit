@@ -33,7 +33,7 @@
 			await goto('/home');
 		} else {
 			error = err ?? 'Failed to check authentication status';
-			toast.error('Authentication failed. Redirecting to welcome page.'); // Test toast here
+			toast.error('Authentication failed. Redirecting to welcome page.');
 			await goto('/welcome');
 		}
 	});

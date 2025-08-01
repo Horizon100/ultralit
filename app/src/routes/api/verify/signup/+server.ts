@@ -1,3 +1,5 @@
+//  src/routes/api/verify/signup/+server.ts
+
 import type { RequestHandler } from './$types';
 import * as pbServer from '$lib/server/pocketbase';
 import { apiTryCatch, validationTryCatch, pbTryCatch, isFailure } from '$lib/utils/errorUtils';
@@ -6,10 +8,10 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	return apiTryCatch(
 		async () => {
 			const requestBody = await request.json();
+			console.log('Signup request body:', requestBody);
 
-			// Validate input data
 			const validationResult = validationTryCatch(() => {
-				const { email, password } = requestBody;
+				const { email, password, securityQuestion, securityAnswer } = requestBody;
 
 				// Validate required fields
 				if (!email || !password) {
@@ -20,26 +22,31 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 					throw new Error('Email and password must be strings');
 				}
 
-				// Validate email format
 				if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
 					throw new Error('Invalid email format');
 				}
 
-				// Validate password strength
 				if (password.length < 8) {
 					throw new Error('Password must be at least 8 characters');
 				}
 
-				return { email, password };
+				if (securityQuestion && typeof securityQuestion !== 'string') {
+					throw new Error('Security question must be a string');
+				}
+
+				if (securityAnswer && typeof securityAnswer !== 'string') {
+					throw new Error('Security answer must be a string');
+				}
+
+				return { email, password, securityQuestion, securityAnswer };
 			}, 'signup data');
 
 			if (isFailure(validationResult)) {
 				throw new Error(validationResult.error);
 			}
 
-			const { email, password } = validationResult.data;
+			const { email, password, securityQuestion, securityAnswer } = validationResult.data;
 
-			// Create user with PocketBase error handling
 			const createResult = await pbTryCatch(
 				pbServer.pb.collection('users').create({
 					email,
@@ -55,8 +62,28 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			}
 
 			const user = createResult.data;
+			console.log('User created:', user.id);
 
-			// Authenticate user with PocketBase error handling
+			// Save security information if provided
+			if (securityQuestion && securityAnswer) {
+				console.log('Saving security info for user:', user.id); 
+				
+				const securityResult = await pbTryCatch(
+					pbServer.pb.collection('users_security').create({
+						user: user.id,
+						securityQuestion,
+						securityAnswer: securityAnswer.toLowerCase().trim()
+					}),
+					'create security record'
+				);
+
+				if (isFailure(securityResult)) {
+					console.error('Failed to save security info:', securityResult.error);
+				} else {
+					console.log('Security info saved successfully');
+				}
+			}
+
 			const authResult = await pbTryCatch(
 				pbServer.pb.collection('users').authWithPassword(email, password),
 				'authenticate new user'
@@ -82,7 +109,6 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 				user: {
 					id: user.id,
 					email: user.email
-					// Include other safe fields as needed
 				},
 				token: authData.token
 			};

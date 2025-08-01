@@ -721,7 +721,10 @@ export default {
 		unassigning: 'Unassigning...',
 		unassigned: 'unassigned',
 		trigger: 'Trigger',
-		triggered: 'triggered'
+		triggered: 'triggered',
+		close: 'Close',
+		closing: 'Closing...',
+		closed: 'Closed'
 	},
 	button: {
 		tags: 'Tags'
@@ -819,5 +822,117 @@ export default {
 		'🎉 How do you celebrate small wins?',
 		'🤔 What question do you wish people asked you more often?',
 		'🔍 How do you stay curious in your field?'
+	],
+	terms: {
+		title: 'Terms of Service',
+		description: 'These are the Terms of Service for vRazum. By using our service, you agree to these terms.',
+		content: [
+			{
+				heading: '1. Use of Service',
+				body: 'vRazum provides AI-powered features that assist users in content creation, communication, and productivity. You agree to use the service only for lawful purposes and in accordance with these terms.'
+			},
+			{
+				heading: '2. User Content',
+				body: 'You retain ownership of your content. By submitting content to vRazum, you grant us a non-exclusive, worldwide license to use, process, and display your content solely to provide and improve the service.'
+			},
+			{
+				heading: '3. Privacy',
+				body: 'Your privacy is important to us. Please refer to our Privacy Policy for details on how we collect, use, and protect your data.'
+			},
+			{
+				heading: '4. Prohibited Conduct',
+				body: 'You may not use vRazum to violate laws, generate harmful or misleading content, interfere with service operations, or reverse-engineer the AI.'
+			},
+			{
+				heading: '5. Disclaimer of Warranties',
+				body: 'The service is provided “as is.” We do not guarantee accuracy, reliability, or fitness for a particular purpose. Use of AI outputs is at your own risk.'
+			},
+			{
+				heading: '6. Limitation of Liability',
+				body: 'vRazum is not liable for any direct, indirect, incidental, or consequential damages arising from your use of the service.'
+			},
+			{
+				heading: '7. Modifications',
+				body: 'We may update these Terms from time to time. Continued use of the service means you accept the revised terms.'
+			},
+			{
+				heading: '8. Termination',
+				body: 'We reserve the right to suspend or terminate your access if you violate these terms or misuse the service.'
+			},
+			{
+				heading: '9. Governing Law',
+				body: 'These terms are governed by the laws of your jurisdiction.'
+			}
+		]
+	},
+privacy: {
+	title: 'Privacy Policy',
+	description: 'Your privacy is important to us. This Privacy Policy outlines how Vrazum (vrazum.com) collects, uses, and protects your data.',
+	content: [
+		{
+			heading: '1. Information We Collect',
+			body: 'We collect your name or username and email address when you register or interact with our services.'
+		},
+		{
+			heading: '2. Email Communications',
+			body: 'We may send newsletters or updates if you opt in. You can unsubscribe at any time.'
+		},
+		{
+			heading: '3. Analytics',
+			body: 'We use Umami for privacy-focused analytics to understand how users interact with our platform.'
+		},
+		{
+			heading: '4. Tracking Technologies',
+			body: 'We use cookies, web beacons, local storage, and session data to enhance your experience and support essential functionality.'
+		},
+		{
+			heading: '5. Social Login',
+			body: 'We allow sign-in via Google. This simplifies access while maintaining your security.'
+		},
+		{
+			heading: '6. Children’s Privacy',
+			body: 'Vrazum is not intended for users under the age of 13, and we do not knowingly collect their data.'
+		},
+		{
+			heading: '7. Contact Information',
+			body: 'You may contact us at support@vrazum.com or via the form at www.vrazum.com/contact.'
+		},
+		{
+			heading: '8. Device Access',
+			body: 'We may request access to your device’s camera and photo gallery to provide specific features.'
+		},
+		{
+			heading: '9. Payments',
+			body: 'We accept payments online and handle payment information securely through third-party processors.'
+		},
+		{
+			heading: '10. Compliance',
+			body: 'We comply with CalOPPA, GDPR, CCPA, and applicable Russian data protection laws.'
+		}
 	]
+},
+security: {
+  passwordQuestions: {
+    motherMaiden: "What is your mother's maiden name?",
+    childhoodFriend: "What is the name of your best childhood friend?",
+    firstPet: "What was the name of your first pet?",
+    birthCity: "In what city were you born?",
+    favoriteTeacher: "What is the name of your favorite teacher?",
+    firstCar: "What was the make of your first car?",
+    childhoodStreet: "What street did you grow up on?",
+    favoriteBook: "What is your favorite book?",
+    dreamJob: "What was your dream job as a child?",
+    favoriteFood: "What is your favorite food?"
+  },
+  selectQuestion: "Select a security question",
+  securityAnswer: "Your answer",
+  securityAnswerPlaceholder: "Enter your answer (case-insensitive)",
+  resetWithHint: "Reset with Security Question",
+  securityQuestionTitle: "Security Question",
+  answerQuestion: "Answer your security question to reset password",
+  newPassword: "New Password",
+  confirmPassword: "Confirm New Password",
+  passwordsMatch: "Passwords must match",
+  resetSuccess: "Password reset successfully"
+}
 };

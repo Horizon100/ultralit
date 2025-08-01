@@ -17,7 +17,7 @@ export interface AvatarUser {
 const avatarUrlCache = new Map<string, string>();
 
 export function getAvatarUrl(user: AvatarUser | null): string {
-	if (!user) return '';
+    if (!user?.avatar) return null;
 
 	const cacheKey = `${user.id}-${user.avatar}`;
 	const cachedUrl = avatarUrlCache.get(cacheKey);

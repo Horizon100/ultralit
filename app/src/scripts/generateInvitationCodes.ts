@@ -1,7 +1,11 @@
 import PocketBase from 'pocketbase';
 import { nanoid } from 'nanoid';
 import readline from 'readline';
+import { config } from 'dotenv';
 import { tryCatch, isFailure } from '$lib/utils/errorUtils';
+
+// Load environment variables from .env file
+config();
 
 // Configuration
 const CODE_LENGTH = 12;
@@ -21,7 +25,7 @@ function createPrompt() {
  * Prompt for PocketBase URL
  */
 async function getPocketBaseUrl(): Promise<string> {
-	const defaultUrl = process.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+	const defaultUrl = process.env.PUBLIC_POCKETBASE_URL || process.env.POCKETBASE_URL || 'http://localhost:8090';
 	const rl = createPrompt();
 
 	return new Promise((resolve) => {
@@ -92,7 +96,7 @@ async function createInvitationCodes(pb: PocketBase, count: number) {
 
 async function main() {
 	try {
-		// Get PocketBase URL
+		// Get PocketBase URL from SvelteKit env
 		const baseUrl = await getPocketBaseUrl();
 		console.log(`Using PocketBase URL: ${baseUrl}`);
 

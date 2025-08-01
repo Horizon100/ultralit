@@ -1331,7 +1331,7 @@
 	.home-container {
 		display: flex;
 		justify-content: center;
-		height: 100vh;
+		height: calc(100vh - 4rem);
 		width: 100%;
 		margin-bottom: 0;
 
@@ -1392,7 +1392,7 @@
 	}
 	.main-content {
 		flex: 1;
-		padding: 0.5rem;
+		// padding: 0.5rem;
 		margin-bottom: 0 !important;
 		margin-top: 0;
 		width: 100%;

@@ -85,6 +85,7 @@
 	export let onStyleClick: (() => void) | undefined = undefined;
 	export let isOpen = false;
 	export let isSearchFocused = false;
+	export let onClose: () => void;
 
 	// Local state
 	let avatarTimestamp = Date.now();
@@ -122,13 +123,11 @@
 	$: user = $currentUser;
 	$: activeSection = $navigationStore.activeSection;
 	$: isScrolling = $navigationStore.isScrolling;
-	$: userAvatarUrl = $currentUser ? getAvatarUrl($currentUser) : '';
-	$: finalAvatarUrl =
-		userAvatarUrl && userAvatarUrl.trim() !== ''
-			? `${userAvatarUrl}?t=${avatarTimestamp}`
-			: $currentUser
-				? generateUserIdenticon(getUserIdentifier($currentUser), 48)
-				: '';
+	$: userAvatarUrl = getAvatarUrl(user);
+	$: userIdentifier = user ? getUserIdentifier(user) : null;
+	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
+	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
+
 
 	// Event handling
 	const dispatch = createEventDispatcher<{
@@ -195,6 +194,11 @@
 	function handleStyleClick() {
 		showStyles = !showStyles;
 	}
+	function handleOutsideClick(event: MouseEvent): void {
+		if (event.target === event.currentTarget) {
+			onClose();
+		}
+	}
 
 	function handleStyleClose() {
 		showStyles = false;
@@ -213,10 +217,10 @@
 	function updateActiveSection(sectionId: string) {
 		activeSection = sectionId;
 	}
-	function handleSectionChange(event) {
-		const { sectionId } = event.detail;
-		updateActiveSection(sectionId);
-	}
+	// function handleSectionChange(event) {
+	// 	const { sectionId } = event.detail;
+	// 	updateActiveSection(sectionId);
+	// }
 	function toggleNav() {
 		isNavExpanded = !isNavExpanded;
 	}
@@ -358,9 +362,9 @@
 		}
 	}
 	onMount(() => {
-		if (browser) {
-			window.addEventListener('avatarUpdated', handleAvatarUpdate);
-		}
+		// if (browser) {
+		// 	window.addEventListener('avatarUpdated', handleAvatarUpdate);
+		// }
 		let unsubscribe: (() => void) | undefined;
 		let themeUnsubscribe: (() => void) | undefined;
 		pageCleanup = pageHoverManager.initialize();
@@ -501,9 +505,9 @@
 	onDestroy(() => {
 		if (cleanup) cleanup();
 
-		if (browser) {
-			window.removeEventListener('avatarUpdated', handleAvatarUpdate);
-		}
+		// if (browser) {
+		// 	window.removeEventListener('avatarUpdated', handleAvatarUpdate);
+		// }
 		if (pageCleanup) {
 			pageCleanup();
 		}
@@ -512,7 +516,11 @@
 
 <svelte:window bind:innerWidth />
 
-<div class="app-container {$currentTheme}">
+<div class="app-container 
+{$currentTheme}"
+						on:click={handleOutsideClick}
+
+>
 	<!-- Debug info (remove this in production) -->
 	<!-- <div style="position: fixed; top: 10px; left: 300px; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-size: 12px; z-index: 9999; max-width: 300px;">
 <strong>Wallpaper Debug:</strong><br>
@@ -543,11 +551,11 @@
 		</div>
 	{:else}
 		<!-- Debug: Show when no wallpaper -->
-		<div
+		<!-- <div
 			style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 5px; font-size: 12px;"
 		>
 			No wallpaper: {wallpaperPreference?.isActive ? 'Active but no src' : 'Inactive'}
-		</div>
+		</div> -->
 	{/if}
 	<TaskNotification notifications={$taskNotifications} on:remove on:linkClick={handleLinkClick} />
 	{#if !$currentUser}
@@ -654,85 +662,19 @@
 	<div
 		class="sidenav"
 		class:expanded={isNavExpanded}
+		class:profile={showProfile}
 		class:active={$showInput}
 		class:active-right={$showRightSidenav}
 		class:active-left={$showSidenav}
 		class:welcome-page={$page.url.pathname === '/welcome'}
-		transition:slide={{ duration: 300 }}
+		transition:slide={{ duration: 150, axis: 'x' }}
 	>
-		{#if $currentUser}
-			<div class="toggle-container">
-				<button
-					class="nav-button drawer"
-					on:click={() => {
-						toggleNav();
-						if (showProfile || showAuthModal) {
-							showProfile = false;
-							showAuthModal = false;
-						}
-					}}
-				>
-					{#if isNavExpanded}
-						<Icon name="PanelLeftClose" />
-					{:else}
-						<Icon name="PanelLeftOpen" />
-					{/if}
-				</button>
-				<!-- <button
-						class="nav-button drawer"
-						class:expanded={isNavExpanded}
-						class:active={$showSettings}
-						class:reveal-active={$showSettings}
-						use:swipeGesture={{
-							threshold: 50,
-							enableVisualFeedback: true,
-							onSwipeRight: () => {
-								console.log('🟢 Left button swiped right - showing sidenav');
-								if (innerWidth <= 450) {
-									sidenavStore.hideInput();
-									sidenavStore.hideRight();
-								}
-								if (!$showSettings) {
-									sidenavStore.toggleSettings();
-								}
-								isNavExpanded = false;
-							},
-							onSwipeLeft: () => {
-								console.log('🟢 Left button swiped left - hiding sidenav');
-								if ($showSettings) {
-									sidenavStore.hideSettings();
-								}
-								isNavExpanded = false;
-							}
-						}}
-						on:click={(event) => {
-							event.preventDefault();
-							if (innerWidth <= 450) {
-								// Mobile: close others first
-								sidenavStore.hideInput();
-								sidenavStore.hideRight();
-							}
-							sidenavStore.toggleSettings();
-							isNavExpanded = false;
-						}}
-					>
-						{#if $showSettings}
-							<Icon name="ChevronLeft" />
-						{:else}
-							<Icon name="MoreVertical" />
-						{/if}
-						{#if isNavExpanded}
-							<span class="nav-text">{$t('nav.sidebar')}</span>
-						{/if}
-					</button> -->
-			</div>
-		{/if}
+
 		<div
 			class="navigation-buttons"
 			class:hidden={isNarrowScreen}
 			class:active={$showInput}
-			in:fly={{ y: -200, duration: 300 }}
-			out:fly={{ y: 200, duration: 300 }}
+
 		>
 			{#if $currentUser}
 				<!-- Home Route Navigation -->
@@ -1211,21 +1153,38 @@
 		</div>
 	{/if}
 
-	<main>
+	<main
+		class:guest={!$currentUser}
+		class:profile={showProfile}
+		class:nav={isNavExpanded}
+			on:click={() => {
+		isNavExpanded = false;
+		showProfile = false;
+	}}
+	>
 		<slot />
 	</main>
 	<Toast />
 	{#if $currentUser}
 		<div
-			class="navigator-menu"
+			class="navigator-flex"
 			class:expanded={isNavExpanded}
+			class:profile={showProfile}
 			class:welcome-page={$page.url.pathname === '/welcome'}
 			on:mouseleave={() => {
 				handlePageMenuLeave();
 			}}
+					on:click|stopPropagation
+
 			in:fly={{ x: -100, duration: 300, delay: 100 }}
 			out:fly={{ x: -100, duration: 300, delay: 100 }}
 		>
+			<div class="navigator-wrap"> 
+				<div 
+				class="navigator-menu"
+				class:expanded={isNavExpanded}
+				class:profile={showProfile}
+				>
 			<div
 				class="logo-container"
 				on:click|stopPropagation={() => {
@@ -1340,18 +1299,31 @@
 						isNavExpanded = false;
 					}}
 				>
+				<span class="inline">
+
 					{#if $showSidenav}
-						<div title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
+						<span class="icon filter" title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
 							<Icon name="ChevronLeft" />
-						</div>
+						</span>
 					{:else}
-						<div title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
+						<span class="icon filter" title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
 							<Icon name="Filter" />
-						</div>
+						</span>
 					{/if}
 					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.filters')}</span>
+					{#if $showSidenav}
+
+						<span class="nav-text">
+							{$t('generic.hide')} {$t('generic.filters')}
+						</span>
+					{:else}
+						<span class="nav-text">
+							{$t('generic.show')} {$t('generic.filters')}
+						</span>
 					{/if}
+					{/if}
+														</span>
+
 				</a>
 			{:else}
 				<a
@@ -1436,9 +1408,13 @@
 						}
 					}}
 				>
+				<span class="inline">
+
 					<Icon name="Command" />
 					<span class="nav-text">{$t('nav.tools')}</span>
 					{#if isNavExpanded}{/if}
+									</span>
+
 				</a>
 			{/if}
 			{#if currentPath === '/chat'}
@@ -1529,9 +1505,12 @@
 						}
 					}}
 				>
+								<span class="inline">
+
 					<Icon name="MessageSquare" />
 					<span class="nav-text">{$t('nav.chat')}</span>
 					{#if isNavExpanded}{/if}
+								</span>
 				</a>
 			{/if}
 			<!-- <a
@@ -1615,14 +1594,11 @@
 			>
 				<div class="user-wrapper">
 					<div class="user-shortcuts">
-						{#if $currentUser?.id}
-							<img
-								src="/api/users/{$currentUser.id}/avatar"
-								alt="Your avatar"
-								style="width: 30px; height: 30px; border-radius: 50%;"
-								class="user-avatar"
-							/>
-						{/if}
+						<img
+							src={finalAvatarUrl || '/api/placeholder/120/120'}
+							alt="{user?.name || user?.username || 'User'}'s avatar"
+							class="user-avatar"
+						/>
 						<!-- <span class="nav-text">{username} </span> -->
 						<div class="tracker" title={String($t('profile.timeTracker'))}>
 							<TimeTracker />
@@ -1630,19 +1606,20 @@
 						<!-- <div class="project" on:click|stopPropagation>
 							<ProjectDropdown />
 						</div> -->
+													<span class="icon">
+
 						<a
 							href="/{$currentUser?.username}"
 							class="author-link"
 							title={String($t('profile.yourPosts'))}
 							on:click|stopPropagation={() => {}}
 						>
-							<span class="icon">
 								<Icon name="Presentation" size={16} />
-							</span>
 						</a>
-						<div class="logout">
+													</span>
+
 							<span
-								class="icon"
+								class="icon logout"
 								title={String($t('profile.logout'))}
 								on:click|stopPropagation={() => {
 									logout();
@@ -1654,32 +1631,52 @@
 							>
 								<Icon name="LogOutIcon" size={16} />
 							</span>
-						</div>
+
 					</div>
 				</div>
 			</button>
+			<div class="shortcut">
+				<button
+					class="nav-button drawer"
+					class:nav-open={isNavExpanded}
+					on:click={() => {
+						toggleNav();
+						if (showProfile || showAuthModal) {
+							showProfile = false;
+							showAuthModal = false;
+						}
+					}}
+				>
+					{#if isNavExpanded}
+						<Icon name="PanelLeftClose" />
+						<span class='nav-text'>{$t('generic.hide')}</span>
+					{:else}
+						<Icon name="PanelLeftOpen" />
+					{/if}
+				</button>
 
-			{#if isNavExpanded}
-				<!-- <h2>vRAZUM</h2> -->
-			{/if}
-		</div>
-	{/if}
-	{#if showProfile}
-		<div
-			class="profile-overlay"
-			on:click={handleOverlayClick}
-			in:slide={{ duration: 300, axis: 'x' }}
-			out:slide={{ duration: 300, axis: 'x' }}
-		>
-			<div class="profile-content">
-				<Profile
-					user={$currentUser}
-					onClose={() => (showProfile = false)}
-					onStyleClick={handleStyleClick}
-				/>
+			</div>
+				</div>
+				{#if showProfile}
+					<div
+						class="profile-overlay"
+						on:click={handleOverlayClick}
+						in:slide={{ duration: 150, axis: 'x' }}
+						out:slide={{ duration: 300, axis: 'x' }}
+					>
+						<div class="profile-content">
+							<Profile
+								user={$currentUser}
+								onClose={() => (showProfile = false)}
+								onStyleClick={handleStyleClick}
+							/>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/if}
+
 	{#if $showSearch}
 		<!-- Search wrapper - hidden when logo is hovered -->
 		<div class="main-wrapper">
@@ -1708,8 +1705,11 @@
 <style lang="scss">
 	* {
 		font-family: var(--font-family);
+		background-color: var(--bg-color);
 	}
-
+:root {
+  background-color: var(--bg-color);
+}
 	.middle-buttons {
 		display: flex;
 		flex-direction: column;
@@ -1724,44 +1724,219 @@
 		gap: 1rem;
 		margin-bottom: 0;
 	}
+
+	.navigator-wrap {
+		display: flex;
+		flex-direction: row;
+		justify-content: center;
+		height: 100%;
+		width: calc(100% - 1rem);
+
+	}
+
+	.navigator-flex {
+		display: flex;
+		position: absolute;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		flex-direction: row;
+		justify-content: center;
+		align-items: flex-end;
+		width: auto;
+		min-width: 4rem;
+		&.profile {
+			width: calc(4rem + 500px);
+			justify-content: flex-start;
+			align-items: flex-end;
+		}
+		& .icon.logout {
+			background-color: var(--bg-color);
+			color: var(--placeholder-color);
+			&:hover {
+				background-color: red; 
+			};
+		}
+				&.expanded {
+			width: 300px !important;
+			align-items: flex-end;
+			justify-content: center;
+							& .tracker,
+				.icon.logout,
+				.author-link,
+				.icon
+				{
+					height: 2rem;
+					justify-content: center;
+					align-items: center;
+					border-radius: 50%;
+
+				}
+		& .user-shortcuts {
+			display: flex;
+			align-items: center;
+
+			width: 100%;
+			gap: 0.5rem;
+			border-radius: 2rem;
+			transition: all 0.2s ease;
+			height: 2rem;
+			&:hover {
+				transform: none !important;
+				padding: 0;
+				width: 100%;
+				background: var(--primary-color);
+				border: none;
+				
+			}
+		}
+			& .navigator-menu {
+				width: 100% !important;
+
+			}
+						& .nav-text,
+			.icon,
+			.logout,
+			.author-link,
+			.tracker
+			{
+				display: flex !important;
+			}
+			& .user-wrapper {
+				width: auto;
+				flex: 1;
+				background: var(--primary-color);
+				border-radius: 2rem;
+				height: 3rem;
+
+			}
+			& .user-shortcuts {
+				width: 100% !important;
+				justify-content: space-between;
+				align-items: center;
+				background-color: var(--primary-color);
+					&:hover {
+						transform: translateX(0) !important;
+						padding-right: 0;
+						border: 1px solid transparent;
+										background-color: var(--primary-color);
+
+				padding: 0.5rem;
+					}
+				}
+			& button.shortcut, a.shortcut {
+				padding: 1.5rem;
+				margin: 0;
+				background: var(--primary-color);
+				box-shadow: var(--line-color) 0 0 10px 2px;
+
+				border-radius: 2rem;
+				width: 100% !important;
+				height: 3rem;
+
+
+
+				& .tracker,
+				.icon, 
+				.nav-text,
+				.logout,
+				.author-link
+				{
+					display: flex;
+				}
+				& .tracker,
+				.icon,
+				.author-link {
+					width: 2rem !important;
+					height: 2rem;
+					background: var(--bg-color)
+				}
+				& .icon.logout {
+					&:hover {
+					background-color: red;
+
+					}
+				}
+				& .logo-container {
+					width: 200px !important;
+				}
+			}
+
+			& .nav-text {
+				display: flex;
+			}
+
+			& h2 {
+				display: flex !important;
+			}
+		}
+	}
 	.navigator-menu.welcome-page {
 		bottom: 0;
 	}
 	.navigator-menu {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-start;
+		align-items: center;
 		justify-content: flex-end;
-		position: absolute;
-		flex: 1;
-		top: 0;
+		// position: relative;
+		// flex: 1;
+		// top: 0;
 		padding: 0.5rem;
 		gap: 1rem;
-		bottom: 3rem;
-		left: 0.5rem;
-		width: auto;
-		// background: var(--primary-color);
-		z-index: 1;
+		// bottom: 0;
+		// left: 0;
+		width: auto !important;
+		// border-top-right-radius: 1rem;
+		// // background: var(--primary-color);
+		// z-index: 1;
 		// border-right: 1px solid var(--secondary-color);
 
-		&:hover {
-		}
+
+				&.expanded {
+					padding: 0;
+			width: 100%;
+			align-items: center;
+			justify-content: flex-end;
+							& .tracker,
+				.icon.logout,
+				.author-link,
+				.icon
+				{
+					height: 2rem;
+					justify-content: center;
+					align-items: center;
+					border-radius: 50%;
+
+				}
+			}
 		& a.shortcut {
 			padding: 0;
 			margin: 0;
 			background: transparent;
 			border: 1px solid transparent;
-			width: 2rem !important;
+			width: 2rem;
 			height: 2rem !important;
 			&.expanded {
 				justify-content: flex-start;
 				align-items: center;
-				padding: 0.5rem;
+				padding: 0;
 				background: var(--primary-color);
-				opacity: 1;
-				width: 200px !important;
+				// width: 200px !important;
 				box-shadow: var(--line-color) 0 0 10px 2px;
-				height: 2rem;
+				height: 3rem !important;
+				width: auto;
+				& span.inline {
+					display: flex;
+					flex: 1;
+					gap: 0.5rem;
+					margin-right: 1.5rem;
+					margin-left: 0.5rem;
+					background: var(--primary-color);
+				}
+				& .icon.filter {
+					background-color: var(--primary-color);
+				}
 			}
 		}
 		& button.shortcut {
@@ -1773,8 +1948,7 @@
 			margin: 0;
 			background: transparent;
 			border: 1px solid transparent;
-			width: 2rem !important;
-
+			width: 2rem !important; 
 			height: 2rem !important;
 			& .user-avatar {
 				width: 2rem !important;
@@ -1782,23 +1956,18 @@
 				border-radius: 50%;
 				object-fit: cover;
 			}
-			& .nav-text {
-				display: none;
-			}
-			& .icon {
-				display: none;
-			}
-			& .logout {
-				display: none;
-			}
-			& .author-link {
-				display: none;
-			}
-			& .tracker {
+			& .nav-text,
+			.icon,
+			.logout,
+			.author-link,
+			.tracker
+			{
 				display: none;
 			}
 
 			&:hover {
+				z-index: 9999;
+
 				& .nav-text {
 					display: flex;
 				}
@@ -1808,6 +1977,7 @@
 					align-items: center;
 					height: 2rem;
 					width: 2rem !important;
+					border-radius: 2rem;
 				}
 				& .author-link {
 					display: flex;
@@ -1816,105 +1986,67 @@
 					padding: 0;
 					border: none;
 					color: var(--placeholder-color);
+					background: var(--bg-color);
 					&:hover {
 						color: var(--tertiary-color);
 					}
 				}
+
+
 				& .tracker {
 					display: flex;
 					width: 2rem !important;
+					height: 2rem !important;
 					color: var(--placeholder-color);
+					border-radius: 50%;
 					&:hover {
 						color: var(--tertiary-color);
 					}
 				}
+				
 				& .logout {
-					display: flex;
 					border-radius: 50%;
-					color: var(--placeholder-color);
+					& .icon {
 					&:hover {
-						background-color: red;
-						color: var(--text-color);
+						background-color: red !important;
 					}
+					}
+
 				}
 			}
 		}
 		button.user-wrapper {
 			display: flex;
 			flex-direction: row !important;
-			align-items: flex-start;
-			justify-content: flex-end;
+			align-items: center;
+			justify-content: center;
 			background: transparent !important;
-			height: auto;
 
 			gap: 0;
+		}
+		.user-wrapper {
+			border-radius: 2rem !important;
 		}
 		.user-shortcuts {
 			display: flex;
 			align-items: center;
+			justify-content: center;
 			width: auto;
 			// width: 100%;
 			gap: 0.5rem;
-			margin-left: -0.25rem;
-			border-radius: 2rem;
 			transition: all 0.2s ease;
-			height: 2rem;
+			height: 2rem !important;
 			&:hover {
 				transform: translateX(0.25rem);
-				padding: 0.5rem 1rem;
-				width: 100%;
-				background: var(--primary-color);
-				border: 1px solid var(--line-color);
-			}
-		}
-		&.expanded {
-			width: auto !important;
-
-			align-items: flex-start;
-			& button.shortcut {
-				padding: 1.5rem;
-				margin: 0;
-				background: var(--primary-color);
-				box-shadow: var(--line-color) 0 0 10px 2px;
-
+				padding: 0.5rem;
+				width: 200px;
 				border-radius: 2rem;
-				width: 100% !important;
-				height: 2rem;
-				.user-shortcuts {
-					// width: 200px;
-					&:hover {
-						transform: translateX(0);
-						padding-right: 0;
-						border: 1px solid transparent;
-					}
-				}
-
-				& .nav-text {
-					display: flex;
-				}
-				& .icon {
-					display: flex;
-				}
-				& .tracker {
-					display: flex;
-				}
-				& .logo-container {
-					width: 200px !important;
-				}
-			}
-			& a {
-				flex-direction: row !important;
-				width: 100% !important;
-				border-radius: 3rem;
-			}
-			& .nav-text {
-				display: flex;
-			}
-
-			& h2 {
-				display: flex !important;
+				border: 1px solid var(--line-color);
+				background: var(--primary-color);
+				// border: 1px solid var(--line-color);
 			}
 		}
+
 		& a {
 			display: flex;
 			justify-content: center;
@@ -1923,16 +2055,14 @@
 			height: 2rem;
 			gap: 0.5rem !important;
 			background: var(--primary-color);
-			opacity: 0.5;
 			border-radius: 50%;
-			border: 1px solid var(--line-color);
+			// border: 1px solid var(--line-color);
 			align-items: center;
 			/* padding: 20px; */
 			text-decoration: none;
 			transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
 			&:hover {
 				color: var(--tertiary-color);
-				opacity: 100%;
 				cursor: pointer;
 			}
 			& .nav-text {
@@ -1943,20 +2073,21 @@
 			position: absolute;
 			top: 0.5rem;
 			left: 0;
-			width: auto !important;
+			width: 4rem;
 		}
 	}
 	button {
 		transition: all 0.3s ease;
 		&.icon {
 			// background: var(--bg-gradient);
-			border: 1px solid var(--secondary-color);
+			// border: 1px solid var(--secondary-color);
 			border-radius: 50%;
 			width: 2rem;
 			height: 2rem;
 			display: flex;
 			align-items: center;
 			justify-content: center;
+
 		}
 	}
 
@@ -2059,18 +2190,19 @@
 		height: auto;
 	}
 	.profile-overlay {
-		position: fixed;
-		left: 5rem !important;
-		top: 0;
-		height: auto !important;
-		justify-content: flex-start;
-		align-items: flex-start;
 		display: flex;
-		margin: 0;
-		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		z-index: 1002;
-		transition: all 0.3s ease;
-		box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
+		width: 100%;
+		position: relative;
+		// top: 0;
+		// height: auto !important;
+		// justify-content: flex-start;
+		// align-items: flex-start;
+		// display: flex;
+		// margin: 0;
+		// /* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
+		// z-index: 1002;
+		// transition: all 0.3s ease;
+		// box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);
 	}
 
 	.project {
@@ -2086,8 +2218,8 @@
 
 	.profile-content {
 		position: relative;
-		width: auto;
-		height: calc(100vh - 5rem);
+		width: 100%;
+		height:100%;
 		max-width: 1000px;
 		top: 0;
 		margin-bottom: auto;
@@ -2096,13 +2228,12 @@
 		/* right: 0; */
 		/* background-color: #2b2a2a; */
 		/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-		border-radius: 2rem;
+		// border-radius: 2rem;
 		/* max-width: 500px; */
 		/* max-height: 90vh; */
 		overflow: none;
 		transition: all 0.3s ease;
 		background: var(--primary-color);
-		border: 1px solid var(--secondary-color);
 	}
 
 	.profile-button {
@@ -2127,21 +2258,36 @@
 	}
 
 	main {
-		background: var(--bg-gradient-r);
-		color: var(--text-color);
-		width: 100%;
-		height: 100%;
-		height: auto;
-		left: 0;
-
-		top: 0;
-		bottom: 0;
 		position: fixed;
 		display: flex;
 		flex-grow: 1;
+		background: var(--bg-gradient-r);
+		color: var(--text-color);
+		width: auto;
+		height: auto;
+		top: 1px;
+		bottom: calc(3rem + 1px);
+		left: calc(4rem + 1px);
+		right: 1px;
+		outline: 1px solid var(--line-color);
+		border-radius: 1rem;
+		&.nav {
+			left: 301px;
+
+			top: 1px;
+			bottom: calc(3rem + 1px);
+		}
+		&.guest {
+			bottom: 1px;
+			left: 1px;
+			top: calc(3rem + 1px);
+		}
+		&.profile {
+			left: calc(4rem + 501px);
+		}
 		scroll-behavior: smooth;
 		overflow-x: hidden;
-		overflow-y: scroll;
+		overflow-y: hidden;
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;
@@ -2265,11 +2411,12 @@
 		/* background-color: #2a3130; */
 		/* box-shadow: #000000 5px 5px 5px 1px; */
 		text-decoration: none;
-		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
+		transition: all 0.2s ease;
 		justify-content: center;
 		align-items: center;
 		height: auto;
 		user-select: none;
+		background: transparent;
 		gap: 8px;
 		text-decoration: none;
 		font-size: 16px;
@@ -2284,7 +2431,7 @@
 		justify-content: center;
 		align-items: center;
 		height: auto;
-		width: auto;
+		width: 100% !important;
 		gap: 1rem;
 		position: relative;
 		user-select: none;
@@ -2301,7 +2448,6 @@
 		}
 		&:hover {
 			background-color: var(--primary-color);
-			padding: 0 1rem;
 			& h2 {
 				display: flex;
 			}
@@ -2381,11 +2527,12 @@
 	.main-wrapper {
 		display: flex;
 		justify-content: center;
-		position: fixed;
+		position: absolute;
 		bottom: 3.5rem;
-		left: 3.5rem;
-		width: calc(100% - 8rem);
+		left: 1.5rem;
+		width: 100%;
 		margin: 0 auto;
+		background: transparent;
 	}
 	.search-wrapper {
 		display: flex;
@@ -2398,7 +2545,7 @@
 		height: 3rem;
 		padding: 0;
 		backdrop-filter: blur(3px);
-
+		background: transparent;
 		// backdrop-filter: blur(3px);
 		transition:
 			opacity 0.2s ease,
@@ -2661,7 +2808,7 @@
 		left: 30%;
 		bottom: 50%;
 		transform: translateY(50%) translateX(10%);
-		background-image: url('your-wallpaper-image.jpg');
+		// background-image: url('your-wallpaper-image.jpg');
 		background-size: contain;
 		background-repeat: no-repeat;
 		opacity: 0.05;
@@ -2677,7 +2824,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		z-index: 1; /* Changed from 1 to -1 to prevent overlap */
+		z-index: 0;
 		pointer-events: none;
 	}
 
@@ -2848,6 +2995,7 @@
 		position: fixed;
 		bottom: 0;
 		height: 0;
+		z-index: -1;
 	}
 
 	.style-switcher-container {
@@ -2969,7 +3117,7 @@
 		position: absolute;
 		left: auto;
 		right: 0 !important;
-		left: 0;
+		left: 4rem;
 		top: auto;
 		bottom: 0;
 		padding: 0;
@@ -2994,7 +3142,9 @@
 		backface-visibility: hidden;
 		backdrop-filter: blur(10px);
 		mask: linear-gradient(to bottom, transparent 0%, black 20px);
-
+		&.profile {
+			left: 500px;
+		}
 		&.expanded {
 			width: auto;
 			flex: 1;
@@ -3003,6 +3153,7 @@
 			justify-content: flex-end;
 			align-items: stretch;
 			flex-direction: column;
+			left: 300px;
 			& .toggle-container {
 				align-items: center;
 				width: 150px;
@@ -3011,13 +3162,12 @@
 			// backdrop-filter: blur(30px);
 			// border-right: 1px solid var(--bg-color);
 			& .navigation-buttons {
-				flex-direction: row !important;
+				height: 2.5rem;
 				justify-content: flex-start;
 				align-items: flex-start;
 				touch-action: none;
 				transform: none !important;
-
-				margin-left: 10rem;
+				margin-left: 0;
 			}
 		}
 	}
@@ -3081,6 +3231,7 @@
 		white-space: nowrap;
 		margin: 0;
 		padding: 0;
+		background: transparent;
 	}
 
 	.user-button {
@@ -3236,17 +3387,17 @@
 				}
 			}
 		}
-		span.icon {
-			display: none;
-			justify-content: center;
-			align-items: center;
-			padding: 0;
-			border-radius: 50%;
-			transition: all 0.2s ease;
-			&:hover {
-				padding: 0.5rem;
-			}
-		}
+		// span.icon {
+		// 	display: none;
+		// 	justify-content: center;
+		// 	align-items: center;
+		// 	padding: 0;
+		// 	border-radius: 50%;
+		// 	transition: all 0.2s ease;
+		// 	&:hover {
+		// 		padding: 0.5rem;
+		// 	}
+		// }
 		h2 {
 			display: none;
 		}
@@ -3302,15 +3453,25 @@
 				padding-inline-start: 1rem;
 				&.expanded {
 					max-width: 350px;
+					& a, button {
+						border: blue 1px solid;
+					}
+					
 				}
 			}
 			& a {
 				width: 100%;
-				justify-content: flex-start;
+				justify-content: center;
 				& button.icon {
 					width: 100%;
 					border-radius: 2rem;
 				}
+			}
+			.author-link,
+			.logout
+			
+			{
+				display: flex;
 			}
 			h2 {
 				display: flex;
@@ -3599,6 +3760,20 @@
 		&.expanded {
 			width: auto !important;
 		}
+		&.nav-open {
+
+			width: 300px !important;
+			border-radius: 2rem ;
+			height: 3rem !important;
+			&.thread-toggle {
+				&:hover {
+					animation: none;
+				}
+			}
+			&:hover {
+				animation: none;
+			}
+		}
 	}
 	.nav-button.reveal {
 		&.reveal-active {
@@ -3705,10 +3880,29 @@
 			flex-direction: column;
 			gap: 0.75rem;
 		}
-
-		.header-navigation {
-			gap: 0.125rem;
+		.navigator-flex {
+			&.expanded {
+				width: calc(100% - 4rem) !important;
+				justify-content: center;
+			}
 		}
+		main {
+			&.nav, .profile {
+				transform: translateX(90%);
+			}
+			&.profile {
+				transform: translateX(90%);
+			}
+		}
+		.navigator-menu {
+			&.expanded {
+				margin-left: 2rem;
+			}
+		}
+
+		// .header-navigation {
+		// 	gap: 0.125rem;
+		// }
 
 		.nav-anchor-btn {
 			padding: 0.375rem 0.625rem;
@@ -3727,8 +3921,7 @@
 		}
 	}
 	@media (max-width: 1000px) {
-		main {
-		}
+
 		.header-center {
 			gap: 1rem;
 		}
@@ -3751,90 +3944,12 @@
 		// 	}
 		// }
 		.navigator-menu {
-			&:hover {
-			}
-			& button.shortcut {
-				display: flex;
-				justify-content: center;
-				align-items: center;
-				padding: 0;
-				margin: 0;
-				border: 1px solid transparent;
-				width: 40px !important;
-				height: 40px !important;
-				& .user-avatar {
-					width: 40px !important;
-					height: 40px !important;
-					border-radius: 50%;
-					object-fit: cover;
-				}
-				& .nav-text {
-					display: none;
-				}
-				& .icon {
-					display: none;
-				}
-				& .tracker {
-					display: none;
-				}
 
-				&:hover {
-					& .nav-text {
-						display: flex;
-					}
-					& .icon {
-						display: flex;
-					}
-					& .tracker {
-						display: flex;
-					}
-				}
-			}
-			button.user-wrapper {
-				display: flex;
-				flex-direction: row !important;
-				align-items: flex-start;
-				justify-content: flex-end;
-				background: transparent !important;
-				height: auto;
-				width: 100%;
-				gap: 0;
-			}
-			.user-shortcuts {
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				width: 100%;
-				border: 1px solid var(--line-color);
-				gap: 0.5rem;
-				padding: 0 !important;
-				border-radius: 2rem;
-				transition: all 0.2s ease;
 
-				&:hover {
-					transform: scale(1.05);
-					padding-right: 1rem;
-					width: 200px !important;
-					background: var(--primary-color);
-					box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-				}
-			}
 			&.expanded {
 				width: 200px !important;
 				& button.shortcut {
-					padding: 0;
-					margin: 0;
-					background: transparent;
-					border: 1px solid transparent;
-					width: 100%;
-					height: 60px;
-					.user-shortcuts {
-						width: 200px;
-						&:hover {
-							// transform: translateX(0.5rem);
-							padding-right: 0;
-						}
-					}
+
 
 					& .nav-text {
 						display: flex;
@@ -3862,34 +3977,7 @@
 					display: flex !important;
 				}
 			}
-			& a {
-				display: flex;
-				justify-content: center;
-				color: var(--placeholder-color);
-				width: 60px !important;
-				height: 60px;
-				gap: 0.5rem !important;
-				background: var(--primary-color);
-				opacity: 1;
-				border-radius: 50%;
-				border: 1px solid var(--line-color);
-				align-items: center;
-				/* padding: 20px; */
-				text-decoration: none;
-				// transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-				transform: all 0.4s ease;
-				box-shadow: -20px 40px 40px 60px rgba(0, 0, 0, 0.1);
 
-				&:hover {
-					box-shadow: -20px 40px 40px 60px rgba(251, 245, 245, 0.1);
-					color: var(--tertiary-color);
-					opacity: 100%;
-					cursor: pointer;
-				}
-				& .nav-text {
-					display: none;
-				}
-			}
 			& .logo-container {
 				position: relative;
 				top: 0;
@@ -3976,24 +4064,7 @@
 			display: none;
 		}
 
-		.profile-content {
-			position: relative;
-			width: 100%;
-			top: 1rem;
-			bottom: auto;
-			padding: 0;
-			margin: 0;
-			/* right: 0; */
-			/* background-color: #2b2a2a; */
-			/* box-shadow: 0 4px 6px rgba(236, 7, 7, 0.1);  */
-			border-radius: 2rem;
-			/* max-width: 500px; */
-			/* max-height: 90vh; */
-			overflow: none;
-			transition: all 0.3s ease;
-			// backdrop-filter: blur(30px);
-			border: 1px solid var(--secondary-color);
-		}
+
 		.nav-button {
 			background: transparent !important;
 		}
@@ -4023,10 +4094,7 @@
 				&.nav-button {
 					backdrop-filter: blur(20px);
 				}
-				& .shortcut-buttons {
-					display: flex;
-					gap: 1rem;
-				}
+
 				& .nav-button {
 					display: flex;
 				}
@@ -4197,14 +4265,12 @@
 			justify-content: center;
 			// backdrop-filter: blur(30px);
 			flex-direction: row;
-			height: auto;
+			height: 3rem;
 			overflow-x: hidden;
 			overflow-y: hidden;
 			bottom: 0 !important;
 			border-radius: 0 !important;
-			gap: 10px;
-			width: 100%;
-			max-width: 100%;
+			gap: 0.5rem;
 
 			flex: 1;
 			top: auto;
@@ -4213,6 +4279,9 @@
 			z-index: 1100;
 			border-radius: 0;
 			transition: all 0.3s ease-in;
+					&.expanded {
+display: none;
+					}
 			&:hover {
 				& .nav-button.info.user,
 				& .nav-button.drawer {
@@ -4247,24 +4316,7 @@
 			margin: 0;
 			gap: 8px;
 		}
-		.profile-overlay {
-			margin-left: 0;
-			margin-top: 1rem !important;
 
-			left: 4rem !important;
-			height: auto;
-			width: calc(100% - 5rem) !important;
-			backdrop-filter: blur(0);
-			background: var(--bg-color);
-		}
-		.nav-button,
-		.thread-toggle,
-		.avatar-container {
-			width: 40px;
-			height: 40px;
-			padding: 0.3rem;
-			border-radius: 50% !important;
-		}
 
 		.nav-button.info:hover {
 			transform: none;
@@ -4362,29 +4414,27 @@
 		}
 	}
 	@media (max-width: 450px) {
+
+	.header-navigation {
+		display: flex;
+		gap: 0.5rem;
+		transition: all 0.3s ease;
+
+		width: 100%;
+		margin-left: 1rem;
+		margin-right: 1rem;
+	}
+
+	.header-logo {
+
+		& h2 {
+			display: none;
+		}
+	}
 		.logo-container {
 			display: none;
 		}
-		.user-shortcuts {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			width: 40px !important;
-			justify-content: flex-end;
-			&:hover {
-				transform: scale(1) translateX(0) !important;
-				width: 100% !important;
-				padding: 0 !important;
-				position: absolute;
-				background-color: var(--secondary-color) !important;
-				margin: 0 !important;
-				left: auto !important;
-				right: 0 !important;
-				flex-direction: row;
 
-				box-shadow: 0px 8px 16px 0px rgba(251, 245, 245, 0.2);
-			}
-		}
 		main {
 			background: var(--bg-gradient-r);
 			color: var(--text-color);
@@ -4401,29 +4451,29 @@
 			height: -webkit-fill-available;
 		}
 
-		.navigator-menu {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			justify-content: center;
-			position: absolute;
-			flex: 1;
-			height: auto;
-			padding: 0;
-			gap: 1rem;
-			bottom: 0;
-			left: 0;
-			top: auto;
-			width: calc(100vw);
-			background: var(--bg-color);
-			border-top: none !important;
-			padding-bottom: 0;
-			z-index: 9999;
-			border-right: none;
-			border-radius: 0;
-			overflow-x: hidden;
-			overflow-y: hidden;
-		}
+		// .navigator-menu {
+		// 	display: flex;
+		// 	flex-direction: row;
+		// 	align-items: center;
+		// 	justify-content: center;
+		// 	position: absolute;
+		// 	flex: 1;
+		// 	height: auto;
+		// 	padding: 0;
+		// 	gap: 1rem;
+		// 	bottom: 0;
+		// 	left: 0;
+		// 	top: auto;
+		// 	width: calc(100vw);
+		// 	background: var(--bg-color);
+		// 	border-top: none !important;
+		// 	padding-bottom: 0;
+		// 	z-index: 9999;
+		// 	border-right: none;
+		// 	border-radius: 0;
+		// 	overflow-x: hidden;
+		// 	overflow-y: hidden;
+		// }
 
 		span.search-wrapper {
 			background: var(--secondary-color);
@@ -4457,84 +4507,79 @@
 				display: flex;
 			}
 		}
-		.sidenav {
-			display: flex;
-			// backdrop-filter: blur(30px);
-			flex-direction: column;
-			align-items: flex-end;
-			bottom: 0;
-			right: 0 !important;
-			margin-left: calc(100% - 3rem);
-			padding: 0;
-			height: auto;
-			position: fixed;
-			width: 3rem;
-			border-radius: 0;
-			flex: 1;
-			overflow-x: hidden !important;
-			background: transparent;
-			left: 0;
-			right: 0;
-			z-index: 1;
-			transition: all 0.1s ease-in;
-			box-shadow: none;
+		// .sidenav {
+		// 	display: flex;
+		// 	// backdrop-filter: blur(30px);
+		// 	flex-direction: column;
+		// 	align-items: flex-end;
+		// 	bottom: 0;
+		// 	right: 0 !important;
+		// 	margin-left: calc(100% - 3rem);
+		// 	padding: 0;
+		// 	height: auto;
+		// 	position: fixed;
+		// 	width: 3rem;
+		// 	border-radius: 0;
+		// 	flex: 1;
+		// 	overflow-x: hidden !important;
+		// 	background: transparent;
+		// 	left: 0;
+		// 	right: 0;
+		// 	z-index: 1;
+		// 	transition: all 0.1s ease-in;
+		// 	box-shadow: none;
 
-			& .nav-button.info.user,
-			& .nav-button.drawer {
-				display: flex !important;
-				// display: none !important;
-				width: 2rem !important;
-				height: 2rem !important;
-				padding: 0.5rem;
-				background: var(--bg-color) !important;
-				transition: all 0.3s ease;
-				color: var(--placeholder-color) !important;
-				&.active {
-					background-color: var(--tertiary-color) !important;
-				}
-				&:hover {
-					box-shadow: none;
-					transform: none;
-					color: var(--tertiary-color) !important;
-					& .nav-button.info.user,
-					& .nav-button.drawer {
-						display: flex !important;
-					}
-				}
-				&.reveal {
-					display: flex !important;
-				}
-			}
-		}
+		// 	& .nav-button.info.user,
+		// 	& .nav-button.drawer {
+		// 		display: flex !important;
+		// 		// display: none !important;
+		// 		width: 2rem !important;
+		// 		height: 2rem !important;
+		// 		padding: 0.5rem;
+		// 		background: var(--bg-color) !important;
+		// 		transition: all 0.3s ease;
+		// 		color: var(--placeholder-color) !important;
+		// 		&.active {
+		// 			background-color: var(--tertiary-color) !important;
+		// 		}
+		// 		&:hover {
+		// 			box-shadow: none;
+		// 			transform: none;
+		// 			color: var(--tertiary-color) !important;
+		// 			& .nav-button.info.user,
+		// 			& .nav-button.drawer {
+		// 				display: flex !important;
+		// 			}
+		// 		}
+		// 		&.reveal {
+		// 			display: flex !important;
+		// 		}
+		// 	}
+		// }
 
-		.nav-button.drawer {
-			background-color: var(--primary-color) !important;
-			height: 2rem !important;
-			width: 2rem !important;
-		}
 
 		.nav-button.info {
 			top: 0;
 		}
-		.navigation-buttons {
-			display: flex;
-			flex-direction: column;
-			// border: 1px solid var(--line-color);
-			gap: 0.25rem;
-			width: 3rem !important;
-			height: auto;
-			// background: var(--secondary-color);
-			border-radius: 0;
-			align-items: center;
-			justify-content: flex-end;
-			overflow: hidden;
-			overflow-x: hidden;
-			z-index: 1000;
-			backdrop-filter: none;
-			margin: 0;
-			margin-bottom: 2.5rem;
-			transition: all 0.2s ease;
-		}
+		// .navigation-buttons {
+		// 	display: flex;
+		// 	flex-direction: column;
+		// 	// border: 1px solid var(--line-color);
+		// 	gap: 0.25rem;
+		// 	width: 3rem !important;
+		// 	height: auto;
+		// 	// background: var(--secondary-color);
+		// 	border-radius: 0;
+		// 	align-items: center;
+		// 	justify-content: flex-end;
+		// 	overflow: hidden;
+		// 	overflow-x: hidden;
+		// 	z-index: 1000;
+		// 	backdrop-filter: none;
+		// 	margin: 0;
+		// 	margin-bottom: 2.5rem;
+		// 	transition: all 0.2s ease;
+		// }
 
 		.top-buttons {
 			flex-direction: row;

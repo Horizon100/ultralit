@@ -882,17 +882,17 @@
 	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
 	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
 
-	$: if (user) {
-		console.log('🔍 Avatar Debug:');
-		console.log('- user exists:', !!user);
-		console.log('- user.email:', user.email);
-		console.log('- user.username:', user.username);
-		console.log('- userAvatarUrl:', userAvatarUrl);
-		console.log('- userIdentifier:', userIdentifier);
-		console.log('- identiconUrl:', identiconUrl);
-		console.log('- finalAvatarUrl:', finalAvatarUrl);
-		console.log('---');
-	}
+	// $: if (user) {
+	// 	console.log('🔍 Avatar Debug:');
+	// 	console.log('- user exists:', !!user);
+	// 	console.log('- user.email:', user.email);
+	// 	console.log('- user.username:', user.username);
+	// 	console.log('- userAvatarUrl:', userAvatarUrl);
+	// 	console.log('- userIdentifier:', userIdentifier);
+	// 	console.log('- identiconUrl:', identiconUrl);
+	// 	console.log('- finalAvatarUrl:', finalAvatarUrl);
+	// 	console.log('---');
+	// }
 	onMount(() => {
 		console.log('=== USERNAME PAGE MOUNT START ===');
 

@@ -1,7 +1,13 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/stores/translationStore';
-	import { signIn, signUp as registerUser } from '$lib/pocketbase';
+	import { 
+		signIn, 
+		signUp as registerUser,
+		saveUserSecurity, 
+		getUserSecurityQuestion, 
+		resetPasswordWithSecurity 
+	} from '$lib/pocketbase';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import { onMount, createEventDispatcher, tick } from 'svelte';
 	import { browser } from '$app/environment';
@@ -21,41 +27,63 @@
 	let isCodeValid: boolean = false;
 	let isCheckingCode: boolean = false;
 	let validInvitationId: string | null = null;
+	let selectedSecurityQuestion: string = '';
+	let securityAnswer: string = '';
+	let showSecurityQuestions: boolean = false;
+	let isResettingPassword: boolean = false;
+	let resetEmail: string = '';
+	let resetSecurityAnswer: string = '';
+	let newPassword: string = '';
+	let confirmPassword: string = '';
+	let userSecurityQuestion: string = '';
+
+$: securityQuestions = Object.entries($t('security.passwordQuestions') as Record<string, string>).map(([key, value]) => ({
+  key,
+  question: value
+}));
 
 	const dispatch = createEventDispatcher();
 
 	function close() {
 		dispatch('close');
 	}
-	async function checkInvitationCode() {
-		if (!invitationCode) {
-			errorMessage = 'Please enter an invitation code';
-			return;
-		}
-
-		isCheckingCode = true;
-		errorMessage = '';
-
-		try {
-			const result = await validateInvitationCode(invitationCode);
-
-			if (result.success && result.data) {
-				isCodeValid = true;
-				validInvitationId = result.data.id ?? null;
-				successMessage = 'Invitation code accepted! Please continue with registration.';
-				console.log('Valid invitation code:', result.data);
-			} else {
-				errorMessage = result.error || 'Invalid or already used invitation code';
-				isCodeValid = false;
-			}
-		} catch (err) {
-			console.error('Error checking invitation code:', err);
-			errorMessage =
-				err instanceof Error ? err.message : 'An error occurred while checking the invitation code';
-		} finally {
-			isCheckingCode = false;
-		}
+async function checkInvitationCode() {
+	if (!invitationCode) {
+		errorMessage = 'Please enter an invitation code';
+		return;
 	}
+
+	isCheckingCode = true;
+	errorMessage = '';
+
+	try {
+		console.log('🔍 Validating code:', invitationCode);
+		const result = await validateInvitationCode(invitationCode);
+		
+		console.log('🔍 Full validation result:', result);
+		console.log('🔍 result.data:', result.data);
+		console.log('🔍 result.data.id:', result.data?.id);
+
+		if (result.success && result.data) {
+			console.log('🔍 Data has properties:', Object.keys(result.data));
+			
+			isCodeValid = true;
+			validInvitationId = result.data.id ?? null;
+			console.log('🔍 Set validInvitationId to:', validInvitationId);
+			
+			successMessage = 'Invitation code accepted! Please continue with registration.';
+			console.log('Valid invitation code:', result.data);
+		} else {
+			errorMessage = result.error || 'Invalid or already used invitation code';
+			isCodeValid = false;
+		}
+	} catch (err) {
+		console.error('Error checking invitation code:', err);
+		errorMessage = err instanceof Error ? err.message : 'An error occurred while checking the invitation code';
+	} finally {
+		isCheckingCode = false;
+	}
+}
 	export async function login(): Promise<void> {
 		if (!browser) return;
 
@@ -86,51 +114,67 @@
 		}
 	}
 
-	async function signUp(): Promise<void> {
-		if (!browser || !isCodeValid || !validInvitationId) return;
+async function handleSignUp(): Promise<void> {
+  console.log('🚀 SIGNUP BUTTON CLICKED!');
+  console.log('📊 Current state:', {
+    browser,
+    isCodeValid,
+    validInvitationId,
+    email,
+    password: !!password,
+    selectedSecurityQuestion,
+    securityAnswer: !!securityAnswer
+  });
 
-		errorMessage = '';
-		successMessage = '';
-		isLoading = true;
+  if (!browser || !isCodeValid || !validInvitationId) {
+    console.log('❌ Early return conditions:', { browser, isCodeValid, validInvitationId });
+    return;
+  }
 
-		try {
-			if (!email || !password) {
-				errorMessage = 'Email and password are required';
-				isLoading = false;
-				return;
-			}
+  errorMessage = '';
+  successMessage = '';
+  isLoading = true;
 
-			console.log(
-				'Attempting signup with:',
-				email,
-				password ? '(password provided)' : '(no password)'
-			);
+  try {
+    if (!email || !password) {
+      errorMessage = 'Email and password are required';
+      isLoading = false;
+      return;
+    }
 
-			const createdUser = await registerUser(email, password);
-			if (createdUser) {
-				console.log('User created successfully:', createdUser);
+    if (!selectedSecurityQuestion || !securityAnswer) {
+      errorMessage = 'Please select a security question and provide an answer';
+      isLoading = false;
+      return;
+    }
 
-				// Mark the invitation code as used using the API
-				console.log(
-					`Marking invitation code ${validInvitationId} as used by user ${createdUser.id}`
-				);
-				const markResult = await markInvitationCodeAsUsed(validInvitationId, createdUser.id);
-				console.log('Mark invitation code result:', markResult);
+    console.log('Attempting signup with:', email, password ? '(password provided)' : '(no password)');
+    console.log('Security question:', selectedSecurityQuestion);
+    console.log('Security answer provided:', !!securityAnswer);
 
-				// Login with the newly created credentials
-				await login();
-			} else {
-				// Handle null return from registerUser
-				errorMessage = 'Signup failed. Please try again.';
-			}
-		} catch (err) {
-			console.error('Unexpected signup error:', err);
-			errorMessage =
-				err instanceof Error ? err.message : 'An unexpected error occurred during signup';
-		} finally {
-			isLoading = false;
-		}
-	}
+    // Pass security question data to the signup function
+    const createdUser = await registerUser(email, password, selectedSecurityQuestion, securityAnswer);
+    
+    if (createdUser) {
+      console.log('User created successfully:', createdUser);
+
+      // Mark the invitation code as used
+      console.log(`Marking invitation code ${validInvitationId} as used by user ${createdUser.id}`);
+      const markResult = await markInvitationCodeAsUsed(validInvitationId, createdUser.id);
+      console.log('Mark invitation code result:', markResult);
+
+      // Login with the newly created credentials
+      await login();
+    } else {
+      errorMessage = 'Signup failed. Please try again.';
+    }
+  } catch (err) {
+    console.error('Unexpected signup error:', err);
+    errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during signup';
+  } finally {
+    isLoading = false;
+  }
+}
 	$: invitationPlaceholder = $t('profile.invitationPlaceholder') as string;
 	$: emailPlaceholder = $t('profile.email') as string;
 	$: passwordPlaceholder = $t('profile.password') as string;
@@ -215,7 +259,7 @@
 								required
 								disabled={isLoading}
 							/>
-							<button
+							<!-- <button
 								class="round-btn invitation"
 								on:click={(e) => {
 									e.preventDefault();
@@ -240,10 +284,58 @@
 									</span>
 									<Icon name="ChevronRight" />
 								{/if}
-							</button>
+							</button> -->
+						</span>
+						  <span class="security-question-select" transition:fly={{ duration: 300, delay: 300 }}>
+						<select bind:value={selectedSecurityQuestion} required disabled={isLoading}>
+						<option value="">{$t('security.selectQuestion')}</option>
+						{#each securityQuestions as question}
+							<option value={question.key}>{question.question}</option>
+						{/each}
+						</select>
+					
+					</span>
+					{/if}
+					{#if selectedSecurityQuestion}
+						<span class="security-answer-input" transition:fly={{ duration: 300, delay: 400 }}>
+						<input
+							type="text"
+							bind:value={securityAnswer}
+							placeholder={$t('security.securityAnswerPlaceholder')}
+							required
+							disabled={isLoading}
+						/>
 						</span>
 					{/if}
-
+{#if selectedSecurityQuestion && securityAnswer}
+<div style="color: red; font-size: 12px;">
+  DEBUG: selectedSecurityQuestion = "{selectedSecurityQuestion}"<br>
+  DEBUG: securityAnswer = "{securityAnswer}"<br>
+  DEBUG: Both filled = {!!(selectedSecurityQuestion && securityAnswer)}
+</div>
+	<span class="signup-button" transition:fly={{ duration: 300, delay: 500 }}>
+		<button
+			class="round-btn invitation"
+			on:click={(e) => {
+				e.preventDefault();
+				handleSignUp();
+			}}
+			type="button"
+			disabled={isLoading || !email || !password || !selectedSecurityQuestion || !securityAnswer}
+		>
+			{#if isLoading}
+				<div class="small-spinner-container">
+					<div class="small-spinner">
+						<Icon name="Bot" />
+					</div>
+				</div>
+			{:else}
+				<span>{$t('profile.signup')}</span>
+				<Icon name="ChevronRight" />
+			{/if}
+		</button>
+	</span>
+{/if}
 					{#if errorMessage}
 						<div class="error-message" transition:slide={{ duration: 200 }}>
 							{errorMessage}
@@ -295,15 +387,45 @@
 		justify-content: center;
 		align-items: center;
 	}
+		@supports (-webkit-appearance: none) {
+		select {
+			-webkit-appearance: none;
+			appearance: none;
+			background: var(--secondary-color);
+			background-size: 1.25rem !important;
+		}
+	}
+	select {
+		padding: 1rem 2rem;
+		border: 1px solid var(--line-color);
+		background: var(--secondary-color);
+		color: var(--text-color);
+		font-size: 1rem;
+		width: 100%;
+		color: var(--tertiary-color);
+		border-radius: 1rem;
+		transition: all 0.3s ease-in;
+		&:hover {
+			background: var(--secondary-color);
+			cursor: pointer;
+		}
+	}
 	form {
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
 		gap: 1rem;
+
+		&.auth-form {
+			display: flex;
+			flex-shrink: shrink;
+			width: 400px;
+		}
 	}
 	h2 {
 		padding: 1rem;
+		font-size: 1.5rem !important;
 	}
 	h4 {
 		color: var(--tertiary-color);
@@ -335,8 +457,8 @@
 	span.invitation-info {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
-		max-width: calc(500px - 2rem);
+		width: 400px;
+
 		margin-top: 2rem;
 		& h3 {
 			margin-bottom: 1rem;
@@ -347,5 +469,23 @@
 		margin: 0;
 		line-height: 2;
 		margin-bottom: 1rem;
+	}
+		span.invitation-input {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		align-items: center;
+		width: calc(100% - 2rem);
+		height: 4rem;
+		padding: 0;
+		padding-right: 0.5rem;
+		gap: 1rem;
+		background: var(--bg-color);
+		border-radius: 2rem;
+		& input {
+			height: 3rem !important;
+			padding-inline-start: 1rem;
+			margin-left: 0.5rem;
+		}
 	}
 </style>

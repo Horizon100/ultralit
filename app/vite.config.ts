@@ -31,8 +31,8 @@ export default defineConfig(({ mode }) => {
 		assetsInclude: ['**/*.svg'],
 		resolve: {
 			alias: {
-				'@styles': path.resolve('./src/lib/styles'),
-				'@themes': path.resolve('./src/lib/styles/themes.scss')
+				'@styles': path.resolve('./src/styles'),
+				'@themes': path.resolve('./src/styles/themes.scss')
 			}
 		},
 		css: {
@@ -40,7 +40,7 @@ export default defineConfig(({ mode }) => {
 				scss: {
 					api: 'modern-compiler',
 					silenceDeprecations: ['legacy-js-api'],
-					additionalData: `@use '${path.join(process.cwd(), 'src', 'lib', 'styles', 'themes.scss')}' as *;\n`
+					additionalData: `@use '/src/styles/themes.scss' as *;\n`
 				}
 			}
 		},

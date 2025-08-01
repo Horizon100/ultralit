@@ -2,6 +2,12 @@
 	import { createEventDispatcher } from 'svelte';
 	import { t } from '$lib/stores/translationStore';
 
+	type PrivacySection = {
+		heading: string;
+		body: string;
+	};
+	$: privacyContent = $t('privacy.content') as PrivacySection[];
+
 	const dispatch = createEventDispatcher();
 
 	function close() {
@@ -9,18 +15,29 @@
 	}
 </script>
 
-<div class="auth-overlay" on:click|self={close}>
-	<div class="auth-content">
-		<h2>Privacy Policy</h2>
-		<p>
-			This is the Privacy Policy for vRazum. We are committed to protecting your privacy and
-			personal information.
-			<!-- Add more content here -->
-		</p>
-		<button class="auth" on:click={close}>Close</button>
+<div
+	class="legal-overlay"
+	role="button"
+	tabindex="0"
+	on:click|self={close}
+	on:keydown|self={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') close();
+	}}
+>	
+	<div class="legal-content">
+		<div class="legal-wrapper">
+			<h2>{$t('privacy.title')}</h2>
+			<p class="description">{$t('privacy.description')}</p>
+
+			{#each privacyContent as section}
+				<h3>{section.heading}</h3>
+				<p>{section.body}</p>
+			{/each}
+
+			<button class="legal" on:click={close}>{$t('status.close')}</button>
+		</div>
 	</div>
 </div>
-
 <style lang="scss">
 	// @use 'src/lib/styles/themes.scss' as *;
 	* {

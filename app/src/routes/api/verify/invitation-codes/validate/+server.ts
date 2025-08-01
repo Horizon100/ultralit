@@ -32,7 +32,7 @@ const rateLimiter = {
 	}
 };
 
-export const POST: RequestHandler = async ({ request, getClientAddress }) =>
+export const POST: RequestHandler = async ({ request, getClientAddress, locals }) =>
 	apiTryCatch(async () => {
 		await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -51,16 +51,19 @@ export const POST: RequestHandler = async ({ request, getClientAddress }) =>
 
 		console.log(`Invitation code validation attempt: ${code.slice(0, 4)}... from IP: ${clientIp}`);
 
-		const invitationCode = await pb
+		const invitationCode = await locals.pb
 			.collection('invitation_codes')
 			.getFirstListItem(`code="${code}" && used=false`);
 
-		return json({
+		console.log('🔍 Found invitation code from DB:', invitationCode);
+
+		// Return directly, no json() wrapper
+		return {
 			success: true,
 			invitationCode: {
 				id: invitationCode.id,
 				code: invitationCode.code,
 				used: invitationCode.used
 			}
-		});
+		};
 	}, 'Server error processing invitation code');

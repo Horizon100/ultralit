@@ -28,10 +28,18 @@
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { refreshAvatar } from '$lib/stores/avatarStore';
 	import EmailModal from '$lib/features/email/components/EmailModal.svelte';
+	import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 
 	export let user: User | null;
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
+
+
+	$: userAvatarUrl = getAvatarUrl(user);
+	$: userIdentifier = user ? getUserIdentifier(user) : null;
+	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
+	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
+
 
 	let isLoading = false;
 	let completeUser: User | null = null;
@@ -639,9 +647,8 @@
 <div
 	class="modal-overlay {$currentTheme}"
 	on:click={handleOutsideClick}
-	transition:fade={{ duration: 300 }}
 >
-	<div class="modal-content" on:click|stopPropagation transition:fade={{ duration: 300 }}>
+	<div class="modal-content" on:click|stopPropagation >
 		<div class="settings-row">
 			<div class="btn-row">
 				<button class="back-button" on:click={onClose}>
@@ -694,21 +701,11 @@
 											on:change={handleFileChange}
 											style="display: none;"
 										/>
-										{#if (user || $currentUser)?.id}
-											<img
-												src="/api/users/{(user || $currentUser).id}/avatar"
-												alt="User avatar"
-												class="avatar {isUploading ? 'uploading' : ''}"
-												on:click={handleAvatarClick}
-											/>
-										{:else}
-											<div class="default-avatar" on:click={handleAvatarClick}>
-												{((user || $currentUser)?.name ||
-													(user || $currentUser)?.username ||
-													(user || $currentUser)?.email ||
-													'?')[0]?.toUpperCase()}
-											</div>
-										{/if}
+						<img
+							src={finalAvatarUrl || '/api/placeholder/120/120'}
+							alt="{user?.name || user?.username || 'User'}'s avatar"
+							class="avatar"
+						/>
 
 										<!-- Make the overlay clickable too -->
 										<div class="avatar-overlay" on:click={handleAvatarClick}>
@@ -776,7 +773,7 @@
 							</button>
 						</div> -->
 						</div>
-						<div class="profile-info" transition:fade={{ duration: 200 }}>
+						<div class="profile-info">
 							<div class="info-row-profile">
 								{#if isEditing}
 									<textarea
@@ -1004,7 +1001,7 @@
 {/if}
 
 <style lang="scss">
-	@use '../../../styles/themes.scss' as *;
+	// @use '../../../styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1016,7 +1013,6 @@
 		width: auto;
 		height: 100%;
 		border-radius: 2rem;
-		padding: 1rem 0;
 		transition: all 0.3s ease;
 		background: transparent;
 		backdrop-filter: none;
@@ -1034,20 +1030,20 @@
 
 	.modal-content {
 		height: 100%;
-		margin-bottom: 3rem;
-		margin-left: 3.5rem;
+		margin-bottom: 0;
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: flex-end;
-		width: 100%;
-		max-width: 600px;
-		border-right: 1px solid var(--line-color);
-		background: var(--bg-gradient-r);
+		flex: 1;
+		margin-left: 0;
+		max-width: calc(4rem + 500px);
+		// border-right: 1px solid var(--line-color);
+		background: var(--bg-color);
 	}
 
 	.key-overlay {
-		position: fixed;
+		position: absolute;
 		top: 0;
 		left: 0;
 		right: 0;
@@ -1098,6 +1094,7 @@
 		justify-content: flex-start;
 		align-items: flex-start;
 		width: calc(100% - 100px);
+		margin-left: 1rem;
 		height: auto;
 		color: white;
 
@@ -1161,12 +1158,19 @@
 			}
 		}
 	}
-	.url-button .header-wrapper {
+	.url-button {
 		display: flex;
 		flex-direction: row;
 		justify-content: flex-start;
 		align-items: center;
 	}
+			.header-wrapper {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-start;
+			align-items: center;
+			gap: 0.5rem;
+		}
 	.info-wrapper {
 		display: flex;
 		flex-direction: column;
@@ -1446,7 +1450,7 @@
 	}
 
 	.save-confirmation {
-		position: fixed;
+		position: absolute;
 		bottom: 2rem;
 		left: 50%;
 		transform: translateX(-50%);
@@ -1506,15 +1510,13 @@
 	}
 	.tab-button.active {
 		background-color: var(--tertiary-color);
-		margin-top: 2.5rem;
-		margin-left: 1rem;
-		margin-right: -0.5rem;
+		margin-top: 0.25rem;
 		left: auto;
 		width: 100%;
 		max-width: 400px;
 		font-size: 1.5rem;
 		padding: 0.25rem;
-		border-radius: 2rem 0 0 2rem;
+
 		display: flex;
 		justify-content: center;
 		align-items: center;
@@ -1535,11 +1537,12 @@
 		align-items: center;
 		justify-content: center;
 		position: absolute;
-		top: 0.5rem;
+
 		left: 0.5rem;
+		padding: 0.25rem;
 		border-radius: 50%;
-		height: 2rem;
-		width: 2rem;
+		height: 3rem;
+		width: 3rem;
 		gap: 0.2rem;
 		background: var(--primary-color);
 		border: 1px solid var(--border-color);
@@ -1631,7 +1634,7 @@
 	}
 
 	.language-overlay {
-		position: fixed;
+		position: absolute;
 		top: 0;
 		left: 0;
 		width: 100%;
@@ -1645,7 +1648,7 @@
 	}
 
 	.language-notification {
-		position: fixed;
+		position: absolute;
 		top: 50%;
 		left: 50%;
 		transform: translate(-50%, -50%);
@@ -1764,7 +1767,6 @@
 	.tabs-navigation {
 		display: flex;
 		flex-direction: column;
-		margin-top: 1rem;
 	}
 	@media (max-width: 1000px) {
 		.label {
@@ -1779,6 +1781,28 @@
 				color: var(--placeholder-color);
 			}
 		}
+			button.back-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: absolute;
+		top: 1rem;
+		left: 0.5rem;
+		padding: 0.5rem;
+		border-radius: 50%;
+		height: 2rem;
+		width: 2rem;
+		gap: 0.2rem;
+		background: var(--primary-color);
+		border: 1px solid var(--border-color);
+		color: var(--text-color);
+		transition: all 0.2s ease;
+		opacity: 0.5;
+		cursor: pointer;
+		&:hover {
+			background: var(--secondary-color);
+		}
+	}
 		span.info-avatar {
 			font-size: 3rem;
 		}
@@ -1801,67 +1825,13 @@
 			text-align: justify;
 			width: auto;
 		}
-
-		.header-wrapper {
-			display: flex;
-			flex-direction: row;
-			justify-content: flex-start;
-			align-items: center;
-			gap: 0.5rem;
+		.tab-button.active {
+			width: 300px;
+			margin-top: 1rem;
 		}
 
-		.profile-header {
-			display: flex;
-			flex-direction: row;
-			justify-content: flex-start;
-			align-items: flex-start;
-			width: 100%;
-			max-width: 800px;
-			height: auto;
-			margin-bottom: 1rem;
-			color: white;
 
-			&.info-column {
-				display: flex;
-				flex-direction: row;
-				justify-content: space-between;
-				align-items: center;
-				height: 100%;
-				width: auto;
-				padding: 1rem;
-				border-radius: 1rem;
-			}
-			.info-row {
-				display: flex;
-				justify-content: center;
-				height: auto;
-				padding: 0;
-				font-size: 2.5rem;
-				letter-spacing: 0.1rem;
-				font-weight: 800;
-				max-width: 800px;
-				width: auto;
-			}
-			.info-stats {
-				display: flex;
-				flex-direction: row;
 
-				align-items: center;
-				height: auto;
-				padding: 0.5rem;
-				font-size: 2rem;
-				letter-spacing: 0.1rem;
-				font-weight: 800;
-				max-width: 800px;
-				width: auto;
-				&.activity {
-					display: flex;
-					flex-direction: column;
-					justify-content: center;
-					align-items: center;
-				}
-			}
-		}
 
 		.style-overlay {
 			top: auto;

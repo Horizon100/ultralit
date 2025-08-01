@@ -9,7 +9,9 @@
 		signIn,
 		signUp as registerUser,
 		signOut,
-		requestPasswordReset
+		requestPasswordReset,
+		  getUserSecurityQuestion, 
+  resetPasswordWithSecurity 
 	} from '$lib/pocketbase';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 
@@ -47,9 +49,18 @@
 	let startY: number = 0;
 	let currentY: number = 0;
 	let isDragging: boolean = false;
-
+	let showSecurityQuestions: boolean = false;
+	let resetSecurityAnswer: string = '';
+	let newPassword: string = '';
+	let confirmPassword: string = '';
+	let userSecurityQuestion: string = '';
+	
 	let showStyles = false;
 
+	$: securityQuestions = Object.entries($t('security.passwordQuestions') as Record<string, string>).map(([key, value]) => ({
+	key,
+	question: value
+	}));
 	const SWIPE_THRESHOLD = 100;
 
 	const yPosition = spring(0, {
@@ -124,9 +135,15 @@
 	function openPasswordReset(): void {
 		showPasswordReset = true;
 	}
-	function closePasswordReset(): void {
+		function closePasswordReset(): void {
 		showPasswordReset = false;
-	}
+		showSecurityQuestions = false;
+		resetSecurityAnswer = '';
+		newPassword = '';
+		confirmPassword = '';
+		userSecurityQuestion = '';
+		errorMessage = '';
+		}
 	function openJoinWaitlistOverlay(): void {
 		isWaitlistMode = !isWaitlistMode;
 		// Clear fields when switching modes
@@ -322,44 +339,57 @@
 		}
 	});
 
-	async function resetPassword(): Promise<void> {
-		if (!browser) return;
+async function startPasswordReset(): Promise<void> {
+  if (!email) {
+    errorMessage = 'Email is required';
+    return;
+  }
 
-		errorMessage = '';
-		isLoading = true;
+  isLoading = true;
+  errorMessage = '';
 
-		try {
-			if (!email) {
-				errorMessage = 'Email is required';
-				isLoading = false;
-				return;
-			}
+  try {
+    const question = await getUserSecurityQuestion(email);
+    userSecurityQuestion = question;
+    showSecurityQuestions = true;
+  } catch (err) {
+    console.error('Error getting security question:', err);
+    errorMessage = err instanceof Error ? err.message : 'Failed to find security question for this email';
+  } finally {
+    isLoading = false;
+  }
+}
 
-			console.log('Starting password reset for:', email);
+async function resetPasswordWithSecurityAnswer(): Promise<void> {
+  if (!email || !resetSecurityAnswer || !newPassword || !confirmPassword) {
+    errorMessage = 'All fields are required';
+    return;
+  }
 
-			// Request password reset
-			const success = await requestPasswordReset(email);
+  if (newPassword !== confirmPassword) {
+    errorMessage = 'Passwords do not match';
+    return;
+  }
 
-			console.log('Password reset request completed, success:', success);
+  isLoading = true;
+  errorMessage = '';
 
-			if (success) {
-				// Show success message and close the form
-				closePasswordReset();
-				// You might want to show a notification here
-				dispatch('notification', {
-					type: 'success',
-					message: 'Password reset link sent to your email'
-				});
-			} else {
-				errorMessage = 'Failed to send reset email. Please try again.';
-			}
-		} catch (err) {
-			console.error('Password reset error in component:', err);
-			errorMessage = err instanceof Error ? err.message : 'An error occurred during password reset';
-		} finally {
-			isLoading = false;
-		}
-	}
+  try {
+    await resetPasswordWithSecurity(email, resetSecurityAnswer, newPassword);
+    
+    // Success - close reset form and show success message
+    closePasswordReset();
+    dispatch('notification', {
+      type: 'success',
+      message: 'Password reset successfully! You can now login with your new password.'
+    });
+  } catch (err) {
+    console.error('Password reset error:', err);
+    errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
+  } finally {
+    isLoading = false;
+  }
+}
 	$: emailPlaceholder = $t('profile.email') as string;
 	$: passwordPlaceholder = $t('profile.password') as string;
 	$: resetPlaceholder = $t('profile.emailReset') as string;
@@ -433,7 +463,6 @@
 				<form
 					on:submit|preventDefault={(e) => {
 						e.preventDefault();
-						// This ensures the form never handles the signup
 					}}
 					class="auth-form"
 				>
@@ -505,48 +534,108 @@
 							<!-- {isLoading ? 'Signing up...' : ''} -->
 						</span>
 					</div>
-					{#if showPasswordReset}
-						<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
-							<button class="round-btn back" on:click={closePasswordReset}>
-								<Icon name="ChevronLeft" />
-							</button>
-							<input
-								type="email"
-								bind:value={email}
-								placeholder={resetPlaceholder}
-								required
-								disabled={isLoading}
-							/>
-							<button class="round-btn submit" on:click={resetPassword}
-								>{#if isLoading}
-									<div class="small-spinner-container">
-										<div class="small-spinner">
-											<Icon name="Bot" />
-										</div>
-									</div>
-								{:else}
-									<span>
-										{$t('profile.reset')}
-									</span>
-									<Icon name="ChevronRight" />
-								{/if}
-							</button>
-						</span>
-					{:else}
-						<div
-							class="auth-btn reset"
-							on:click={openPasswordReset}
-							transition:fly={{ duration: 300 }}
-						>
-							<span>
-								<!-- <MailPlus />	 -->
-								<span class="btn-description">
-									{$t('profile.passwordHelp')}
-								</span>
-								<!-- {isLoading ? 'Signing up...' : ''} -->
-							</span>
+{#if showPasswordReset}
+	{#if !showSecurityQuestions}
+		<!-- Step 1: Enter email to get security question -->
+		<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
+			<button class="round-btn back" on:click={closePasswordReset}>
+				<Icon name="ChevronLeft" />
+			</button>
+			<input
+				type="email"
+				bind:value={email}
+				placeholder={resetPlaceholder}
+				required
+				disabled={isLoading}
+			/>
+			<button class="round-btn submit" on:click={startPasswordReset} disabled={isLoading}>
+				{#if isLoading}
+					<div class="small-spinner-container">
+						<div class="small-spinner">
+							<Icon name="Bot" />
 						</div>
+					</div>
+				{:else}
+					<span>Next</span>
+					<Icon name="ChevronRight" />
+				{/if}
+			</button>
+		</span>
+	{:else}
+		<!-- Step 2: Answer security question and set new password -->
+		<div class="security-reset" transition:fly={{ duration: 300 }}>
+			<h3>{$t('security.securityQuestionTitle')}</h3>
+			<p class="security-question-text">
+				{securityQuestions.find(q => q.key === userSecurityQuestion)?.question || userSecurityQuestion}
+			</p>
+			
+			<span class="security-answer-input">
+				<input
+					type="text"
+					bind:value={resetSecurityAnswer}
+					placeholder={$t('security.securityAnswer')}
+					required
+					disabled={isLoading}
+				/>
+			</span>
+
+			<span class="password-input">
+				<input
+					type="password"
+					bind:value={newPassword}
+					placeholder={$t('security.newPassword')}
+					required
+					disabled={isLoading}
+				/>
+			</span>
+
+			<span class="password-input">
+				<input
+					type="password"
+					bind:value={confirmPassword}
+					placeholder={$t('security.confirmPassword')}
+					required
+					disabled={isLoading}
+				/>
+			</span>
+
+			<div class="reset-actions">
+				<button class="round-btn back" on:click={() => showSecurityQuestions = false}>
+					<Icon name="ChevronLeft" />
+				</button>
+				
+				<button 
+					class="round-btn submit" 
+					on:click={resetPasswordWithSecurityAnswer} 
+					disabled={isLoading}
+				>
+					{#if isLoading}
+						<div class="small-spinner-container">
+							<div class="small-spinner">
+								<Icon name="Bot" />
+							</div>
+						</div>
+					{:else}
+						<span>{$t('profile.reset')}</span>
+						<Icon name="CheckCircle" />
 					{/if}
+				</button>
+			</div>
+		</div>
+	{/if}
+{:else}
+	<div
+		class="auth-btn reset"
+		on:click={openPasswordReset}
+		transition:fly={{ duration: 300 }}
+	>
+		<span>
+			<span class="btn-description">
+				{$t('profile.passwordHelp')}
+			</span>
+		</span>
+	</div>
+{/if}
 
 					<!-- <button 
 					class="button button-subtle" 

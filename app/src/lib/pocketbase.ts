@@ -543,7 +543,12 @@ export async function signIn(
 	throw new Error(result.error);
 }
 
-export async function signUp(email: string, password: string): Promise<User | null> {
+export async function signUp(
+	email: string, 
+	password: string,
+	securityQuestion?: string,
+	securityAnswer?: string
+): Promise<User | null> {
 	console.log('Signing up user...');
 
 	const result = await fetchTryCatch<{ success: boolean; user?: User; error?: string }>(
@@ -551,29 +556,42 @@ export async function signUp(email: string, password: string): Promise<User | nu
 		{
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ email, password })
+			body: JSON.stringify({ 
+				email, 
+				password,
+				securityQuestion,
+				securityAnswer
+			})
 		},
-		10000 // 10 second timeout
+		10000
 	);
 
-	if (isSuccess(result)) {
-		const data = result.data;
-
-		if (!data.success) {
-			throw new Error(data.error || 'Unknown error during sign-up');
-		}
-		if (!data.user) {
-			throw new Error('Sign-up failed: no user data received');
-		}
-		// Clear auth cache and set new user
-		clearAuthCache();
-		currentUser.set(data.user);
-		return data.user;
+if (isSuccess(result)) {
+	const data = result.data;
+	
+	console.log('🔍 Signup API response:', data);
+	
+	// Handle the apiTryCatch wrapped response
+	let actualData = data;
+	if (data.success && data.data) {
+		actualData = data.data; // Unwrap the nested response
 	}
-
-	// Log error and return null (matching original behavior)
-	console.error('Sign-up error:', result.error);
-	return null;
+	
+	console.log('🔍 Actual data:', actualData);
+	console.log('🔍 Actual user:', actualData.user);
+	
+	if (!actualData.success) {
+		throw new Error(actualData.error || 'Unknown error during sign-up');
+	}
+	if (!actualData.user) {
+		console.log('❌ No user data found in response');
+		throw new Error('Sign-up failed: no user data received');
+	}
+	
+	clearAuthCache();
+	currentUser.set(actualData.user);
+	return actualData.user;
+}
 }
 
 export async function signOut(): Promise<void> {
@@ -1157,4 +1175,97 @@ export async function requestPasswordReset(email: string): Promise<boolean> {
 }
 export function unsubscribeFromChanges(unsubscribe: () => void): void {
 	unsubscribe();
+}
+
+/**
+ * Save user's security question and answer
+ */
+export async function saveUserSecurity(
+  userId: string,
+  securityQuestion: string, 
+  securityAnswer: string
+): Promise<boolean> {
+  console.log('Saving security info for user:', userId);
+
+  const result = await fetchTryCatch<{ success: boolean; error?: string }>(
+    '/api/auth/security',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, securityQuestion, securityAnswer })
+    },
+    10000
+  );
+
+  if (!isSuccess(result)) {
+    console.error('Failed to save security info:', result.error);
+    throw new Error(result.error);
+  }
+
+  return result.data.success;
+}
+
+/**
+ * Get user's security question by email
+ */
+export async function getUserSecurityQuestion(email: string): Promise<string> {
+  console.log('Getting security question for email:', email);
+
+  const result = await fetchTryCatch<{ success: boolean; question?: string; error?: string }>(
+    `/api/auth/security?email=${encodeURIComponent(email)}`,
+    {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
+    },
+    10000
+  );
+
+  if (!isSuccess(result)) {
+    console.error('Failed to get security question:', result.error);
+    throw new Error(result.error);
+  }
+
+  const data = result.data;
+  if (!data.success || !data.question) {
+    throw new Error('No security question found for this email');
+  }
+
+  return data.question;
+}
+
+/**
+ * Reset password using security question
+ * @param email The email address of the user
+ * @param securityAnswer The answer to the security question
+ * @param newPassword The new password
+ * @returns A boolean indicating whether the reset was successful
+ */
+export async function resetPasswordWithSecurity(
+  email: string,
+  securityAnswer: string,
+  newPassword: string
+): Promise<boolean> {
+  console.log('Resetting password with security answer for email:', email);
+
+  const result = await fetchTryCatch<{ success: boolean; error?: string }>(
+    '/api/auth/reset-password',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, securityAnswer, newPassword })
+    },
+    10000
+  );
+
+  if (!isSuccess(result)) {
+    console.error('Password reset with security failed:', result.error);
+    throw new Error(result.error);
+  }
+
+  const data = result.data;
+  if (!data.success && data.error) {
+    throw new Error(data.error);
+  }
+
+  return data.success;
 }
