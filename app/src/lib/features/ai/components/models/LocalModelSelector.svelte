@@ -19,22 +19,25 @@
 	let error: string | null = null;
 	let serverStatus: 'online' | 'offline' | 'unknown' = 'unknown';
 
-	// Reactive
-	$: selectedModelData = models.find((m) => m.api_type === selectedModel);
 
 	// Dispatch change event when selectedModel changes
-	let hasInitialized = false;
-	$: if (selectedModel && hasInitialized && models.length > 0) {
-		dispatch('change', {
-			model: selectedModel,
-			modelData: selectedModelData
-		});
-	}
+let isInitialized = false;
+let previousModel = selectedModel;
 
-	// Mark as initialized after first model fetch
-	$: if (models.length > 0 && !hasInitialized) {
-		hasInitialized = true;
-	}
+// Reactive
+$: selectedModelData = models.find((m) => m.api_type === selectedModel);
+
+// Handle model changes after initialization
+$: if (isInitialized && selectedModel !== previousModel && models.length > 0) {
+	console.log('🔍 LocalModelSelector - Model changed:', previousModel, '->', selectedModel);
+	previousModel = selectedModel;
+	
+	dispatch('change', {
+		model: selectedModel,
+		modelData: selectedModelData
+	});
+}
+
 
 	// Fetch available models
 	async function fetchModels() {
@@ -71,11 +74,12 @@
 				console.log('🔍 LocalModelSelector - Set serverStatus:', serverStatus);
 
 				// Auto-select first model if none selected and models available
-				if (!selectedModel && models.length > 0) {
-					selectedModel = models[0].api_type;
-					console.log('🔍 LocalModelSelector - Auto-selected model:', selectedModel);
-				}
-
+			if (!selectedModel && models.length > 0) {
+				selectedModel = models[0].api_type;
+				previousModel = selectedModel;
+				console.log('🔍 LocalModelSelector - Auto-selected model:', selectedModel);
+			}
+			isInitialized = true;
 				console.log(
 					`🔍 LocalModelSelector - Final: ${models.length} models, status: ${serverStatus}`
 				);
@@ -164,14 +168,6 @@
 				class="model-select"
 				class:loading
 				class:error={!!error}
-				on:change={() => {
-					if (selectedModel && models.length > 0) {
-						dispatch('change', {
-							model: selectedModel,
-							modelData: selectedModelData
-						});
-					}
-				}}
 			>
 				{#if loading}
 					<option value="">Loading models...</option>

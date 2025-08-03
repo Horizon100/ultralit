@@ -31,7 +31,7 @@ const config = {
 				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
 				'font-src': ['self', 'https://fonts.gstatic.com'],
 				'img-src': ['self', 'data:', 'blob:', 'https:', 'http://100.77.36.61:8090'],
-				'media-src': ['self', 'blob:', 'http://100.77.36.61:8090', 'http://100.77.36.61:3002'],
+				'media-src': ['self', 'blob:', 'data:', 'http://100.77.36.61:8090', 'http://100.77.36.61:3002'],
 				'connect-src': [
 					'self', 
 					'http://localhost:8090',     // PocketBase (localhost)
@@ -43,7 +43,8 @@ const config = {
 					'http://localhost:8000',     // CV Detection
 					'http://localhost:3011',     // WebRTC Media
 					'http://localhost:3025',     // WebRTC Signaling
-					'ws://localhost:8082',       // WebRTC WebSocket
+					'ws://localhost:8082',       // WebRTC WebSocket,
+					'ws://100.77.36.61:8082',    // WebRTC WebSocket (external)
 					'ws://localhost:8000',       // CV Detection WebSocket
 					'ws://100.77.36.61:*',      // External WebSocket access
 					'http://100.77.36.61:*',    // External HTTP access

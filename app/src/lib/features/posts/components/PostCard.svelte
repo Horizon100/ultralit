@@ -148,7 +148,7 @@
 	function handleAIAnalysis(event: CustomEvent) {
 		console.log('AI Analysis complete:', event.detail);
 
-		toast.success(`Analysis complete using ${selectedLocalModel}`);
+		toast.success(`Analysis complete using ${event.detail.model}`); 
 	}
 	function toggleLabels() {
 		showLabels = !showLabels;

@@ -155,7 +155,7 @@ export const POST: RequestHandler = async (event) =>
 		} else if (auto_optimize && !is_image_analysis) {
 			// Auto-optimize parameters based on content (only for text analysis)
 			const context = ContextAnalyzer.analyzeMessage(prompt);
-			const optimizedParams = ContextAnalyzer.getOptimalParams(context);
+			const optimizedParams = ContextAnalyzer.getOptimalParams(context, model);
 
 			console.log(
 				`🔍 Local AI Generate - Detected: ${context.type} (${Math.round(context.confidence * 100)}% confidence)`

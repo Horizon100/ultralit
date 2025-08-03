@@ -155,11 +155,11 @@ export class ContextAnalyzer {
 	}
 
 	// Get optimal parameters based on context
-	static getOptimalParams(context: MessageContext): Partial<LocalModelParams> {
-		const baseParams = {
-			model: 'qwen2.5:0.5b',
-			stream: false
-		};
+static getOptimalParams(context: MessageContext, currentModel?: string): Partial<LocalModelParams> {
+    const baseParams = {
+        model: currentModel || 'qwen2.5:0.5b',
+        stream: false
+    };
 
 		switch (context.type) {
 			case 'code':

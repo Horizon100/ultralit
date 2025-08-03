@@ -68,8 +68,7 @@
 
 	const dispatch = createEventDispatcher<{
 		close: void;
-		analyzed: { postId: string; analysis: string; type: string };
-		promptSelect: { prompt: string };
+    analyzed: { postId: string; analysis: string; type: string; model: string }; 
 		modelSelect: { model: string };
 	}>();
 
@@ -337,96 +336,107 @@
 		loading = false;
 	}
 
-	async function analyzePost() {
-		// Handle PDF analysis first
-		if (isPdfAnalysis()) {
-			await analyzePdf();
-			return;
-		}
+async function analyzePost() {
+    // Handle PDF analysis first
+    if (isPdfAnalysis()) {
+        await analyzePdf();
+        return;
+    }
 
-		// Handle the special case for image_tags
-		if (analysisType === 'image_tags') {
-			await analyzeImageTags();
-			return;
-		}
+    // Handle the special case for image_tags
+    if (analysisType === 'image_tags') {
+        await analyzeImageTags();
+        return;
+    }
 
-		// Rest of the existing analyzePost function remains the same...
-		if (!post.content.trim() && !isImageAnalysis()) {
-			error = 'No content to analyze';
-			return;
-		}
+    // Validate inputs
+    if (!post.content.trim() && !isImageAnalysis()) {
+        error = 'No content to analyze';
+        return;
+    }
 
-		if (analysisType === 'custom' && !customPrompt.trim()) {
-			error = 'Please enter a custom prompt';
-			return;
-		}
+    if (analysisType === 'custom' && !customPrompt.trim()) {
+        error = 'Please enter a custom prompt';
+        return;
+    }
 
-		if (isImageAnalysis() && !selectedImageAttachment) {
-			error = 'Please select an image to analyze';
-			return;
-		}
+    if (isImageAnalysis() && !selectedImageAttachment) {
+        error = 'Please select an image to analyze';
+        return;
+    }
 
-		loading = true;
-		error = null;
-		analysis = '';
+    loading = true;
+    error = null;
+    analysis = '';
 
-		console.log('🤖 Starting local AI analysis:', {
-			model: isImageAnalysis() ? 'moondream:latest' : selectedModel,
-			type: analysisType,
-			postId: post.id,
-			hasImage: isImageAnalysis()
-		});
+    // Get the appropriate prompt
+    const prompt = getPrompt();
+    
+    console.log('🤖 Starting local AI analysis:', {
+        model: isImageAnalysis() ? 'moondream:latest' : selectedModel,
+        type: analysisType,
+        postId: post.id,
+        hasImage: isImageAnalysis(),
+        prompt: prompt.substring(0, 50) + '...' // Log first 50 chars of prompt
+    });
 
-		const requestBody: any = {
-			model: isImageAnalysis() ? 'moondream:latest' : selectedModel,
-			auto_optimize: !isImageAnalysis(),
-			temperature: analysisType === 'tags' ? 0.3 : 0.7,
-			max_tokens: analysisType === 'summary' ? 150 : 300
-		};
+    const requestBody: any = {
+        model: isImageAnalysis() ? 'moondream:latest' : selectedLocalModel,
+        prompt: prompt, // Add the prompt here
+        auto_optimize: !isImageAnalysis(),
+        temperature: analysisType === 'tags' ? 0.3 : 0.7,
+        max_tokens: analysisType === 'summary' ? 150 : 300
+    };
 
-		if (isImageAnalysis()) {
-			const promptKey = analysisType as keyof typeof prompts;
-			if (promptKey in prompts) {
-				requestBody.prompt = prompts[promptKey];
-			}
-			requestBody.image_url = getImageUrl(selectedImageAttachment);
-		}
-		const analysisResult = await clientTryCatch(
-			fetch('/api/ai/local/generate', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(requestBody)
-			}).then((r) => r.json()),
-			'Failed to analyze post with local AI'
-		);
+    if (isImageAnalysis()) {
+        requestBody.image_url = getImageUrl(selectedImageAttachment);
+        requestBody.is_image_analysis = true;
+    }
 
-		if (analysisResult.success) {
-			const result = analysisResult.data;
+    try {
+        const analysisResult = await clientTryCatch(
+            fetch('/api/ai/local/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestBody)
+            }).then((r) => r.json()),
+            'Failed to analyze post with local AI'
+        );
 
-			if (result.success && result.data?.response) {
-				analysis = result.data.response.trim();
-				console.log('🤖 Analysis complete:', {
-					model: result.data.model,
-					tokens: result.data.usage?.total_tokens
-				});
+        if (analysisResult.success) {
+            const result = analysisResult.data;
 
-				dispatch('analyzed', {
-					postId: post.id,
-					analysis,
-					type: analysisType
-				});
-			} else {
-				error = result.error || 'No response from AI model';
-			}
-		} else {
-			error = analysisResult.error;
-			console.error('🤖 Analysis failed:', analysisResult.error);
-		}
+            if (result.success && result.data?.response) {
+                analysis = result.data.response.trim();
+                console.log('🤖 Analysis complete:', {
+                    model: result.data.model,
+                    tokens: result.data.usage?.total_tokens
+                });
 
-		loading = false;
-	}
+                dispatch('analyzed', {
+                    postId: post.id,
+                    analysis,
+                    type: analysisType,
+					model: isImageAnalysis() ? 'moondream:latest' : selectedLocalModel 
+
+                });
+            } else {
+                error = result.error || 'No response from AI model';
+            }
+        } else {
+            error = analysisResult.error;
+            console.error('🤖 Analysis failed:', analysisResult.error);
+        }
+    } catch (err) {
+        error = 'Failed to complete analysis';
+        console.error('🤖 Analysis error:', err);
+    } finally {
+        loading = false;
+    }
+}
+
 	function isImageAnalysis(): boolean {
 		return (
 			analysisType === 'image_description' ||
@@ -783,11 +793,13 @@
 		console.log('Prompt selected:', event.detail);
 		dispatch('promptSelect', { prompt: event.detail });
 	}
-	function handleLocalModelSelect() {
-		console.log('Local model selected:', selectedLocalModel);
-		dispatch('modelSelect', { model: selectedLocalModel });
-	}
-
+function handleLocalModelSelect(event: CustomEvent) {
+	console.log('Local model selected:', event.detail);
+	selectedLocalModel = event.detail.model;
+	dispatch('modelSelect', { 
+		model: event.detail.model,
+	});
+}
 	const slideTransition = (p0: HTMLDivElement, { duration = 180, delay = 0, direction = 1 }) => {
 		return {
 			delay,
@@ -1119,9 +1131,9 @@
 						}}
 					>
 						{#if analysisType === 'image_tags'}
-							moondream:latest → {selectedModel}
+							moondream:latest → {selectedLocalModel}
 						{:else}
-							{isImageAnalysis() ? 'moondream:latest' : selectedModel}
+							{isImageAnalysis() ? 'moondream:latest' : selectedLocalModel}
 						{/if}
 					</button>
 				</div>

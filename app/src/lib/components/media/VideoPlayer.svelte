@@ -250,96 +250,107 @@
 		}
 	}
 
-	// Original VideoPlayer functions
-	function setupAutoplay() {
-		if (!videoElement || !autoplay) return;
+// Original VideoPlayer functions
+function setupAutoplay() {
+	if (!videoElement || !autoplay) return;
 
-		intersectionObserver = new IntersectionObserver(
-			(entries) => {
-				entries.forEach(async (entry) => {
-					const video = entry.target as HTMLVideoElement;
+	intersectionObserver = new IntersectionObserver(
+		(entries) => {
+			entries.forEach(async (entry) => {
+				const video = entry.target as HTMLVideoElement;
 
-					if (entry.isIntersecting && entry.intersectionRatio >= threshold) {
-						if (video.paused) {
-							try {
-								video.muted = true;
-								isMuted = true;
+				if (entry.isIntersecting && entry.intersectionRatio >= threshold) {
+					if (video.paused) {
+						try {
+							video.muted = true;
+							isMuted = true;
 
-								const allVideos = document.querySelectorAll('video');
-								allVideos.forEach((v) => {
-									if (v !== video && !v.paused) {
-										v.pause();
-									}
-								});
-
-								if (mimeType === 'video/mp4') {
-									if (video.readyState < 2) {
-										console.log('MP4 not ready, waiting...', src);
-
-										const tryAutoplay = async () => {
-											try {
-												if (video.readyState >= 2) {
-													await video.play();
-													console.log('MP4 autoplay successful after waiting:', src);
-												} else {
-													showPlayButton = true;
-												}
-											} catch (err) {
-												console.log('MP4 autoplay failed after waiting:', err);
-												showPlayButton = true;
-											}
-										};
-
-										video.addEventListener('loadeddata', tryAutoplay, { once: true });
-										video.addEventListener('canplay', tryAutoplay, { once: true });
-
-										setTimeout(() => {
-											if (video.paused) {
-												showPlayButton = true;
-											}
-										}, 2000);
-
-										return;
-									}
+							const allVideos = document.querySelectorAll('video');
+							allVideos.forEach((v) => {
+								if (v !== video && !v.paused) {
+									v.pause();
 								}
+							});
 
-								await video.play();
-								console.log('Autoplay successful for:', src);
-							} catch (err) {
-								console.log('Autoplay failed:', err);
+							if (mimeType === 'video/mp4') {
+								if (video.readyState < 2) {
+									console.log('MP4 not ready, waiting...', src);
 
-								if (mimeType === 'video/mp4') {
-									console.log('Trying MP4 fallback approach...');
-									video.load();
-									setTimeout(async () => {
+									const tryAutoplay = async () => {
 										try {
-											await video.play();
-											console.log('MP4 fallback autoplay successful:', src);
-										} catch (fallbackErr) {
-											console.log('MP4 fallback autoplay also failed:', fallbackErr);
+											if (video.readyState >= 2) {
+												await video.play();
+												console.log('MP4 autoplay successful after waiting:', src);
+											} else {
+												console.log('MP4 still not ready, showing play button:', src);
+												showPlayButton = true;
+											}
+										} catch (err) {
+											console.log('MP4 autoplay failed after waiting:', err);
 											showPlayButton = true;
 										}
-									}, 500);
-								} else {
-									showPlayButton = true;
+									};
+
+									// Remove any existing listeners to prevent duplicates
+									video.removeEventListener('loadeddata', tryAutoplay);
+									video.removeEventListener('canplay', tryAutoplay);
+									
+									// Add fresh listeners
+									video.addEventListener('loadeddata', tryAutoplay, { once: true });
+									video.addEventListener('canplay', tryAutoplay, { once: true });
+
+									// Fallback timeout - reduced to 1 second for better UX
+									setTimeout(() => {
+										if (video.paused && video.readyState < 2) {
+											console.log('MP4 loading timeout, showing play button:', src);
+											showPlayButton = true;
+											// Clean up listeners
+											video.removeEventListener('loadeddata', tryAutoplay);
+											video.removeEventListener('canplay', tryAutoplay);
+										}
+									}, 1000);
+
+									return;
 								}
 							}
-						}
-					} else {
-						if (!video.paused) {
-							video.pause();
+
+							await video.play();
+							console.log('Autoplay successful for:', src);
+						} catch (err) {
+							console.log('Autoplay failed:', err);
+
+							if (mimeType === 'video/mp4') {
+								console.log('Trying MP4 fallback approach...');
+								video.load();
+								setTimeout(async () => {
+									try {
+										await video.play();
+										console.log('MP4 fallback autoplay successful:', src);
+									} catch (fallbackErr) {
+										console.log('MP4 fallback autoplay also failed:', fallbackErr);
+										showPlayButton = true;
+									}
+								}, 500);
+							} else {
+								showPlayButton = true;
+							}
 						}
 					}
-				});
-			},
-			{
-				threshold: [threshold],
-				rootMargin: '0px'
-			}
-		);
+				} else {
+					if (!video.paused) {
+						video.pause();
+					}
+				}
+			});
+		},
+		{
+			threshold: [threshold],
+			rootMargin: '0px'
+		}
+	);
 
-		intersectionObserver.observe(videoElement);
-	}
+	intersectionObserver.observe(videoElement);
+}
 
 	function togglePlay() {
 		if (!videoElement) return;
