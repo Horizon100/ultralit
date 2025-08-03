@@ -2,7 +2,9 @@ import type {
 	Transaction,
 	LedgerAccount,
 	TransactionFilter,
-	MonthlyTrend
+	MonthlyTrend,
+	BankTransaction,
+	TransactionFormData
 } from '$lib/types/types.ledger';
 
 /**
@@ -204,9 +206,11 @@ export function sortTransactions(
 		const aValue = a[field];
 		const bValue = b[field];
 
-		if (aValue === bValue) return 0;
-
+		if (aValue === undefined || bValue === undefined) {
+			return 0;
+		}
 		const comparison = aValue < bValue ? -1 : 1;
+
 		return direction === 'asc' ? comparison : -comparison;
 	});
 }
@@ -286,7 +290,7 @@ export function calculateAccountSummary(accounts: LedgerAccount[]) {
 /**
  * Validate transaction data
  */
-export function validateTransaction(data: Partial<Transaction>): string[] {
+export function validateTransaction(data: TransactionFormData): string[] {
 	const errors: string[] = [];
 
 	if (!data.amount || data.amount <= 0) {
@@ -365,32 +369,19 @@ export function generateInvoiceNumber(type: 'invoice' | 'bill' | 'quote' = 'invo
 /**
  * Parse CSV bank statement data
  */
-export function parseBankStatementCSV(csvText: string): Array<{
-	date: string;
-	description: string;
-	amount: number;
-	type: 'debit' | 'credit';
-	balance?: number;
-}> {
+export function parseBankStatementCSV(csvText: string): BankTransaction[] {
 	const lines = csvText.split('\n').filter((line) => line.trim());
-	const transactions: Array<any> = [];
-
-	// Skip header row if present
+	const transactions: BankTransaction[] = [];
 	const dataLines = lines.slice(1);
 
 	dataLines.forEach((line) => {
 		const columns = line.split(',').map((col) => col.trim().replace(/"/g, ''));
-
-		// Common CSV formats:
-		// Date, Description, Amount, Balance
-		// Date, Description, Debit, Credit, Balance
 
 		if (columns.length >= 3) {
 			const date = parseDate(columns[0]);
 			const description = columns[1];
 
 			if (columns.length === 4) {
-				// Format: Date, Description, Amount, Balance
 				const amount = parseFloat(columns[2]);
 				const balance = parseFloat(columns[3]);
 
@@ -402,7 +393,6 @@ export function parseBankStatementCSV(csvText: string): Array<{
 					balance
 				});
 			} else if (columns.length >= 5) {
-				// Format: Date, Description, Debit, Credit, Balance
 				const debit = parseFloat(columns[2]) || 0;
 				const credit = parseFloat(columns[3]) || 0;
 				const balance = parseFloat(columns[4]) || 0;

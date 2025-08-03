@@ -5,6 +5,16 @@ import { dev } from '$app/environment';
 import type { LocalAIRequest, OllamaResponse } from '$lib/types/types.localModels';
 import { env } from '$env/dynamic/private';
 
+interface ChatMessage {
+	role: 'user' | 'assistant' | 'system';
+	content: string;
+}
+
+interface OllamaMessage {
+	role: 'user' | 'assistant' | 'system';
+	content: string;
+}
+
 const OLLAMA_BASE_URL = dev ? env.OLLAMA_DEV_URL : env.OLLAMA_PROD_URL;
 
 export const POST: RequestHandler = async (event) => {
@@ -42,7 +52,7 @@ export const POST: RequestHandler = async (event) => {
 			system = null
 		} = body;
 
-		const ollamaMessages = messages.map((msg: any) => {
+		const ollamaMessages: OllamaMessage[] = messages.map((msg: ChatMessage) => {
 			let role = 'user';
 			if (msg.role === 'assistant') role = 'assistant';
 			else if (msg.role === 'system') role = 'system';
@@ -53,7 +63,7 @@ export const POST: RequestHandler = async (event) => {
 			};
 		});
 
-		if (system && !ollamaMessages.some((m) => m.role === 'system')) {
+		if (system && !ollamaMessages.some((m: OllamaMessage) => m.role === 'system')) {
 			ollamaMessages.unshift({
 				role: 'system',
 				content: system

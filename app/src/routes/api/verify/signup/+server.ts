@@ -66,8 +66,8 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 
 			// Save security information if provided
 			if (securityQuestion && securityAnswer) {
-				console.log('Saving security info for user:', user.id); 
-				
+				console.log('Saving security info for user:', user.id);
+
 				const securityResult = await pbTryCatch(
 					pbServer.pb.collection('users_security').create({
 						user: user.id,

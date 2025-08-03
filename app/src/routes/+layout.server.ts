@@ -1,8 +1,9 @@
-// src/routes/+layout.server.ts
 import { env } from '$env/dynamic/public';
+import type { LayoutServerLoad } from './$types';
 
-export async function load() {
+export const load: LayoutServerLoad = async ({ locals }) => {
 	return {
-		pocketbaseUrl: env.PUBLIC_POCKETBASE_URL || 'http://100.87.185.104:8090'
+		pocketbaseUrl: env.PUBLIC_POCKETBASE_URL || 'http://localhost:8090',
+		user: locals.user
 	};
-}
+};

@@ -32,6 +32,7 @@
 	export let autoTagging: boolean = false;
 	export let minTaggingConfidence: number = 0.7;
 	export let onTagsUpdated: ((tags: any[]) => void) | undefined = undefined;
+
 	// Original VideoPlayer state
 	let videoElement: HTMLVideoElement;
 	let videoContainer: HTMLDivElement;
@@ -57,14 +58,20 @@
 	let frameCounter = 0;
 	let detectionInterval: ReturnType<typeof setInterval> | undefined;
 	let performanceMonitor: PerformanceMonitor | undefined;
-	// Detection aggregator for tagging
 	let detectionAggregator: DetectionAggregator | undefined;
 	let lastTagUpdate = 0;
 	let tagUpdateInterval: ReturnType<typeof setInterval> | undefined;
-	// Debounced detection function to prevent too many API calls
-	// Add this debug version to your VideoPlayer.svelte debouncedDetection function
+	$: if (enableMLDetection === true) {
+		mlSettings.enabled = false;
+	} else if (enableMLDetection === false) {
+		mlSettings.enabled = false;
+	}
+	const debouncedDetection = debounce(async (videoEl: unknown) => {
+		if (!(videoEl instanceof HTMLVideoElement)) {
+			console.error('Invalid video element passed to debouncedDetection');
+			return;
+		}
 
-	const debouncedDetection = debounce(async (videoEl: HTMLVideoElement) => {
 		if (!mlSettings.enabled || isProcessing || !videoEl || videoEl.paused) {
 			return;
 		}
@@ -72,13 +79,10 @@
 		try {
 			isProcessing = true;
 
-			// Start performance tracking
 			performanceMonitor?.startProcessing();
 
-			// Convert current frame to base64
 			const frameData = videoFrameToBase64(videoEl, 0.7);
 
-			// DEBUG: Log what we're sending
 			console.log('=== FRONTEND DEBUG ===');
 			console.log('Frame data length:', frameData.length);
 			console.log('Frame data starts with:', frameData.substring(0, 50));
@@ -141,7 +145,6 @@
 			tagUpdateInterval = undefined;
 		}
 
-		// Final tag update when stopping
 		if (detectionAggregator) {
 			setTimeout(() => updateTagsFromDetections(true), 1000);
 		}

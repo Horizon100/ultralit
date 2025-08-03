@@ -15,11 +15,11 @@ export const PUT: RequestHandler = async ({ request }) => {
 		const { accountId, to, cc, bcc, subject, body, isHtml = false, draftId } = await request.json();
 
 		if (!accountId) {
-			return json<EmailApiResponse>(
+			return json(
 				{
 					success: false,
 					error: 'Account ID is required'
-				},
+				} satisfies EmailApiResponse,
 				{ status: 400 }
 			);
 		}
@@ -44,17 +44,17 @@ export const PUT: RequestHandler = async ({ request }) => {
 			savedDraft = await pb.collection('email_drafts').create(draftData);
 		}
 
-		return json<EmailApiResponse>({
+		return json({
 			success: true,
 			data: savedDraft
-		});
+		} satisfies EmailApiResponse);
 	} catch (error) {
 		console.error('Failed to save email draft:', error);
-		return json<EmailApiResponse>(
+		return json(
 			{
 				success: false,
 				error: 'Failed to save email draft'
-			},
+			} satisfies EmailApiResponse,
 			{ status: 500 }
 		);
 	}

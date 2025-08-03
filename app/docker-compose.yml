@@ -1,0 +1,22 @@
+services:
+  # Your SvelteKit application
+  vrazum:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env.production
+    networks:
+      - app-network
+    restart: unless-stopped
+
+# Remove volumes section entirely since we're using external PocketBase
+# volumes:
+
+networks:
+  app-network:
+    driver: bridge

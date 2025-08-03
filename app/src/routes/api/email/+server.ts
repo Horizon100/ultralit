@@ -6,6 +6,7 @@ import { GmailService } from '$lib/features/email/utils/gmailService';
 import { getEmailAuthConfig, getEmailSyncConfig } from '$lib/server/email-config';
 import { pb } from '$lib/server/pocketbase';
 import type { EmailAccountSetup } from '$lib/types/types.email';
+import type { Credentials } from 'google-auth-library';
 
 // GET /api/email - Get email accounts for user
 export const GET: RequestHandler = async ({ url }) => {
@@ -44,7 +45,6 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 };
 
-// POST /api/email - Add new email account
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const { userId, provider, email, authCode }: EmailAccountSetup & { userId: string } =
@@ -65,7 +65,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		const gmailService = GmailService.createWithConfig(authConfig, syncConfig);
 
 		// Exchange auth code for tokens
-		let tokens: { access_token?: string; refresh_token?: string; expiry_date?: number } | undefined;
+		let tokens: Credentials | undefined;
 		if (authCode) {
 			tokens = await gmailService.exchangeCodeForTokens(authCode);
 		} else {
@@ -81,7 +81,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
-		if (!tokens?.access_token || !tokens?.refresh_token) {
+		// Safely extract token values, handling null values
+		const accessToken = tokens?.access_token || null;
+		const refreshToken = tokens?.refresh_token || null;
+		const expiryDate = tokens?.expiry_date || null;
+
+		if (!accessToken || !refreshToken) {
 			return json(
 				{
 					success: false,
@@ -96,9 +101,9 @@ export const POST: RequestHandler = async ({ request }) => {
 			userId,
 			email,
 			provider,
-			accessToken: tokens.access_token,
-			refreshToken: tokens.refresh_token,
-			tokenExpiry: new Date(tokens.expiry_date || Date.now() + 3600000),
+			accessToken,
+			refreshToken,
+			tokenExpiry: new Date(expiryDate || Date.now() + 3600000),
 			isActive: true,
 			lastSyncAt: new Date(),
 			syncStatus: 'idle' as const,
@@ -117,42 +122,6 @@ export const POST: RequestHandler = async ({ request }) => {
 			{
 				success: false,
 				error: 'Failed to add email account'
-			},
-			{ status: 500 }
-		);
-	}
-};
-
-// DELETE /api/email/accounts/[id] - Delete email account
-export const DELETE: RequestHandler = async ({ params }) => {
-	try {
-		const accountId = params.id;
-
-		if (!accountId) {
-			return json(
-				{
-					success: false,
-					error: 'Account ID is required'
-				},
-				{ status: 400 }
-			);
-		}
-
-		// Delete account and related data
-		await pb.collection('email_accounts').delete(accountId);
-
-		// Also delete related messages and attachments
-		await pb.collection('email_messages').delete(`accountId = "${accountId}"`);
-
-		return json({
-			success: true
-		});
-	} catch (error) {
-		console.error('Failed to delete email account:', error);
-		return json(
-			{
-				success: false,
-				error: 'Failed to delete email account'
 			},
 			{ status: 500 }
 		);

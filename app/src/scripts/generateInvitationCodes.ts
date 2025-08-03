@@ -25,7 +25,8 @@ function createPrompt() {
  * Prompt for PocketBase URL
  */
 async function getPocketBaseUrl(): Promise<string> {
-	const defaultUrl = process.env.PUBLIC_POCKETBASE_URL || process.env.POCKETBASE_URL || 'http://localhost:8090';
+	const defaultUrl =
+		process.env.PUBLIC_POCKETBASE_URL || process.env.POCKETBASE_URL || 'http://localhost:8090';
 	const rl = createPrompt();
 
 	return new Promise((resolve) => {

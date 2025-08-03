@@ -17,6 +17,7 @@ export interface AttachmentFilterOption {
 	icon: string;
 	description: string;
 }
+export type AttachmentFilterCounts = Record<AttachmentFilterType, number>;
 
 // Available filter options
 export const attachmentFilterOptions: AttachmentFilterOption[] = [

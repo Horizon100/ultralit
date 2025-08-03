@@ -5,11 +5,23 @@ import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 import type { AIAgent } from '$lib/types/types';
 import { error } from '@sveltejs/kit';
 
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (typeof error === 'string') {
+		return error;
+	}
+	if (error && typeof error === 'object' && 'message' in error) {
+		return String(error.message);
+	}
+	return 'Unknown error occurred';
+}
+
 export const GET: RequestHandler = async ({ cookies }) => {
 	try {
 		console.log('=== AGENTS API GET REQUEST START (NO AUTH) ===');
 
-		// First, let's see what users exist in the database
 		try {
 			const users = await pb.collection('users').getList(1, 5);
 			console.log(
@@ -45,22 +57,22 @@ export const GET: RequestHandler = async ({ cookies }) => {
 					debug: 'No users found in database'
 				});
 			}
-		} catch (userError) {
+		} catch (userError: unknown) {
 			console.error('❌ USER QUERY ERROR:', userError);
 			return json(
 				{
 					success: false,
-					error: 'Failed to query users: ' + userError.message
+					error: 'Failed to query users: ' + getErrorMessage(userError)
 				},
 				{ status: 500 }
 			);
 		}
-	} catch (queryError) {
+	} catch (queryError: unknown) {
 		console.error('❌ DATABASE ERROR:', queryError);
 		return json(
 			{
 				success: false,
-				error: 'Database connection failed: ' + queryError.message
+				error: 'Database connection failed: ' + getErrorMessage(queryError)
 			},
 			{ status: 500 }
 		);

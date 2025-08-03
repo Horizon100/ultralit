@@ -74,7 +74,9 @@ export const handle: Handle = async ({ event, resolve }) => {
 					console.log('👤 User set in locals:', {
 						id: event.locals.user.id,
 						email: event.locals.user.email,
-						username: event.locals.user.username
+						username: event.locals.user.username,
+						avatar: event.locals.user.avatar,
+						collectionId: event.locals.user.collectionId
 					});
 				}
 			} catch (error) {
@@ -114,7 +116,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 				"style-src 'self' 'unsafe-inline'; " +
 				"img-src 'self' data: https:; " +
 				"connect-src 'self' " +
-				process.env.VITE_POCKETBASE_URL +
+				process.env.POCKETBASE_URL +
 				';'
 		);
 	}

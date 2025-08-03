@@ -5,6 +5,7 @@ import { spawn } from 'child_process';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import crypto from 'crypto';
+import type { ScientificAnalysisResult, PaperMetadata } from '$lib/types/types.pdf';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -39,7 +40,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 };
 
-async function analyzeScientificPaper(filePath: string): Promise<any> {
+async function analyzeScientificPaper(filePath: string): Promise<ScientificAnalysisResult> {
 	const fullText = await extractFullText(filePath);
 	const sections = extractSections(fullText);
 	const references = extractReferences(fullText);
@@ -54,8 +55,8 @@ async function analyzeScientificPaper(filePath: string): Promise<any> {
 	};
 }
 
-function extractSections(text: string): any {
-	const sections = {};
+function extractSections(text: string): Record<string, string> {
+	const sections: Record<string, string> = {};
 	const commonSections = [
 		'abstract',
 		'introduction',
@@ -122,7 +123,7 @@ function extractReferences(text: string): string[] {
 	return references;
 }
 
-function extractPaperMetadata(text: string): any {
+function extractPaperMetadata(text: string): PaperMetadata {
 	const firstPage = text.split('\n').slice(0, 50).join('\n');
 	const doiMatch = text.match(/doi:\s*(10\.\d+\/[^\s]+)/i);
 	const arxivMatch = text.match(/arxiv:\s*([0-9]{4}\.[0-9]{4})/i);

@@ -15,7 +15,8 @@ import type {
 	TagPostResponse,
 	MarkAsReadResponse,
 	UpdatePostResponse,
-	DeletePostResponse
+	DeletePostResponse,
+	ServerWrappedPostsResponse
 } from '$lib/types/types.posts';
 
 function createPostStore() {
@@ -293,9 +294,12 @@ function createPostStore() {
 						offset: offset.toString()
 					});
 
-					const fetchResult = await fetchTryCatch<PostsApiResponse>(`/api/posts?${params}`, {
-						credentials: 'include'
-					});
+					const fetchResult = await fetchTryCatch<ServerWrappedPostsResponse>(
+						`/api/posts?${params}`,
+						{
+							credentials: 'include'
+						}
+					);
 
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to fetch posts by tag: ${fetchResult.error}`);
@@ -407,22 +411,24 @@ function createPostStore() {
 						params.append('parent', parentId);
 					}
 
-					const fetchResult = await fetchTryCatch<{
-						success: boolean;
-						posts: any[];
-						totalPages: number;
-						totalItems: number;
-						filters: any;
-					}>(`/api/posts?${params}`, {
+					const fetchResult = await fetchTryCatch<
+						{
+							success: boolean;
+							data?: PostsApiResponse;
+							error?: string;
+						} & Partial<PostsApiResponse>
+					>(`/api/posts?${params}`, {
 						credentials: 'include'
 					});
-
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to fetch posts: ${fetchResult.error}`);
 					}
 
 					// FIXED: Access posts directly from the API response
 					const apiResponse = fetchResult.data.data;
+					if (!apiResponse) {
+						throw new Error('No data received from server');
+					}
 					const posts = apiResponse.posts || [];
 					const hasMore = posts.length === limit;
 
@@ -479,22 +485,35 @@ function createPostStore() {
 						offset: offset.toString()
 					});
 
-					const fetchResult = await fetchTryCatch<{
-						success: boolean;
-						posts: any[];
-						totalPages: number;
-						totalItems: number;
-						filters: any;
-					}>(`/api/posts?${params}`, {
-						credentials: 'include'
-					});
+					const fetchResult = await fetchTryCatch<ServerWrappedPostsResponse>(
+						`/api/posts?${params}`,
+						{
+							credentials: 'include'
+						}
+					);
 
 					if (isFailure(fetchResult)) {
 						throw new Error(`Failed to fetch posts: ${fetchResult.error}`);
 					}
 
-					// ✅ FIXED: Remove the extra .data - same as fetchPosts
-					const apiResponse = fetchResult.data.data;
+					const data = fetchResult.data;
+
+					// Handle both nested and direct response structures
+					let apiResponse: PostsApiResponse;
+					if (data.data) {
+						// Nested structure: data.data contains PostsApiResponse
+						apiResponse = data.data;
+					} else {
+						// Direct structure: data contains PostsApiResponse properties
+						apiResponse = {
+							success: data.success,
+							posts: data.posts || [],
+							totalPages: data.totalPages || 0,
+							totalItems: data.totalItems || 0,
+							filters: data.filters
+						};
+					}
+
 					const posts = apiResponse.posts || [];
 					const hasMore = posts.length === limit;
 
@@ -1249,14 +1268,12 @@ function createPostStore() {
 				(async () => {
 					console.log('🤖 Triggering auto-reply for agents:', { postId, agentIds });
 
-					// First check if post has already been analyzed
 					const isAnalyzed = await postStore.checkPostAnalyzed(postId);
 					if (isAnalyzed) {
 						console.log('🤖 Post already analyzed, skipping auto-reply');
 						return { skipped: true, reason: 'already_analyzed' };
 					}
 
-					// Trigger auto-reply for each agent
 					const responses = await Promise.all(
 						agentIds.map(async (agentId) => {
 							try {
@@ -1276,7 +1293,8 @@ function createPostStore() {
 								return { agentId, success: true, data };
 							} catch (error) {
 								console.error(`🤖 Agent ${agentId} auto-reply error:`, error);
-								return { agentId, success: false, error: error.message };
+								const errorMessage = error instanceof Error ? error.message : String(error);
+								return { agentId, success: false, error: errorMessage };
 							}
 						})
 					);

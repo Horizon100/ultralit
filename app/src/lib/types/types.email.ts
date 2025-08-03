@@ -108,6 +108,7 @@ export interface EmailAIAnalysis {
 	category: string;
 	tags: string[];
 	summary: string;
+	topics: string[];
 	actionItems: string[];
 	suggestedResponse?: string;
 	confidenceScore: number;

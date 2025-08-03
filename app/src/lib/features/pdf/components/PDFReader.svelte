@@ -248,8 +248,27 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="pdf-reader-overlay" on:click={onClose} on:wheel|preventDefault>
-	<div class="pdf-reader" on:click|stopPropagation on:wheel|stopPropagation>
+<div
+	class="pdf-reader-overlay"
+	on:click={onClose}
+	on:wheel|preventDefault
+	on:keydown={(e) => e.key === 'Escape' && onClose()}
+	role="button"
+	aria-label="Close PDF reader"
+	tabindex="0"
+>
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+
+	<div
+		class="pdf-reader"
+		on:click|stopPropagation
+		on:wheel|stopPropagation
+		on:keydown|stopPropagation
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="pdf-title"
+		tabindex="-1"
+	>
 		<div class="pdf-header">
 			<div class="pdf-title">
 				<Icon name="FileText" size={20} />
@@ -344,6 +363,7 @@
 							</div>
 						{:else if aiResponse}
 							<div class="ai-response">
+								<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 								{@html DOMPurify.sanitize(
 									aiResponse
 										.replace(/\n/g, '<br>')

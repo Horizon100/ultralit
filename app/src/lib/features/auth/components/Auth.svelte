@@ -10,8 +10,8 @@
 		signUp as registerUser,
 		signOut,
 		requestPasswordReset,
-		  getUserSecurityQuestion, 
-  resetPasswordWithSecurity 
+		getUserSecurityQuestion,
+		resetPasswordWithSecurity
 	} from '$lib/pocketbase';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 
@@ -32,7 +32,6 @@
 	import { clientTryCatch, validationTryCatch, isSuccess, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 
-	// Form state
 	let email: string = '';
 	let password: string = '';
 	let errorMessage: string = '';
@@ -45,7 +44,7 @@
 	let isWaitlistMode: boolean = false;
 	let isLoading: boolean = false;
 	let connectionChecked: boolean = false;
-	// Touch interaction state
+
 	let startY: number = 0;
 	let currentY: number = 0;
 	let isDragging: boolean = false;
@@ -54,12 +53,17 @@
 	let newPassword: string = '';
 	let confirmPassword: string = '';
 	let userSecurityQuestion: string = '';
-	
 	let showStyles = false;
 
-	$: securityQuestions = Object.entries($t('security.passwordQuestions') as Record<string, string>).map(([key, value]) => ({
-	key,
-	question: value
+	$: securityAnswerPlaceholder = $t('security.securityAnswer') as string;
+	$: newPasswordPlaceholder = $t('security.newPassword') as string;
+	$: confirmPasswordPlaceholder = $t('security.confirmPassword') as string;
+
+	$: securityQuestions = Object.entries(
+		$t('security.passwordQuestions') as Record<string, string>
+	).map(([key, value]) => ({
+		key,
+		question: value
 	}));
 	const SWIPE_THRESHOLD = 100;
 
@@ -73,13 +77,11 @@
 	function handleTouchStart(event: TouchEvent): void {
 		if (!browser) return;
 
-		// Only initiate drag if touch starts in the top portion of the container
 		const touch = event.touches[0];
 		const element = event.currentTarget as HTMLElement;
 		const rect = element.getBoundingClientRect();
 		const touchY = touch.clientY - rect.top;
 
-		// Only start dragging if touch begins in top 20% of container
 		if (touchY < rect.height * 0.2) {
 			startY = touch.clientY;
 			isDragging = true;
@@ -92,11 +94,9 @@
 
 		const deltaY = event.touches[0].clientY - startY;
 		if (deltaY > 0) {
-			// Only allow downward dragging
 			currentY = deltaY;
 			yPosition.set(deltaY);
 
-			// Add opacity based on drag distance
 			const opacity = Math.max(0, 1 - deltaY / window.innerHeight);
 			const target = event.currentTarget as HTMLElement;
 			target.style.opacity = opacity.toString();
@@ -110,12 +110,10 @@
 
 		isDragging = false;
 		if (currentY > SWIPE_THRESHOLD) {
-			// If dragged far enough down, close
 			yPosition.set(window.innerHeight, { hard: false }).then(() => {
 				dispatch('close');
 			});
 		} else {
-			// Spring back if not dragged far enough
 			yPosition.set(0);
 			const target = event.currentTarget as HTMLElement;
 			target.style.opacity = '1';
@@ -135,7 +133,7 @@
 	function openPasswordReset(): void {
 		showPasswordReset = true;
 	}
-		function closePasswordReset(): void {
+	function closePasswordReset(): void {
 		showPasswordReset = false;
 		showSecurityQuestions = false;
 		resetSecurityAnswer = '';
@@ -143,10 +141,10 @@
 		confirmPassword = '';
 		userSecurityQuestion = '';
 		errorMessage = '';
-		}
+	}
 	function openJoinWaitlistOverlay(): void {
 		isWaitlistMode = !isWaitlistMode;
-		// Clear fields when switching modes
+
 		email = '';
 		password = '';
 		errorMessage = '';
@@ -165,7 +163,6 @@
 		isLoading = true;
 
 		try {
-			// Validation
 			const validationResult = validationTryCatch(() => {
 				if (!email || !password) {
 					throw new Error('Email and password are required');
@@ -185,7 +182,6 @@
 
 			console.log('Starting login process...');
 
-			// Attempt sign in
 			const signInResult = await clientTryCatch(signIn(email, password));
 
 			if (isSuccess(signInResult)) {
@@ -196,11 +192,9 @@
 					errorMessage = '';
 					await tick();
 
-					// Close modal and dispatch success
 					dispatch('close');
 					dispatch('success');
 
-					// Navigate to home page
 					await goto('/home');
 				} else {
 					errorMessage = 'Login failed. Please check your credentials.';
@@ -238,7 +232,6 @@
 
 			const createdUser = await registerUser(email, password);
 			if (createdUser) {
-				// Login with the newly created credentials
 				await login();
 			} else {
 				errorMessage = 'Signup failed. Please try again.';
@@ -265,7 +258,6 @@
 				return;
 			}
 
-			// Implementation for waitlist submission
 			const response = await fetch('/api/verify/waitlist', {
 				method: 'POST',
 				headers: {
@@ -283,7 +275,7 @@
 					const data = await response.json();
 					errorText = data.message || data.error || errorText;
 				} catch (e) {
-					// Use default error message if JSON parsing fails
+					console.warn('Failed to parse error response:', e);
 				}
 				errorMessage = errorText;
 			}
@@ -323,14 +315,12 @@
 	function updateAvatarUrl(): void {
 		const user = get(currentUser);
 		if (user && user.avatar) {
-			// Use pocketbaseUrl to construct the avatar URL
 			avatarUrl = `${pocketbaseUrl}/api/files/${user.collectionId}/${user.id}/${user.avatar}`;
 		} else {
 			avatarUrl = null;
 		}
 	}
 
-	// Watch currentUser for changes
 	currentUser.subscribe((user) => {
 		if (user) {
 			updateAvatarUrl();
@@ -339,57 +329,57 @@
 		}
 	});
 
-async function startPasswordReset(): Promise<void> {
-  if (!email) {
-    errorMessage = 'Email is required';
-    return;
-  }
+	async function startPasswordReset(): Promise<void> {
+		if (!email) {
+			errorMessage = 'Email is required';
+			return;
+		}
 
-  isLoading = true;
-  errorMessage = '';
+		isLoading = true;
+		errorMessage = '';
 
-  try {
-    const question = await getUserSecurityQuestion(email);
-    userSecurityQuestion = question;
-    showSecurityQuestions = true;
-  } catch (err) {
-    console.error('Error getting security question:', err);
-    errorMessage = err instanceof Error ? err.message : 'Failed to find security question for this email';
-  } finally {
-    isLoading = false;
-  }
-}
+		try {
+			const question = await getUserSecurityQuestion(email);
+			userSecurityQuestion = question;
+			showSecurityQuestions = true;
+		} catch (err) {
+			console.error('Error getting security question:', err);
+			errorMessage =
+				err instanceof Error ? err.message : 'Failed to find security question for this email';
+		} finally {
+			isLoading = false;
+		}
+	}
 
-async function resetPasswordWithSecurityAnswer(): Promise<void> {
-  if (!email || !resetSecurityAnswer || !newPassword || !confirmPassword) {
-    errorMessage = 'All fields are required';
-    return;
-  }
+	async function resetPasswordWithSecurityAnswer(): Promise<void> {
+		if (!email || !resetSecurityAnswer || !newPassword || !confirmPassword) {
+			errorMessage = 'All fields are required';
+			return;
+		}
 
-  if (newPassword !== confirmPassword) {
-    errorMessage = 'Passwords do not match';
-    return;
-  }
+		if (newPassword !== confirmPassword) {
+			errorMessage = 'Passwords do not match';
+			return;
+		}
 
-  isLoading = true;
-  errorMessage = '';
+		isLoading = true;
+		errorMessage = '';
 
-  try {
-    await resetPasswordWithSecurity(email, resetSecurityAnswer, newPassword);
-    
-    // Success - close reset form and show success message
-    closePasswordReset();
-    dispatch('notification', {
-      type: 'success',
-      message: 'Password reset successfully! You can now login with your new password.'
-    });
-  } catch (err) {
-    console.error('Password reset error:', err);
-    errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
-  } finally {
-    isLoading = false;
-  }
-}
+		try {
+			await resetPasswordWithSecurity(email, resetSecurityAnswer, newPassword);
+
+			closePasswordReset();
+			dispatch('notification', {
+				type: 'success',
+				message: 'Password reset successfully! You can now login with your new password.'
+			});
+		} catch (err) {
+			console.error('Password reset error:', err);
+			errorMessage = err instanceof Error ? err.message : 'Failed to reset password';
+		} finally {
+			isLoading = false;
+		}
+	}
 	$: emailPlaceholder = $t('profile.email') as string;
 	$: passwordPlaceholder = $t('profile.password') as string;
 	$: resetPlaceholder = $t('profile.emailReset') as string;
@@ -397,7 +387,6 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 	onMount(async () => {
 		if (!browser) return;
 
-		// Check server connection
 		const connectionResult = await clientTryCatch(
 			checkPocketBaseConnection(),
 			'Server connection check'
@@ -416,7 +405,6 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 			return;
 		}
 
-		// Handle user avatar update if user is authenticated
 		const userValidation = validationTryCatch(() => {
 			const user = get(currentUser);
 			return user?.id ? user : null;
@@ -525,7 +513,11 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 							{/if}
 						</button>
 					</span>
-					<div class="auth-btn" on:click={openInvitationOverlay} transition:fly={{ duration: 300 }}>
+					<button
+						class="auth-btn"
+						on:click={openInvitationOverlay}
+						transition:fly={{ duration: 300 }}
+					>
 						<span>
 							<!-- <MailPlus />	 -->
 							<span class="btn-description">
@@ -533,109 +525,110 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 							</span>
 							<!-- {isLoading ? 'Signing up...' : ''} -->
 						</span>
-					</div>
-{#if showPasswordReset}
-	{#if !showSecurityQuestions}
-		<!-- Step 1: Enter email to get security question -->
-		<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
-			<button class="round-btn back" on:click={closePasswordReset}>
-				<Icon name="ChevronLeft" />
-			</button>
-			<input
-				type="email"
-				bind:value={email}
-				placeholder={resetPlaceholder}
-				required
-				disabled={isLoading}
-			/>
-			<button class="round-btn submit" on:click={startPasswordReset} disabled={isLoading}>
-				{#if isLoading}
-					<div class="small-spinner-container">
-						<div class="small-spinner">
-							<Icon name="Bot" />
-						</div>
-					</div>
-				{:else}
-					<span>Next</span>
-					<Icon name="ChevronRight" />
-				{/if}
-			</button>
-		</span>
-	{:else}
-		<!-- Step 2: Answer security question and set new password -->
-		<div class="security-reset" transition:fly={{ duration: 300 }}>
-			<h3>{$t('security.securityQuestionTitle')}</h3>
-			<p class="security-question-text">
-				{securityQuestions.find(q => q.key === userSecurityQuestion)?.question || userSecurityQuestion}
-			</p>
-			
-			<span class="security-answer-input">
-				<input
-					type="text"
-					bind:value={resetSecurityAnswer}
-					placeholder={$t('security.securityAnswer')}
-					required
-					disabled={isLoading}
-				/>
-			</span>
+					</button>
+					{#if showPasswordReset}
+						{#if !showSecurityQuestions}
+							<!-- Step 1: Enter email to get security question -->
+							<span class="email-input" transition:fly={{ duration: 300, delay: 100 }}>
+								<button class="round-btn back" on:click={closePasswordReset}>
+									<Icon name="ChevronLeft" />
+								</button>
+								<input
+									type="email"
+									bind:value={email}
+									placeholder={resetPlaceholder}
+									required
+									disabled={isLoading}
+								/>
+								<button class="round-btn submit" on:click={startPasswordReset} disabled={isLoading}>
+									{#if isLoading}
+										<div class="small-spinner-container">
+											<div class="small-spinner">
+												<Icon name="Bot" />
+											</div>
+										</div>
+									{:else}
+										<span>Next</span>
+										<Icon name="ChevronRight" />
+									{/if}
+								</button>
+							</span>
+						{:else}
+							<!-- Step 2: Answer security question and set new password -->
+							<div class="security-reset" transition:fly={{ duration: 300 }}>
+								<h3>{$t('security.securityQuestionTitle')}</h3>
+								<p class="security-question-text">
+									{securityQuestions.find((q) => q.key === userSecurityQuestion)?.question ||
+										userSecurityQuestion}
+								</p>
 
-			<span class="password-input">
-				<input
-					type="password"
-					bind:value={newPassword}
-					placeholder={$t('security.newPassword')}
-					required
-					disabled={isLoading}
-				/>
-			</span>
+								<span class="security-answer-input">
+									<input
+										type="text"
+										bind:value={resetSecurityAnswer}
+										placeholder={securityAnswerPlaceholder}
+										required
+										disabled={isLoading}
+									/>
+								</span>
 
-			<span class="password-input">
-				<input
-					type="password"
-					bind:value={confirmPassword}
-					placeholder={$t('security.confirmPassword')}
-					required
-					disabled={isLoading}
-				/>
-			</span>
+								<span class="password-input">
+									<input
+										type="password"
+										bind:value={newPassword}
+										placeholder={newPasswordPlaceholder}
+										required
+										disabled={isLoading}
+									/>
+								</span>
 
-			<div class="reset-actions">
-				<button class="round-btn back" on:click={() => showSecurityQuestions = false}>
-					<Icon name="ChevronLeft" />
-				</button>
-				
-				<button 
-					class="round-btn submit" 
-					on:click={resetPasswordWithSecurityAnswer} 
-					disabled={isLoading}
-				>
-					{#if isLoading}
-						<div class="small-spinner-container">
-							<div class="small-spinner">
-								<Icon name="Bot" />
+								<span class="password-input">
+									<input
+										type="password"
+										bind:value={confirmPassword}
+										placeholder={confirmPasswordPlaceholder}
+										required
+										disabled={isLoading}
+									/>
+								</span>
+
+								<div class="reset-actions">
+									<button class="round-btn back" on:click={() => (showSecurityQuestions = false)}>
+										<Icon name="ChevronLeft" />
+									</button>
+
+									<button
+										class="round-btn submit"
+										on:click={resetPasswordWithSecurityAnswer}
+										disabled={isLoading}
+									>
+										{#if isLoading}
+											<div class="small-spinner-container">
+												<div class="small-spinner">
+													<Icon name="Bot" />
+												</div>
+											</div>
+										{:else}
+											<span>{$t('profile.reset')}</span>
+											<Icon name="CheckCircle" />
+										{/if}
+									</button>
+								</div>
 							</div>
-						</div>
+						{/if}
 					{:else}
-						<span>{$t('profile.reset')}</span>
-						<Icon name="CheckCircle" />
+						<button
+							class="auth-btn reset"
+							on:click={openPasswordReset}
+							transition:fly={{ duration: 300 }}
+						>
+							<span>
+								<span class="btn-description">
+									{$t('profile.passwordHelp')}
+								</span>
+							</span>
+						</button>
 					{/if}
-				</button>
-			</div>
-		</div>
-	{/if}
-{:else}
-	<div
-		class="auth-btn reset"
-		on:click={openPasswordReset}
-		transition:fly={{ duration: 300 }}
-	>
-		<span>
-			<span class="btn-description">
-				{$t('profile.passwordHelp')}
-			</span>
-		</span>
-	</div>
-{/if}
 
 					<!-- <button 
 					class="button button-subtle" 
@@ -687,7 +680,6 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 {/if}
 
 <style lang="scss">
-	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -715,24 +707,11 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-
 		width: auto;
-		// border-radius: 2rem;
-		// background: var(--bg-gradient);
-		// border: 1px solid rgb(53, 53, 53);
-		/* border-radius: 20px; */
-		/* border-bottom-left-radius: 100%; */
-		/* border-bottom-right-radius: 100%; */
 		justify-content: center;
 		align-items: center;
 		gap: 20px;
-		/* height: 50px; */
 		padding: 3rem;
-		/* width: 100%; */
-		/* padding: 20px; */
-		/* width: 100%; */
-		/* width: 300px; */
-		/* height: 40px; */
 	}
 
 	.login-container {
@@ -822,7 +801,7 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 		align-items: center;
 		justify-content: center;
 		width: 100%;
-		// padding: 10px;
+
 		border: none;
 		cursor: pointer;
 		background: transparent;
@@ -906,18 +885,13 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 	}
 
 	/* Hover effects for buttons */
-	// .button-group .button:hover {
-	// 	background-color: var(--tertiary-color); /* Darken background on hover */
-	// 	opacity: 1;
-	// }
 
 	@media (max-width: 768px) {
 		.auth-container {
 			display: flex;
-			// background-color: rgba(255, 255, 255, 0.1);
-			// backdrop-filter: blur(10px);
+
 			color: var(--text-color);
-			// border: 1px solid rgb(53, 53, 53);
+
 			/* border-radius: 20px; */
 			/* border-bottom-left-radius: 100%; */
 			/* border-bottom-right-radius: 100%; */
@@ -926,10 +900,10 @@ async function resetPasswordWithSecurityAnswer(): Promise<void> {
 			border-radius: var(--radius-m);
 			padding: 1rem;
 			/* height: 50px; */
-			// padding: 10px 20px;
+
 			/* width: 100%; */
 			/* padding: 20px; */
-			// /* width: 100%; */
+
 			/* width: 300px; */
 
 			/* height: 40px; */

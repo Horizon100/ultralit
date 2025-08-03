@@ -34,12 +34,10 @@
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
 
-
 	$: userAvatarUrl = getAvatarUrl(user);
 	$: userIdentifier = user ? getUserIdentifier(user) : null;
 	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
 	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
-
 
 	let isLoading = false;
 	let completeUser: User | null = null;
@@ -551,6 +549,7 @@
 
 		return result.data;
 	}
+	let descriptionValue = '';
 
 	function cancelEdit() {
 		descriptionValue = user?.description || '';
@@ -644,11 +643,8 @@
 	});
 </script>
 
-<div
-	class="modal-overlay {$currentTheme}"
-	on:click={handleOutsideClick}
->
-	<div class="modal-content" on:click|stopPropagation >
+<div class="modal-overlay {$currentTheme}" on:click={handleOutsideClick}>
+	<div class="modal-content" on:click|stopPropagation>
 		<div class="settings-row">
 			<div class="btn-row">
 				<button class="back-button" on:click={onClose}>
@@ -701,11 +697,11 @@
 											on:change={handleFileChange}
 											style="display: none;"
 										/>
-						<img
-							src={finalAvatarUrl || '/api/placeholder/120/120'}
-							alt="{user?.name || user?.username || 'User'}'s avatar"
-							class="avatar"
-						/>
+										<img
+											src={finalAvatarUrl || '/api/placeholder/120/120'}
+											alt="{user?.name || user?.username || 'User'}'s avatar"
+											class="avatar"
+										/>
 
 										<!-- Make the overlay clickable too -->
 										<div class="avatar-overlay" on:click={handleAvatarClick}>
@@ -927,7 +923,7 @@
 							title="Stats"
 						>
 							<Icon name="Layers" size={20} />
-							<span>{$t('generic.stats')}</span>
+							<span>{$t('profile.stats')}</span>
 						</button>
 						<!-- <button
 								class="tab-button {activeTab === 'tags' ? 'active' : ''}"
@@ -1164,13 +1160,13 @@
 		justify-content: flex-start;
 		align-items: center;
 	}
-			.header-wrapper {
-			display: flex;
-			flex-direction: row;
-			justify-content: flex-start;
-			align-items: center;
-			gap: 0.5rem;
-		}
+	.header-wrapper {
+		display: flex;
+		flex-direction: row;
+		justify-content: flex-start;
+		align-items: center;
+		gap: 0.5rem;
+	}
 	.info-wrapper {
 		display: flex;
 		flex-direction: column;
@@ -1747,21 +1743,25 @@
 		margin: 0;
 		font-size: 1.25rem;
 	}
+	.email-tab {
+	}
 	.tab-content {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
+		width: 100%;
 		flex: 1;
 		margin-top: 1rem;
+		margin-left: 2rem;
 	}
 	.tabs-container {
 		margin-top: 2rem;
 		margin-bottom: 1rem;
 		margin-right: 0;
 		display: flex;
+		width: 100%;
 		position: relative;
 		justify-content: flex-end;
-		width: 100%;
 	}
 
 	.tabs-navigation {
@@ -1781,28 +1781,28 @@
 				color: var(--placeholder-color);
 			}
 		}
-			button.back-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		position: absolute;
-		top: 1rem;
-		left: 0.5rem;
-		padding: 0.5rem;
-		border-radius: 50%;
-		height: 2rem;
-		width: 2rem;
-		gap: 0.2rem;
-		background: var(--primary-color);
-		border: 1px solid var(--border-color);
-		color: var(--text-color);
-		transition: all 0.2s ease;
-		opacity: 0.5;
-		cursor: pointer;
-		&:hover {
-			background: var(--secondary-color);
+		button.back-button {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			position: absolute;
+			top: 1rem;
+			left: 0.5rem;
+			padding: 0.5rem;
+			border-radius: 50%;
+			height: 2rem;
+			width: 2rem;
+			gap: 0.2rem;
+			background: var(--primary-color);
+			border: 1px solid var(--border-color);
+			color: var(--text-color);
+			transition: all 0.2s ease;
+			opacity: 0.5;
+			cursor: pointer;
+			&:hover {
+				background: var(--secondary-color);
+			}
 		}
-	}
 		span.info-avatar {
 			font-size: 3rem;
 		}
@@ -1829,9 +1829,6 @@
 			width: 300px;
 			margin-top: 1rem;
 		}
-
-
-
 
 		.style-overlay {
 			top: auto;

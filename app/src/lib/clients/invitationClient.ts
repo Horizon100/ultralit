@@ -21,7 +21,7 @@ export async function validateInvitationCode(
 	code: string
 ): Promise<Result<InvitationCode | null, string>> {
 	console.log('🌐 Starting API call for code:', code);
-	
+
 	const result = await fetchTryCatch<any>(`/api/verify/invitation-codes/validate`, {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -35,11 +35,11 @@ export async function validateInvitationCode(
 		console.log('📦 Response data:', responseData);
 		console.log('📦 Response data keys:', Object.keys(responseData));
 		console.log('✅ Response success:', responseData.success);
-		
+
 		// Check if the response has a 'data' property with the invitation code
 		if (responseData.success) {
 			let invitationCode;
-			
+
 			// Handle different response structures
 			if (responseData.invitationCode) {
 				invitationCode = responseData.invitationCode;
@@ -49,24 +49,24 @@ export async function validateInvitationCode(
 				// The data itself might be the invitation code object
 				invitationCode = responseData.data;
 			}
-			
+
 			console.log('🎫 Found invitationCode:', invitationCode);
-			
+
 			if (invitationCode) {
 				console.log('✅ Returning successful result');
-				return { 
-					data: invitationCode, 
-					error: null, 
-					success: true 
+				return {
+					data: invitationCode,
+					error: null,
+					success: true
 				};
 			}
 		}
-		
+
 		console.log('❌ Response indicates failure or no invitation code found');
-		return { 
-			data: null, 
-			error: responseData.message || 'Invalid invitation code', 
-			success: false 
+		return {
+			data: null,
+			error: responseData.message || 'Invalid invitation code',
+			success: false
 		};
 	}
 

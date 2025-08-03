@@ -1,592 +1,600 @@
 $ prettier --write . && eslint . --fix
-.prettierrc.json 19ms (unchanged)
+.prettierrc.json 21ms (unchanged)
 .stylelintrc.json 1ms (unchanged)
-.yarnrc.yml 11ms (unchanged)
-eslint.config.js 9ms (unchanged)
-ICON_MIGRATION.md 74ms (unchanged)
+.yarnrc.yml 12ms (unchanged)
+eslint.config.js 8ms (unchanged)
+ICON_MIGRATION.md 82ms (unchanged)
 package.json 3ms (unchanged)
 playwright.config.ts 2ms (unchanged)
 postcss.config.cjs 1ms (unchanged)
 README.md 2ms (unchanged)
-scripts/install-platform-deps.js 12ms (unchanged)
-src/app.html 27ms (unchanged)
-src/app.postcss 9ms (unchanged)
-src/hooks.server.ts 19ms
+scripts/install-platform-deps.js 10ms (unchanged)
+src/app.html 30ms (unchanged)
+src/app.postcss 7ms (unchanged)
+src/hooks.server.ts 15ms (unchanged)
 src/index.test.ts 1ms (unchanged)
-src/lib/clients/actionClient.ts 10ms (unchanged)
-src/lib/clients/agentClient.ts 20ms (unchanged)
-src/lib/clients/aiClient.ts 50ms (unchanged)
-src/lib/clients/gameClient.ts 12ms (unchanged)
+src/lib/clients/actionClient.ts 8ms (unchanged)
+src/lib/clients/agentClient.ts 19ms (unchanged)
+src/lib/clients/aiClient.ts 43ms (unchanged)
+src/lib/clients/gameClient.ts 10ms (unchanged)
 src/lib/clients/ideClient.ts 9ms (unchanged)
 src/lib/clients/index.ts 1ms (unchanged)
-src/lib/clients/invitationClient.ts 3ms (unchanged)
+src/lib/clients/invitationClient.ts 4ms (unchanged)
 src/lib/clients/keywords.ts 1ms (unchanged)
 src/lib/clients/mapOverlays.ts 5ms (unchanged)
 src/lib/clients/mapProcessor.ts 2ms (unchanged)
-src/lib/clients/modelClient.ts 12ms (unchanged)
-src/lib/clients/notesClient.ts 11ms (unchanged)
+src/lib/clients/modelClient.ts 11ms (unchanged)
+src/lib/clients/notesClient.ts 10ms (unchanged)
 src/lib/clients/pdfClient.ts 5ms (unchanged)
 src/lib/clients/profileClient.ts 8ms (unchanged)
-src/lib/clients/projectClient.ts 14ms (unchanged)
-src/lib/clients/promptInputClient.ts 4ms (unchanged)
+src/lib/clients/projectClient.ts 12ms (unchanged)
+src/lib/clients/promptInputClient.ts 3ms (unchanged)
 src/lib/clients/realtime.ts 0ms (unchanged)
-src/lib/clients/taskClient.ts 46ms (unchanged)
-src/lib/clients/threadsClient.ts 28ms
-src/lib/components/analytics/UmamiAnalytics.svelte 16ms
-src/lib/components/buttons/AssignButton.svelte 49ms (unchanged)
-src/lib/components/buttons/BackButton.svelte 6ms (unchanged)
-src/lib/components/buttons/GoogleAuth.svelte 17ms (unchanged)
+src/lib/clients/securityClient.ts 2ms (unchanged)
+src/lib/clients/taskClient.ts 44ms (unchanged)
+src/lib/clients/threadsClient.ts 23ms (unchanged)
+src/lib/components/analytics/UmamiAnalytics.svelte 15ms (unchanged)
+src/lib/components/buttons/AssignButton.svelte 45ms (unchanged)
+src/lib/components/buttons/BackButton.svelte 5ms (unchanged)
+src/lib/components/buttons/GoogleAuth.svelte 7ms (unchanged)
 src/lib/components/buttons/KeyStatusButton.svelte 7ms (unchanged)
-src/lib/components/buttons/ModelButton.svelte 16ms (unchanged)
-src/lib/components/buttons/ProjectDropdown.svelte 86ms (unchanged)
-src/lib/components/buttons/RecordButton.svelte 178ms (unchanged)
+src/lib/components/buttons/ModelButton.svelte 7ms (unchanged)
+src/lib/components/buttons/ProjectDropdown.svelte 33ms (unchanged)
+src/lib/components/buttons/RecordButton.svelte 25ms (unchanged)
 src/lib/components/buttons/SummaryButton.svelte 2ms (unchanged)
-src/lib/components/buttons/TagsDropdown.svelte 71ms (unchanged)
-src/lib/components/buttons/TimeTracker.svelte 32ms (unchanged)
-src/lib/components/cards/FeatureCard.svelte 76ms (unchanged)
-src/lib/components/cards/ProjectCard.svelte 785ms (unchanged)
-src/lib/components/charts/CircleMap.svelte 44ms (unchanged)
-src/lib/components/charts/GantChart.svelte 227ms (unchanged)
-src/lib/components/charts/Icicle.svelte 76ms (unchanged)
-src/lib/components/charts/NetworkVisualization.svelte 11ms (unchanged)
-src/lib/components/chat/ChatHeader.svelte 118ms (unchanged)
-src/lib/components/chat/MessageInput.svelte 535ms
-src/lib/components/chat/MessageList.svelte 49ms (unchanged)
-src/lib/components/chat/ThreadSidebar.svelte 211ms (unchanged)
-src/lib/components/data/Calendar.svelte 12ms (unchanged)
-src/lib/components/feedback/IdeNotification.svelte 29ms (unchanged)
-src/lib/components/feedback/LoadingSpinner.svelte 6ms (unchanged)
-src/lib/components/feedback/TaskNotification.svelte 26ms (unchanged)
-src/lib/components/forms/InvitationForm.svelte 17ms (unchanged)
-src/lib/components/media/AudioPlayer.svelte 27ms (unchanged)
-src/lib/components/media/VideoPlayer.svelte 63ms (unchanged)
-src/lib/components/modals/Debugger.svelte 17ms (unchanged)
-src/lib/components/modals/GenericOverlay.svelte 6ms (unchanged)
+src/lib/components/buttons/TagsDropdown.svelte 32ms (unchanged)
+src/lib/components/buttons/TimeTracker.svelte 8ms (unchanged)
+src/lib/components/cards/FeatureCard.svelte 9ms (unchanged)
+src/lib/components/cards/ProjectCard.svelte 62ms (unchanged)
+src/lib/components/charts/CircleMap.svelte 9ms (unchanged)
+src/lib/components/charts/GantChart.svelte 68ms (unchanged)
+src/lib/components/charts/Icicle.svelte 13ms (unchanged)
+src/lib/components/charts/NetworkVisualization.svelte 5ms (unchanged)
+src/lib/components/chat/ChatHeader.svelte 19ms
+src/lib/components/chat/MessageInput.svelte 48ms
+src/lib/components/chat/MessageList.svelte 12ms (unchanged)
+src/lib/components/chat/ThreadSidebar.svelte 43ms (unchanged)
+src/lib/components/data/Calendar.svelte 1ms (unchanged)
+src/lib/components/feedback/IdeNotification.svelte 12ms (unchanged)
+src/lib/components/feedback/LoadingSpinner.svelte 4ms (unchanged)
+src/lib/components/feedback/TaskNotification.svelte 8ms (unchanged)
+src/lib/components/forms/InvitationForm.svelte 22ms (unchanged)
+src/lib/components/media/AudioPlayer.svelte 24ms (unchanged)
+src/lib/components/media/VideoPlayer.svelte 32ms (unchanged)
+src/lib/components/modals/Debugger.svelte 8ms (unchanged)
+src/lib/components/modals/GenericOverlay.svelte 4ms (unchanged)
 src/lib/components/modals/ShareModal.svelte 9ms (unchanged)
-src/lib/components/modals/Toast.svelte 8ms (unchanged)
-src/lib/components/navigation/GameDynamicSidenav.svelte 21ms (unchanged)
-src/lib/components/navigation/LeftSideMenu.svelte 11ms (unchanged)
-src/lib/components/navigation/RightSideMenu.svelte 13ms (unchanged)
-src/lib/components/navigation/SearchEngine.svelte 87ms (unchanged)
-src/lib/components/ui/Icon.svelte 20ms (unchanged)
-src/lib/composables/useLifecycleManagement.ts 60ms
-src/lib/composables/useMessageHandling.ts 0ms (unchanged)
-src/lib/composables/useReplyHandling.ts 13ms (unchanged)
-src/lib/composables/useScrollManagement.ts 13ms (unchanged)
+src/lib/components/modals/Toast.svelte 5ms (unchanged)
+src/lib/components/navigation/GameDynamicSidenav.svelte 17ms (unchanged)
+src/lib/components/navigation/LeftSideMenu.svelte 10ms (unchanged)
+src/lib/components/navigation/RightSideMenu.svelte 8ms (unchanged)
+src/lib/components/navigation/SearchEngine.svelte 64ms (unchanged)
+src/lib/components/ui/Icon.svelte 13ms (unchanged)
+src/lib/composables/useLifecycleManagement.ts 23ms (unchanged)
+src/lib/composables/useMessageHandling.ts 1ms (unchanged)
+src/lib/composables/useReplyHandling.ts 7ms (unchanged)
+src/lib/composables/useScrollManagement.ts 7ms (unchanged)
 src/lib/composables/useSwipeGestures.ts 0ms (unchanged)
 src/lib/composables/useThreadManagement.ts 0ms (unchanged)
 src/lib/features/agents/components/AgentContent.svelte 4ms (unchanged)
-src/lib/features/agents/components/AgentGen.svelte 27ms (unchanged)
+src/lib/features/agents/components/AgentGen.svelte 13ms (unchanged)
 src/lib/features/agents/components/AgentInterfaces.svelte 0ms (unchanged)
-src/lib/features/agents/components/AgentPicker.svelte 90ms (unchanged)
+src/lib/features/agents/components/AgentPicker.svelte 57ms (unchanged)
 src/lib/features/agents/components/AgentPreferences.svelte 0ms (unchanged)
-src/lib/features/agents/components/AgentsConfig.svelte 163ms
-src/lib/features/agents/components/AgentsList.svelte 75ms (unchanged)
-src/lib/features/agents/components/AiMenu.svelte 17ms
-src/lib/features/agents/components/CircularAgentView.svelte 14ms (unchanged)
+src/lib/features/agents/components/AgentsConfig.svelte 97ms
+src/lib/features/agents/components/AgentsList.svelte 54ms (unchanged)
+src/lib/features/agents/components/AiMenu.svelte 10ms (unchanged)
+src/lib/features/agents/components/CircularAgentView.svelte 6ms (unchanged)
 src/lib/features/agents/components/CodeExeConfig.svelte 0ms (unchanged)
-src/lib/features/agents/components/ConfigWrapper.svelte 41ms (unchanged)
-src/lib/features/agents/components/Paper.svelte 16ms (unchanged)
-src/lib/features/agents/utils/agentAvatarUtils.ts 3ms (unchanged)
-src/lib/features/agents/utils/erp.ts 5ms (unchanged)
-src/lib/features/agents/utils/GeneratorAgent.ts 1ms (unchanged)
+src/lib/features/agents/components/ConfigWrapper.svelte 24ms (unchanged)
+src/lib/features/agents/components/Paper.svelte 13ms (unchanged)
+src/lib/features/agents/utils/agentAvatarUtils.ts 2ms (unchanged)
+src/lib/features/agents/utils/erp.ts 1ms (unchanged)
+src/lib/features/agents/utils/GeneratorAgent.ts 0ms (unchanged)
 src/lib/features/agents/utils/RelayAgent.ts 0ms (unchanged)
-src/lib/features/agents/utils/RouterAgent.ts 1ms (unchanged)
-src/lib/features/ai/components/analysis/LocalAIAnalysisButton.svelte 107ms (unchanged)
-src/lib/features/ai/components/analysis/LocalAIAnalysisModal.svelte 93ms (unchanged)
-src/lib/features/ai/components/chat/AIChat.svelte 142ms
-src/lib/features/ai/components/chat/JsonFormat.svelte 12ms (unchanged)
+src/lib/features/agents/utils/RouterAgent.ts 0ms (unchanged)
+src/lib/features/ai/components/analysis/LocalAIAnalysisButton.svelte 72ms (unchanged)
+src/lib/features/ai/components/chat/AIChat.svelte 145ms
+src/lib/features/ai/components/chat/JsonFormat.svelte 7ms (unchanged)
 src/lib/features/ai/components/chat/MessageHeader.svelte 5ms (unchanged)
 src/lib/features/ai/components/chat/MessageProcessor.svelte 5ms (unchanged)
-src/lib/features/ai/components/chat/MsgBookmarks.svelte 26ms (unchanged)
-src/lib/features/ai/components/chat/Reactions.svelte 19ms (unchanged)
-src/lib/features/ai/components/chat/RecursiveMessage.svelte 74ms
-src/lib/features/ai/components/chat/ReferenceSelector.svelte 8ms (unchanged)
-src/lib/features/ai/components/models/APIKeyInput.svelte 8ms (unchanged)
+src/lib/features/ai/components/chat/MsgBookmarks.svelte 13ms (unchanged)
+src/lib/features/ai/components/chat/Reactions.svelte 15ms (unchanged)
+src/lib/features/ai/components/chat/RecursiveMessage.svelte 270ms
+src/lib/features/ai/components/chat/ReferenceSelector.svelte 20ms (unchanged)
+src/lib/features/ai/components/models/APIKeyInput.svelte 13ms (unchanged)
 src/lib/features/ai/components/models/APIKeyManager.svelte 14ms (unchanged)
-src/lib/features/ai/components/models/LocalModelSelector.svelte 18ms (unchanged)
-src/lib/features/ai/components/models/ModelsConfig.svelte 101ms (unchanged)
-src/lib/features/ai/components/models/ModelSelector.svelte 68ms (unchanged)
-src/lib/features/ai/components/prompts/PromptInput.svelte 32ms (unchanged)
-src/lib/features/ai/components/prompts/PromptSelector.svelte 14ms (unchanged)
-src/lib/features/ai/components/prompts/SysPromptSelector.svelte 21ms (unchanged)
-src/lib/features/ai/utils/chatCopyHandler.ts 3ms (unchanged)
+src/lib/features/ai/components/models/LocalModelSelector.svelte 84ms (unchanged)
+src/lib/features/ai/components/models/ModelsConfig.svelte 201ms (unchanged)
+src/lib/features/ai/components/models/ModelSelector.svelte 223ms (unchanged)
+src/lib/features/ai/components/prompts/PromptInput.svelte 28ms (unchanged)
+src/lib/features/ai/components/prompts/PromptSelector.svelte 17ms (unchanged)
+src/lib/features/ai/components/prompts/SysPromptSelector.svelte 24ms (unchanged)
+src/lib/features/ai/utils/chatCopyHandler.ts 4ms (unchanged)
 src/lib/features/ai/utils/contextAnalyzer.ts 7ms (unchanged)
 src/lib/features/ai/utils/handleReplyMessage.ts 2ms (unchanged)
-src/lib/features/ai/utils/localPrompts.ts 2ms (unchanged)
-src/lib/features/ai/utils/markdownProcessor.ts 17ms
+src/lib/features/ai/utils/localPrompts.ts 3ms (unchanged)
+src/lib/features/ai/utils/markdownProcessor.ts 20ms (unchanged)
 src/lib/features/ai/utils/markupFormatter.ts 3ms (unchanged)
-src/lib/features/ai/utils/models.ts 8ms (unchanged)
-src/lib/features/ai/utils/modelUtils.ts 5ms (unchanged)
-src/lib/features/ai/utils/prompts.ts 8ms (unchanged)
-src/lib/features/ai/utils/promptUtils.ts 6ms (unchanged)
+src/lib/features/ai/utils/models.ts 5ms (unchanged)
+src/lib/features/ai/utils/modelUtils.ts 4ms (unchanged)
+src/lib/features/ai/utils/prompts.ts 7ms (unchanged)
+src/lib/features/ai/utils/promptUtils.ts 4ms (unchanged)
 src/lib/features/ai/utils/providers.ts 13ms (unchanged)
 src/lib/features/ai/utils/providerUtils.ts 2ms (unchanged)
 src/lib/features/ai/utils/startPrompts.ts 1ms (unchanged)
 src/lib/features/ai/utils/validateAnthropic.ts 2ms (unchanged)
 src/lib/features/ai/utils/validateGoogle.ts 1ms (unchanged)
-src/lib/features/ai/utils/validateGrok.ts 4ms (unchanged)
-src/lib/features/ai/utils/validateOpenAI.ts 2ms (unchanged)
-src/lib/features/auth/components/Auth.svelte 36ms (unchanged)
-src/lib/features/canvas/components/ActionsConfig.svelte 24ms (unchanged)
-src/lib/features/canvas/components/Assets.svelte 20ms (unchanged)
-src/lib/features/canvas/components/CanvasControls.svelte 4ms (unchanged)
+src/lib/features/ai/utils/validateGrok.ts 2ms (unchanged)
+src/lib/features/ai/utils/validateOpenAI.ts 1ms (unchanged)
+src/lib/features/auth/components/Auth.svelte 35ms (unchanged)
+src/lib/features/canvas/components/ActionsConfig.svelte 14ms (unchanged)
+src/lib/features/canvas/components/Assets.svelte 12ms (unchanged)
+src/lib/features/canvas/components/CanvasControls.svelte 5ms (unchanged)
 src/lib/features/canvas/components/Connector.svelte 3ms (unchanged)
-src/lib/features/canvas/components/CursorComponent.svelte 5ms (unchanged)
+src/lib/features/canvas/components/CursorComponent.svelte 4ms (unchanged)
 src/lib/features/canvas/components/CursorEffect.svelte 4ms (unchanged)
-src/lib/features/canvas/components/FileContainer.svelte 17ms (unchanged)
-src/lib/features/canvas/components/ImportDocs.svelte 5ms (unchanged)
+src/lib/features/canvas/components/FileContainer.svelte 19ms (unchanged)
+src/lib/features/canvas/components/ImportDocs.svelte 4ms (unchanged)
 src/lib/features/canvas/components/StickerContent.svelte 0ms (unchanged)
-src/lib/features/canvas/components/StickerCreator.svelte 5ms (unchanged)
-src/lib/features/dm/components/DMChat.svelte 12ms (unchanged)
-src/lib/features/dm/components/DMDrawer.svelte 16ms (unchanged)
+src/lib/features/canvas/components/StickerCreator.svelte 4ms (unchanged)
+src/lib/features/dm/components/DMChat.svelte 11ms (unchanged)
+src/lib/features/dm/components/DMDrawer.svelte 17ms (unchanged)
 src/lib/features/dm/components/DMHeader.svelte 7ms (unchanged)
 src/lib/features/dm/components/DMInput.svelte 7ms (unchanged)
-src/lib/features/dm/components/DMModule.svelte 22ms (unchanged)
-src/lib/features/email/components/EmailModal.svelte 55ms (unchanged)
-src/lib/features/email/utils/clientEmailUtils.ts 3ms (unchanged)
-src/lib/features/email/utils/emailFormatting.ts 4ms (unchanged)
-src/lib/features/email/utils/emailUtils.ts 19ms
-src/lib/features/email/utils/gmailService.ts 13ms
-src/lib/features/game/components/AddHero.svelte 19ms (unchanged)
+src/lib/features/dm/components/DMModule.svelte 21ms (unchanged)
+src/lib/features/email/components/EmailModal.svelte 66ms (unchanged)
+src/lib/features/email/utils/clientEmailUtils.ts 7ms (unchanged)
+src/lib/features/email/utils/emailFormatting.ts 5ms (unchanged)
+src/lib/features/email/utils/emailUtils.ts 10ms (unchanged)
+src/lib/features/email/utils/gmailService.ts 10ms (unchanged)
+src/lib/features/game/components/AddHero.svelte 17ms (unchanged)
 src/lib/features/game/components/BuildingView.svelte 0ms (unchanged)
-src/lib/features/game/components/GameInstructions.svelte 24ms (unchanged)
-src/lib/features/game/components/GameNavigator.svelte 149ms (unchanged)
-src/lib/features/game/components/GamePlay.svelte 16ms (unchanged)
-src/lib/features/game/components/Hero.svelte 26ms (unchanged)
-src/lib/features/game/components/MapGrid.svelte 316ms (unchanged)
-src/lib/features/game/components/MapView.svelte 602ms (unchanged)
-src/lib/features/game/components/Road.svelte 25ms (unchanged)
-src/lib/features/game/components/Room.svelte 104ms (unchanged)
-src/lib/features/ledger/components/TransactionForm.svelte 139ms (unchanged)
-src/lib/features/ledger/utils/ledgerUtils.ts 133ms (unchanged)
+src/lib/features/game/components/GameInstructions.svelte 5ms (unchanged)
+src/lib/features/game/components/GameNavigator.svelte 43ms (unchanged)
+src/lib/features/game/components/GamePlay.svelte 10ms (unchanged)
+src/lib/features/game/components/Hero.svelte 16ms (unchanged)
+src/lib/features/game/components/MapGrid.svelte 9ms (unchanged)
+src/lib/features/game/components/MapView.svelte 16ms (unchanged)
+src/lib/features/game/components/Road.svelte 4ms (unchanged)
+src/lib/features/game/components/Room.svelte 16ms (unchanged)
+src/lib/features/ledger/components/TransactionForm.svelte 17ms (unchanged)
+src/lib/features/ledger/utils/ledgerUtils.ts 15ms (unchanged)
 src/lib/features/legal/components/PrivacyPolicy.svelte 4ms (unchanged)
-src/lib/features/legal/components/Terms.svelte 2ms (unchanged)
-src/lib/features/ml/cv/components/DetectionControls.svelte 69ms (unchanged)
-src/lib/features/ml/cv/components/DetectionMonitor.svelte 57ms (unchanged)
-src/lib/features/ml/cv/components/DetectionOverlay.svelte 24ms (unchanged)
-src/lib/features/ml/cv/utils/cvApi.ts 5ms (unchanged)
-src/lib/features/ml/cv/utils/detectionTagging.ts 59ms (unchanged)
-src/lib/features/ml/cv/utils/detectionUtils.ts 71ms (unchanged)
-src/lib/features/ml/cv/utils/websocketDetection.ts 16ms (unchanged)
-src/lib/features/notes/components/AttachmentUploader.svelte 19ms (unchanged)
-src/lib/features/notes/components/FolderComponent.svelte 21ms (unchanged)
-src/lib/features/notes/components/FolderNode.svelte 28ms (unchanged)
-src/lib/features/notes/components/NoteEditor.svelte 100ms (unchanged)
-src/lib/features/pdf/components/PDFReader.svelte 34ms (unchanged)
-src/lib/features/pdf/components/PDFThumbnail.svelte 7ms (unchanged)
+src/lib/features/legal/components/Terms.svelte 4ms (unchanged)
+src/lib/features/ml/cv/components/DetectionControls.svelte 15ms (unchanged)
+src/lib/features/ml/cv/components/DetectionMonitor.svelte 9ms (unchanged)
+src/lib/features/ml/cv/components/DetectionOverlay.svelte 10ms (unchanged)
+src/lib/features/ml/cv/utils/cvApi.ts 3ms (unchanged)
+src/lib/features/ml/cv/utils/detectionTagging.ts 7ms (unchanged)
+src/lib/features/ml/cv/utils/detectionUtils.ts 3ms (unchanged)
+src/lib/features/ml/cv/utils/websocketDetection.ts 5ms (unchanged)
+src/lib/features/notes/components/AttachmentUploader.svelte 8ms (unchanged)
+src/lib/features/notes/components/FolderComponent.svelte 10ms (unchanged)
+src/lib/features/notes/components/FolderNode.svelte 9ms (unchanged)
+src/lib/features/notes/components/NoteEditor.svelte 52ms (unchanged)
+src/lib/features/pdf/components/PDFReader.svelte 23ms (unchanged)
+src/lib/features/pdf/components/PDFThumbnail.svelte 6ms (unchanged)
 src/lib/features/pdf/utils/pdf-worker.ts 1ms (unchanged)
-src/lib/features/pdf/utils/pdf.ts 12ms (unchanged)
-src/lib/features/posts/components/MediaGrid.svelte 48ms (unchanged)
-src/lib/features/posts/components/PostCard.svelte 257ms
-src/lib/features/posts/components/PostCommentModal.svelte 14ms (unchanged)
-src/lib/features/posts/components/PostComposer.svelte 133ms (unchanged)
-src/lib/features/posts/components/PostQuoteCard.svelte 43ms (unchanged)
-src/lib/features/posts/components/PostReplyModal.svelte 17ms (unchanged)
-src/lib/features/posts/components/PostSidenav.svelte 39ms (unchanged)
-src/lib/features/posts/components/PostTrends.svelte 17ms (unchanged)
-src/lib/features/posts/components/RepostCard.svelte 19ms (unchanged)
-src/lib/features/posts/utils/attachmentTagging.ts 52ms (unchanged)
-src/lib/features/posts/utils/postTagging.ts 36ms (unchanged)
-src/lib/features/projects/components/ProjectCollaborators.svelte 40ms (unchanged)
-src/lib/features/projects/components/ProjectDeadlines.svelte 43ms (unchanged)
-src/lib/features/projects/components/ProjectStatsContainer.svelte 23ms (unchanged)
-src/lib/features/tasks/Kanban.svelte 738ms (unchanged)
-src/lib/features/tasks/TaskCalendar.svelte 114ms (unchanged)
-src/lib/features/tasks/TaskCreationModal.svelte 35ms (unchanged)
-src/lib/features/tasks/utils/taskHierarchyData.ts 16ms (unchanged)
-src/lib/features/threads/components/ThreadCollaborators.svelte 89ms (unchanged)
-src/lib/features/threads/components/ThreadListTags.svelte 25ms (unchanged)
+src/lib/features/pdf/utils/pdf.ts 5ms (unchanged)
+src/lib/features/posts/components/MediaGrid.svelte 20ms (unchanged)
+src/lib/features/posts/components/PostCard.svelte 114ms (unchanged)
+src/lib/features/posts/components/PostCommentModal.svelte 8ms (unchanged)
+src/lib/features/posts/components/PostComposer.svelte 33ms (unchanged)
+src/lib/features/posts/components/PostQuoteCard.svelte 11ms (unchanged)
+src/lib/features/posts/components/PostReplyModal.svelte 7ms (unchanged)
+src/lib/features/posts/components/PostSidenav.svelte 20ms (unchanged)
+src/lib/features/posts/components/PostTrends.svelte 8ms (unchanged)
+src/lib/features/posts/components/RepostCard.svelte 9ms (unchanged)
+src/lib/features/posts/utils/attachmentTagging.ts 40ms (unchanged)
+src/lib/features/posts/utils/postTagging.ts 21ms (unchanged)
+src/lib/features/projects/components/ProjectCollaborators.svelte 57ms (unchanged)
+src/lib/features/projects/components/ProjectDeadlines.svelte 66ms (unchanged)
+src/lib/features/projects/components/ProjectStatsContainer.svelte 50ms (unchanged)
+src/lib/features/tasks/Kanban.svelte 331ms (unchanged)
+src/lib/features/tasks/TaskCalendar.svelte 128ms (unchanged)
+src/lib/features/tasks/TaskCreationModal.svelte 25ms (unchanged)
+src/lib/features/tasks/utils/taskHierarchyData.ts 9ms (unchanged)
+src/lib/features/threads/components/ThreadCollaborators.svelte 68ms (unchanged)
+src/lib/features/threads/components/ThreadListTags.svelte 24ms (unchanged)
 src/lib/features/threads/components/ThreadTags.svelte 16ms (unchanged)
-src/lib/features/threads/utils/threadNaming.ts 14ms
-src/lib/features/users/components/Avatar.svelte 7ms (unchanged)
-src/lib/features/users/components/AvatarUploader.svelte 10ms (unchanged)
-src/lib/features/users/components/DefaultAvatar.svelte 4ms (unchanged)
-src/lib/features/users/components/Newsletter.svelte 9ms (unchanged)
-src/lib/features/users/components/PerkDisplay.svelte 8ms (unchanged)
-src/lib/features/users/components/Profile.svelte 124ms
-src/lib/features/users/components/ProfileAvatar.svelte 15ms (unchanged)
-src/lib/features/users/components/StatsContainer.svelte 119ms (unchanged)
-src/lib/features/users/components/StyleSwitcher.svelte 982ms (unchanged)
-src/lib/features/users/components/TagEditor.svelte 439ms (unchanged)
-src/lib/features/users/components/UserDisplay.svelte 18ms (unchanged)
-src/lib/features/users/components/UsersList.svelte 81ms (unchanged)
-src/lib/features/users/components/WallpaperSelector.svelte 98ms (unchanged)
-src/lib/features/users/utils/avatarHandling.ts 18ms (unchanged)
-src/lib/features/users/utils/perks.ts 12ms (unchanged)
-src/lib/features/users/utils/testIcicleData.ts 5ms (unchanged)
-src/lib/pocketbase.ts 163ms (unchanged)
-src/lib/server/auth.ts 4ms (unchanged)
-src/lib/server/constants.ts 2ms (unchanged)
-src/lib/server/email-config.ts 7ms (unchanged)
-src/lib/server/perkChecker.ts 18ms (unchanged)
-src/lib/server/pocketbase.ts 35ms
-src/lib/server/utils/invitationCodesAdmin.ts 10ms (unchanged)
+src/lib/features/threads/utils/threadNaming.ts 23ms (unchanged)
+src/lib/features/users/components/Avatar.svelte 52ms (unchanged)
+src/lib/features/users/components/AvatarUploader.svelte 28ms (unchanged)
+src/lib/features/users/components/DefaultAvatar.svelte 5ms (unchanged)
+src/lib/features/users/components/Newsletter.svelte 11ms (unchanged)
+src/lib/features/users/components/PerkDisplay.svelte 24ms (unchanged)
+src/lib/features/users/components/Profile.svelte 70ms (unchanged)
+src/lib/features/users/components/ProfileAvatar.svelte 12ms (unchanged)
+src/lib/features/users/components/StatsContainer.svelte 58ms (unchanged)
+src/lib/features/users/components/StyleSwitcher.svelte 12ms (unchanged)
+src/lib/features/users/components/TagEditor.svelte 64ms (unchanged)
+src/lib/features/users/components/UserDisplay.svelte 6ms (unchanged)
+src/lib/features/users/components/UsersList.svelte 43ms (unchanged)
+src/lib/features/users/components/WallpaperSelector.svelte 41ms (unchanged)
+src/lib/features/users/utils/avatarHandling.ts 6ms (unchanged)
+src/lib/features/users/utils/perks.ts 8ms (unchanged)
+src/lib/features/users/utils/testIcicleData.ts 4ms (unchanged)
+src/lib/pocketbase.ts 39ms (unchanged)
+src/lib/server/auth.ts 1ms (unchanged)
+src/lib/server/constants.ts 0ms (unchanged)
+src/lib/server/email-config.ts 2ms (unchanged)
+src/lib/server/perkChecker.ts 6ms (unchanged)
+src/lib/server/pocketbase.ts 6ms (unchanged)
+src/lib/server/utils/invitationCodesAdmin.ts 3ms (unchanged)
 src/lib/services/aiService.ts 0ms (unchanged)
 src/lib/services/messageService.ts 19ms (unchanged)
-src/lib/services/promptService.ts 17ms (unchanged)
-src/lib/services/threadService.ts 17ms (unchanged)
-src/lib/services/userService.ts 32ms (unchanged)
-src/lib/stores/actionStore.ts 8ms (unchanged)
+src/lib/services/promptService.ts 9ms (unchanged)
+src/lib/services/threadService.ts 18ms (unchanged)
+src/lib/services/userService.ts 20ms (unchanged)
+src/lib/stores/actionStore.ts 9ms (unchanged)
 src/lib/stores/addHeroStore.ts 1ms (unchanged)
 src/lib/stores/agentStore.ts 13ms (unchanged)
-src/lib/stores/analyticsStore.ts 7ms (unchanged)
-src/lib/stores/apiKeyStore.ts 19ms (unchanged)
+src/lib/stores/analyticsStore.ts 5ms (unchanged)
+src/lib/stores/apiKeyStore.ts 14ms (unchanged)
 src/lib/stores/attachmentFilterStore.ts 7ms (unchanged)
 src/lib/stores/authStore.ts 2ms (unchanged)
 src/lib/stores/avatarStore.ts 1ms (unchanged)
-src/lib/stores/chatStore.ts 6ms (unchanged)
-src/lib/stores/citeStore.ts 4ms (unchanged)
-src/lib/stores/combinedFilterStore.ts 5ms (unchanged)
+src/lib/stores/chatStore.ts 10ms (unchanged)
+src/lib/stores/citeStore.ts 7ms (unchanged)
+src/lib/stores/combinedFilterStore.ts 4ms (unchanged)
 src/lib/stores/fileStore.ts 1ms (unchanged)
-src/lib/stores/followStore.ts 10ms (unchanged)
-src/lib/stores/gameStore.ts 12ms (unchanged)
-src/lib/stores/ideNotificationStore.ts 4ms (unchanged)
-src/lib/stores/languageStore.ts 3ms (unchanged)
+src/lib/stores/followStore.ts 14ms (unchanged)
+src/lib/stores/gameStore.ts 11ms (unchanged)
+src/lib/stores/ideNotificationStore.ts 3ms (unchanged)
+src/lib/stores/languageStore.ts 4ms (unchanged)
 src/lib/stores/loadingStore.ts 1ms (unchanged)
 src/lib/stores/messageCountStore.ts 5ms (unchanged)
 src/lib/stores/messagesStore.ts 13ms (unchanged)
-src/lib/stores/modelStore.ts 19ms (unchanged)
-src/lib/stores/navigationStore.ts 3ms (unchanged)
-src/lib/stores/networkStore.ts 6ms (unchanged)
-src/lib/stores/newsletterStore.ts 5ms
-src/lib/stores/nodeStore.ts 6ms (unchanged)
+src/lib/stores/modelStore.ts 23ms (unchanged)
+src/lib/stores/navigationStore.ts 4ms (unchanged)
+src/lib/stores/networkStore.ts 4ms (unchanged)
+src/lib/stores/newsletterStore.ts 5ms (unchanged)
+src/lib/stores/nodeStore.ts 2ms (unchanged)
 src/lib/stores/notesStore.ts 6ms (unchanged)
 src/lib/stores/pdfReaderStore.ts 1ms (unchanged)
-src/lib/stores/pocketbase.ts 2ms (unchanged)
-src/lib/stores/postStore.ts 53ms
-src/lib/stores/projectStore.ts 16ms (unchanged)
+src/lib/stores/pocketbase.ts 3ms (unchanged)
+src/lib/stores/postStore.ts 38ms (unchanged)
+src/lib/stores/projectStore.ts 20ms (unchanged)
 src/lib/stores/promptInputStore.ts 2ms (unchanged)
-src/lib/stores/promptStore.ts 7ms (unchanged)
-src/lib/stores/sidenavStore.ts 8ms (unchanged)
-src/lib/stores/subscriptionStore.ts 4ms (unchanged)
+src/lib/stores/promptStore.ts 8ms (unchanged)
+src/lib/stores/sidenavStore.ts 11ms (unchanged)
+src/lib/stores/subscriptionStore.ts 9ms (unchanged)
 src/lib/stores/suggestionStore.ts 1ms (unchanged)
-src/lib/stores/tagFilterStore.ts 9ms (unchanged)
-src/lib/stores/taskNotificationStore.ts 6ms (unchanged)
-src/lib/stores/textareaFocusStore.ts 6ms (unchanged)
-src/lib/stores/themeStore.ts 10ms (unchanged)
-src/lib/stores/threadCountStore.ts 6ms (unchanged)
-src/lib/stores/threadsStore.ts 48ms
-src/lib/stores/timerStore.ts 7ms (unchanged)
+src/lib/stores/tagFilterStore.ts 11ms (unchanged)
+src/lib/stores/taskNotificationStore.ts 3ms (unchanged)
+src/lib/stores/textareaFocusStore.ts 3ms (unchanged)
+src/lib/stores/themeStore.ts 5ms (unchanged)
+src/lib/stores/threadCountStore.ts 4ms (unchanged)
+src/lib/stores/threadsStore.ts 38ms (unchanged)
+src/lib/stores/timerStore.ts 6ms (unchanged)
 src/lib/stores/translationStore.ts 2ms (unchanged)
-src/lib/stores/uiStore.ts 18ms (unchanged)
-src/lib/stores/userStatusStore.ts 13ms (unchanged)
-src/lib/styles/devices/_desktop.scss 6ms (unchanged)
-src/lib/styles/devices/_large-screen.scss 4ms (unchanged)
+src/lib/stores/uiStore.ts 12ms (unchanged)
+src/lib/stores/userStatusStore.ts 6ms (unchanged)
+src/lib/styles/devices/_desktop.scss 2ms (unchanged)
+src/lib/styles/devices/_large-screen.scss 2ms (unchanged)
 src/lib/styles/devices/_mobile.scss 2ms (unchanged)
-src/lib/styles/devices/_tablet.scss 3ms (unchanged)
+src/lib/styles/devices/_tablet.scss 2ms (unchanged)
 src/lib/styles/mixins/_responsive.scss 1ms (unchanged)
-src/lib/styles/mixins/_typography.scss 6ms (unchanged)
-src/lib/styles/themes.scss 215ms (unchanged)
-src/lib/styles/variables/_breakpoints.scss 3ms (unchanged)
-src/lib/styles/variables/_spacing.scss 6ms (unchanged)
-src/lib/styles/variables/_typography.scss 7ms (unchanged)
-src/lib/transitions/TypeWriter.svelte 44ms (unchanged)
-src/lib/transitions/wormhole.ts 5ms (unchanged)
-src/lib/translations/en.ts 38ms (unchanged)
+src/lib/styles/mixins/_typography.scss 2ms (unchanged)
+src/lib/styles/oldtheme.scss 39ms (unchanged)
+src/lib/styles/variables/_breakpoints.scss 1ms (unchanged)
+src/lib/styles/variables/_spacing.scss 2ms (unchanged)
+src/lib/styles/variables/_typography.scss 2ms (unchanged)
+src/lib/transitions/TypeWriter.svelte 4ms (unchanged)
+src/lib/transitions/wormhole.ts 1ms (unchanged)
+src/lib/translations/en.ts 12ms (unchanged)
 src/lib/translations/quotes.ts 1ms (unchanged)
-src/lib/translations/ru.ts 14ms (unchanged)
+src/lib/translations/ru.ts 13ms (unchanged)
 src/lib/types/.claude/settings.local.json 1ms (unchanged)
-src/lib/types/types.email.ts 9ms (unchanged)
-src/lib/types/types.features.ts 10ms (unchanged)
-src/lib/types/types.game.ts 29ms (unchanged)
-src/lib/types/types.ide.ts 2ms (unchanged)
-src/lib/types/types.ledger.ts 54ms (unchanged)
-src/lib/types/types.localModels.ts 11ms (unchanged)
-src/lib/types/types.ml.ts 11ms (unchanged)
-src/lib/types/types.notifications.ts 3ms (unchanged)
-src/lib/types/types.pdf.ts 6ms (unchanged)
-src/lib/types/types.posts.ts 14ms (unchanged)
-src/lib/types/types.subscriptions.ts 2ms (unchanged)
-src/lib/types/types.transactions.ts 6ms (unchanged)
-src/lib/types/types.ts 93ms (unchanged)
-src/lib/utils/clipboardUtils.ts 20ms (unchanged)
-src/lib/utils/colorUtils.ts 11ms (unchanged)
-src/lib/utils/crypto.ts 10ms (unchanged)
-src/lib/utils/dateUtils.ts 18ms (unchanged)
-src/lib/utils/errorUtils.ts 47ms (unchanged)
-src/lib/utils/favoriteHandlers.ts 43ms (unchanged)
-src/lib/utils/fileHandlers.ts 18ms (unchanged)
-src/lib/utils/formatters.ts 19ms (unchanged)
-src/lib/utils/globalSwipe.ts 10ms (unchanged)
-src/lib/utils/hoverUtils.ts 14ms (unchanged)
-src/lib/utils/identiconUtils.ts 16ms (unchanged)
-src/lib/utils/imageHandlers.ts 6ms (unchanged)
-src/lib/utils/infiniteScroll.ts 5ms (unchanged)
-src/lib/utils/languageUtils.ts 3ms (unchanged)
-src/lib/utils/lucideIcons.ts 17ms (unchanged)
-src/lib/utils/mediaHandlers.ts 21ms (unchanged)
-src/lib/utils/navigationHandlers.ts 4ms (unchanged)
-src/lib/utils/pdfKeywordExtractor.ts 10ms (unchanged)
-src/lib/utils/swipeGesture.ts 13ms (unchanged)
+src/lib/types/types.email.ts 3ms (unchanged)
+src/lib/types/types.features.ts 3ms (unchanged)
+src/lib/types/types.game.ts 3ms (unchanged)
+src/lib/types/types.ide.ts 1ms (unchanged)
+src/lib/types/types.ledger.ts 7ms (unchanged)
+src/lib/types/types.localModels.ts 2ms (unchanged)
+src/lib/types/types.ml.ts 1ms (unchanged)
+src/lib/types/types.notifications.ts 1ms (unchanged)
+src/lib/types/types.pdf.ts 2ms (unchanged)
+src/lib/types/types.posts.ts 5ms (unchanged)
+src/lib/types/types.subscriptions.ts 1ms (unchanged)
+src/lib/types/types.transactions.ts 3ms (unchanged)
+src/lib/types/types.ts 17ms (unchanged)
+src/lib/utils/clipboardUtils.ts 5ms (unchanged)
+src/lib/utils/colorUtils.ts 3ms (unchanged)
+src/lib/utils/crypto.ts 4ms (unchanged)
+src/lib/utils/dateUtils.ts 10ms (unchanged)
+src/lib/utils/errorUtils.ts 12ms (unchanged)
+src/lib/utils/favoriteHandlers.ts 3ms (unchanged)
+src/lib/utils/fileHandlers.ts 5ms (unchanged)
+src/lib/utils/formatters.ts 4ms (unchanged)
+src/lib/utils/globalSwipe.ts 3ms (unchanged)
+src/lib/utils/hoverUtils.ts 6ms (unchanged)
+src/lib/utils/identiconUtils.ts 5ms (unchanged)
+src/lib/utils/imageHandlers.ts 3ms (unchanged)
+src/lib/utils/infiniteScroll.ts 4ms (unchanged)
+src/lib/utils/languageUtils.ts 1ms (unchanged)
+src/lib/utils/lucideIcons.ts 10ms (unchanged)
+src/lib/utils/mediaHandlers.ts 5ms (unchanged)
+src/lib/utils/navigationHandlers.ts 2ms (unchanged)
+src/lib/utils/pdfKeywordExtractor.ts 7ms (unchanged)
+src/lib/utils/swipeGesture.ts 7ms (unchanged)
 src/lib/utils/tagUtils.ts 3ms (unchanged)
-src/lib/utils/textExtraction.ts 10ms (unchanged)
-src/lib/utils/textHandlers.ts 7ms (unchanged)
-src/lib/utils/textUtils.ts 8ms (unchanged)
-src/lib/utils/toastUtils.ts 6ms (unchanged)
-src/lib/utils/uiUtils.ts 23ms (unchanged)
-src/lib/utils/videoHandlers.ts 11ms (unchanged)
-src/lib/utils/wallpapers.ts 29ms (unchanged)
+src/lib/utils/textExtraction.ts 5ms (unchanged)
+src/lib/utils/textHandlers.ts 5ms (unchanged)
+src/lib/utils/textUtils.ts 7ms (unchanged)
+src/lib/utils/toastUtils.ts 2ms (unchanged)
+src/lib/utils/uiUtils.ts 8ms (unchanged)
+src/lib/utils/videoHandlers.ts 4ms (unchanged)
+src/lib/utils/wallpapers.ts 8ms (unchanged)
 src/lib/validation.ts 4ms (unchanged)
-src/routes/_/auth/confirm-password-reset/[token]/+page.svelte 14ms (unchanged)
-src/routes/(protected)/dashboard/+page.server.ts 5ms (unchanged)
-src/routes/[username]/+page.svelte 256ms (unchanged)
-src/routes/[username]/posts/[id]/+page.svelte 134ms (unchanged)
-src/routes/+layout.server.ts 2ms
-src/routes/+layout.svelte 502ms
-src/routes/+page.svelte 10ms (unchanged)
-src/routes/api/[username]/+server.ts 11ms (unchanged)
-src/routes/api/[username]/posts/[id]/+server.ts 3ms (unchanged)
-src/routes/api/actions/+server.ts 8ms (unchanged)
-src/routes/api/admin/invitation-codes/+server.ts 3ms (unchanged)
-src/routes/api/agents/[id]/+server.ts 16ms (unchanged)
-src/routes/api/agents/[id]/auto-reply/+server.ts 33ms (unchanged)
-src/routes/api/agents/+server.ts 16ms
-src/routes/api/ai/+server.ts 130ms (unchanged)
-src/routes/api/ai/local/+server.ts 41ms (unchanged)
-src/routes/api/ai/local/analyze-pdf/+server.ts 41ms (unchanged)
-src/routes/api/ai/local/chat/+server.ts 25ms
-src/routes/api/ai/local/debug/+server.ts 16ms
-src/routes/api/ai/local/extract-text/image/+server.ts 11ms (unchanged)
-src/routes/api/ai/local/extract-text/pdf/+server.ts 11ms (unchanged)
-src/routes/api/ai/local/generate/+server.ts 47ms (unchanged)
-src/routes/api/ai/local/models/+server.ts 7ms (unchanged)
-src/routes/api/ai/local/tagging/+server.ts 21ms (unchanged)
-src/routes/api/ai/models/[id]/+server.ts 3ms (unchanged)
-src/routes/api/ai/models/+server.ts 9ms (unchanged)
+src/routes/_/auth/confirm-password-reset/[token]/+page.svelte 9ms (unchanged)
+src/routes/(protected)/dashboard/+page.server.ts 1ms (unchanged)
+src/routes/[username]/+page.svelte 110ms (unchanged)
+src/routes/[username]/posts/[id]/+page.svelte 55ms (unchanged)
+src/routes/+layout.server.ts 1ms (unchanged)
+src/routes/+layout.svelte 132ms (unchanged)
+src/routes/+page.svelte 6ms (unchanged)
+src/routes/api/[username]/+server.ts 8ms (unchanged)
+src/routes/api/[username]/posts/[id]/+server.ts 2ms (unchanged)
+src/routes/api/actions/+server.ts 4ms (unchanged)
+src/routes/api/admin/invitation-codes/+server.ts 2ms (unchanged)
+src/routes/api/agents/[id]/+server.ts 5ms (unchanged)
+src/routes/api/agents/[id]/auto-reply/+server.ts 8ms (unchanged)
+src/routes/api/agents/+server.ts 4ms (unchanged)
+src/routes/api/ai/+server.ts 7ms (unchanged)
+src/routes/api/ai/local/+server.ts 5ms (unchanged)
+src/routes/api/ai/local/analyze-pdf/+server.ts 6ms (unchanged)
+src/routes/api/ai/local/chat/+server.ts 4ms (unchanged)
+src/routes/api/ai/local/debug/+server.ts 5ms (unchanged)
+src/routes/api/ai/local/extract-text/image/+server.ts 7ms (unchanged)
+src/routes/api/ai/local/extract-text/pdf/+server.ts 6ms (unchanged)
+src/routes/api/ai/local/generate/+server.ts 6ms (unchanged)
+src/routes/api/ai/local/models/+server.ts 3ms (unchanged)
+src/routes/api/ai/local/tagging/+server.ts 5ms (unchanged)
+src/routes/api/ai/models/[id]/+server.ts 2ms (unchanged)
+src/routes/api/ai/models/+server.ts 4ms (unchanged)
 src/routes/api/ai/tasks/[id]/+server.ts 3ms (unchanged)
 src/routes/api/ai/users/[userId]/models/+server.ts 2ms (unchanged)
 src/routes/api/attachments/[id]/+server.ts 3ms (unchanged)
 src/routes/api/attachments/+server.ts 2ms (unchanged)
 src/routes/api/auth/+server.ts 2ms (unchanged)
-src/routes/api/auth/callback/google/+server.ts 2ms (unchanged)
+src/routes/api/auth/callback/google/+server.ts 1ms (unchanged)
 src/routes/api/auth/confirm-reset/+server.ts 1ms (unchanged)
 src/routes/api/auth/google/+server.ts 2ms (unchanged)
-src/routes/api/auth/google/oauth2-redirect/+server.ts 3ms (unchanged)
-src/routes/api/auth/reset-password/+server.ts 3ms (unchanged)
-src/routes/api/auth/test/+server.ts 1ms (unchanged)
-src/routes/api/bookmarks/+server.ts 6ms (unchanged)
-src/routes/api/commits/[id]/+server.ts 2ms (unchanged)
-src/routes/api/commits/+server.ts 5ms (unchanged)
-src/routes/api/debug/auth-check/+server.ts 6ms (unchanged)
-src/routes/api/dm/+server.ts 4ms (unchanged)
-src/routes/api/dm/conversations/+server.ts 20ms (unchanged)
-src/routes/api/email/+server.ts 11ms (unchanged)
-src/routes/api/email/accounts/[id]/+server.ts 7ms (unchanged)
-src/routes/api/email/accounts/+server.ts 4ms (unchanged)
+src/routes/api/auth/google/oauth2-redirect/+server.ts 1ms (unchanged)
+src/routes/api/auth/reset-password/+server.ts 1ms (unchanged)
+src/routes/api/auth/security/+server.ts 2ms (unchanged)
+src/routes/api/auth/test/+server.ts 0ms (unchanged)
+src/routes/api/bookmarks/+server.ts 2ms (unchanged)
+src/routes/api/commits/[id]/+server.ts 1ms (unchanged)
+src/routes/api/commits/+server.ts 3ms (unchanged)
+src/routes/api/debug/auth-check/+server.ts 3ms (unchanged)
+src/routes/api/dm/+server.ts 3ms (unchanged)
+src/routes/api/dm/conversations/+server.ts 3ms (unchanged)
+src/routes/api/email/+server.ts 3ms (unchanged)
+src/routes/api/email/accounts/[id]/+server.ts 2ms (unchanged)
+src/routes/api/email/accounts/+server.ts 3ms (unchanged)
 src/routes/api/email/analyze/+server.ts 4ms (unchanged)
 src/routes/api/email/attachments/[messageId]/[filename]/+server.ts 2ms (unchanged)
-src/routes/api/email/auth/gmail/+server.ts 2ms (unchanged)
-src/routes/api/email/messages/[id]/+server.ts 4ms (unchanged)
-src/routes/api/email/messages/+server.ts 13ms (unchanged)
-src/routes/api/email/send/+server.ts 14ms (unchanged)
-src/routes/api/email/send/draft/[id]/+server.ts 5ms (unchanged)
-src/routes/api/email/send/draft/+server.ts 4ms (unchanged)
-src/routes/api/email/send/templates/+server.ts 4ms (unchanged)
-src/routes/api/email/stats/+server.ts 8ms (unchanged)
-src/routes/api/email/sync/+server.ts 7ms (unchanged)
-src/routes/api/favorites/+server.ts 4ms (unchanged)
-src/routes/api/files/[id]/+server.ts 5ms (unchanged)
-src/routes/api/files/+server.ts 5ms (unchanged)
+src/routes/api/email/auth/gmail/+server.ts 1ms (unchanged)
+src/routes/api/email/messages/[id]/+server.ts 3ms (unchanged)
+src/routes/api/email/messages/+server.ts 6ms (unchanged)
+src/routes/api/email/send/+server.ts 5ms (unchanged)
+src/routes/api/email/send/draft/[id]/+server.ts 3ms (unchanged)
+src/routes/api/email/send/draft/+server.ts 2ms (unchanged)
+src/routes/api/email/send/templates/+server.ts 1ms (unchanged)
+src/routes/api/email/stats/+server.ts 2ms (unchanged)
+src/routes/api/email/sync/+server.ts 5ms (unchanged)
+src/routes/api/favorites/+server.ts 3ms (unchanged)
+src/routes/api/files/[id]/+server.ts 4ms (unchanged)
+src/routes/api/files/+server.ts 4ms (unchanged)
 src/routes/api/game/+server.ts 3ms (unchanged)
 src/routes/api/game/buildings/[id]/+server.ts 3ms (unchanged)
 src/routes/api/game/buildings/+server.ts 3ms (unchanged)
-src/routes/api/game/dialog/+server.ts 4ms (unchanged)
-src/routes/api/game/hero/[id]/+server.ts 5ms (unchanged)
-src/routes/api/game/hero/[id]/leave/+server.ts 16ms (unchanged)
-src/routes/api/game/hero/+server.ts 4ms (unchanged)
-src/routes/api/game/heroes/[userId]/+server.ts 3ms (unchanged)
-src/routes/api/game/heroes/+server.ts 18ms (unchanged)
-src/routes/api/game/heroes/search/+server.ts 5ms (unchanged)
-src/routes/api/game/heroes/update/[heroId]/+server.ts 2ms (unchanged)
-src/routes/api/game/initialize/+server.ts 4ms (unchanged)
-src/routes/api/game/maps/[id]/+server.ts 9ms (unchanged)
-src/routes/api/game/maps/+server.ts 2ms (unchanged)
-src/routes/api/game/organizations/[id]/+server.ts 7ms (unchanged)
-src/routes/api/game/organizations/[id]/members/+server.ts 5ms (unchanged)
-src/routes/api/game/organizations/+server.ts 3ms (unchanged)
-src/routes/api/game/position/+server.ts 5ms (unchanged)
+src/routes/api/game/dialog/+server.ts 2ms (unchanged)
+src/routes/api/game/hero/[id]/+server.ts 4ms (unchanged)
+src/routes/api/game/hero/[id]/leave/+server.ts 2ms (unchanged)
+src/routes/api/game/hero/+server.ts 2ms (unchanged)
+src/routes/api/game/heroes/[userId]/+server.ts 2ms (unchanged)
+src/routes/api/game/heroes/+server.ts 3ms (unchanged)
+src/routes/api/game/heroes/search/+server.ts 1ms (unchanged)
+src/routes/api/game/heroes/update/[heroId]/+server.ts 1ms (unchanged)
+src/routes/api/game/initialize/+server.ts 2ms (unchanged)
+src/routes/api/game/maps/[id]/+server.ts 1ms (unchanged)
+src/routes/api/game/maps/+server.ts 1ms (unchanged)
+src/routes/api/game/organizations/[id]/+server.ts 2ms (unchanged)
+src/routes/api/game/organizations/[id]/members/+server.ts 2ms (unchanged)
+src/routes/api/game/organizations/+server.ts 2ms (unchanged)
+src/routes/api/game/position/+server.ts 2ms (unchanged)
 src/routes/api/game/roads/+server.ts 1ms (unchanged)
-src/routes/api/game/rooms/[id]/+server.ts 7ms (unchanged)
-src/routes/api/game/rooms/[id]/join/+server.ts 8ms (unchanged)
-src/routes/api/game/rooms/+server.ts 17ms (unchanged)
-src/routes/api/game/tables/[id]/+server.ts 10ms (unchanged)
+src/routes/api/game/rooms/[id]/+server.ts 1ms (unchanged)
+src/routes/api/game/rooms/[id]/join/+server.ts 1ms (unchanged)
+src/routes/api/game/rooms/+server.ts 2ms (unchanged)
+src/routes/api/game/tables/[id]/+server.ts 3ms (unchanged)
 src/routes/api/game/tables/[id]/join/+server.ts 2ms (unchanged)
-src/routes/api/ide/folders/[id]/+server.ts 21ms (unchanged)
-src/routes/api/ide/folders/+server.ts 4ms (unchanged)
-src/routes/api/keys/+server.ts 13ms (unchanged)
-src/routes/api/keys/messages/[id]/+server.ts 6ms (unchanged)
-src/routes/api/keys/messages/+server.ts 22ms (unchanged)
-src/routes/api/keys/threads/[id]/+server.ts 16ms (unchanged)
-src/routes/api/keys/threads/[id]/messages/+server.ts 7ms (unchanged)
-src/routes/api/keys/threads/+server.ts 7ms (unchanged)
-src/routes/api/ledger/+server.ts 21ms (unchanged)
-src/routes/api/ledger/overview/+server.ts 13ms (unchanged)
-src/routes/api/messages/+server.ts 10ms (unchanged)
-src/routes/api/messages/search/+server.ts 4ms (unchanged)
-src/routes/api/ml/cv/detect/+server.ts 6ms (unchanged)
-src/routes/api/ml/cv/models/+server.ts 3ms (unchanged)
-src/routes/api/notes/[id]/+server.ts 2ms (unchanged)
-src/routes/api/notes/+server.ts 6ms (unchanged)
-src/routes/api/notes/folders/+server.ts 3ms (unchanged)
-src/routes/api/notes/search/+server.ts 2ms (unchanged)
-src/routes/api/oauth2-redirect/+server.ts 3ms (unchanged)
-src/routes/api/pdf/+server.ts 10ms (unchanged)
-src/routes/api/pdf/financial/+server.ts 5ms (unchanged)
-src/routes/api/pdf/presentations/+server.ts 10ms (unchanged)
+src/routes/api/ide/folders/[id]/+server.ts 3ms (unchanged)
+src/routes/api/ide/folders/+server.ts 2ms (unchanged)
+src/routes/api/keys/+server.ts 4ms (unchanged)
+src/routes/api/keys/messages/[id]/+server.ts 4ms (unchanged)
+src/routes/api/keys/messages/+server.ts 5ms (unchanged)
+src/routes/api/keys/threads/[id]/+server.ts 4ms (unchanged)
+src/routes/api/keys/threads/[id]/messages/+server.ts 4ms (unchanged)
+src/routes/api/keys/threads/+server.ts 3ms (unchanged)
+src/routes/api/ledger/+server.ts 10ms (unchanged)
+src/routes/api/ledger/overview/+server.ts 6ms (unchanged)
+src/routes/api/messages/+server.ts 6ms (unchanged)
+src/routes/api/messages/search/+server.ts 3ms (unchanged)
+src/routes/api/ml/cv/detect/+server.ts 3ms (unchanged)
+src/routes/api/ml/cv/models/+server.ts 1ms (unchanged)
+src/routes/api/notes/[id]/+server.ts 1ms (unchanged)
+src/routes/api/notes/+server.ts 3ms (unchanged)
+src/routes/api/notes/folders/+server.ts 2ms (unchanged)
+src/routes/api/notes/search/+server.ts 1ms (unchanged)
+src/routes/api/oauth2-redirect/+server.ts 2ms (unchanged)
+src/routes/api/pdf/+server.ts 5ms (unchanged)
+src/routes/api/pdf/financial/+server.ts 6ms (unchanged)
+src/routes/api/pdf/presentations/+server.ts 6ms (unchanged)
 src/routes/api/pdf/scientific/+server.ts 5ms (unchanged)
-src/routes/api/pdf/tables/+server.ts 13ms (unchanged)
+src/routes/api/pdf/tables/+server.ts 5ms (unchanged)
 src/routes/api/pdf/test/+server.ts 2ms (unchanged)
-src/routes/api/posts/[id]/+server.ts 23ms (unchanged)
-src/routes/api/posts/[id]/analysis-status/+server.ts 5ms (unchanged)
-src/routes/api/posts/[id]/attachment/+server.ts 6ms (unchanged)
+src/routes/api/posts/[id]/+server.ts 12ms (unchanged)
+src/routes/api/posts/[id]/analysis-status/+server.ts 2ms (unchanged)
+src/routes/api/posts/[id]/attachment/+server.ts 5ms (unchanged)
 src/routes/api/posts/[id]/children/+server.ts 4ms (unchanged)
-src/routes/api/posts/[id]/comments/+server.ts 19ms (unchanged)
-src/routes/api/posts/[id]/downvote/+server.ts 4ms (unchanged)
-src/routes/api/posts/[id]/mark-analyzed/+server.ts 3ms (unchanged)
-src/routes/api/posts/[id]/quote/+server.ts 4ms (unchanged)
+src/routes/api/posts/[id]/comments/+server.ts 10ms (unchanged)
+src/routes/api/posts/[id]/downvote/+server.ts 2ms (unchanged)
+src/routes/api/posts/[id]/mark-analyzed/+server.ts 1ms (unchanged)
+src/routes/api/posts/[id]/quote/+server.ts 3ms (unchanged)
 src/routes/api/posts/[id]/read/+server.ts 2ms (unchanged)
-src/routes/api/posts/[id]/repost/+server.ts 3ms (unchanged)
-src/routes/api/posts/[id]/share/+server.ts 2ms (unchanged)
-src/routes/api/posts/[id]/tags/+server.ts 4ms (unchanged)
-src/routes/api/posts/[id]/upvote/+server.ts 3ms (unchanged)
-src/routes/api/posts/+server.ts 18ms (unchanged)
+src/routes/api/posts/[id]/repost/+server.ts 2ms (unchanged)
+src/routes/api/posts/[id]/share/+server.ts 1ms (unchanged)
+src/routes/api/posts/[id]/tags/+server.ts 3ms (unchanged)
+src/routes/api/posts/[id]/upvote/+server.ts 2ms (unchanged)
+src/routes/api/posts/+server.ts 11ms (unchanged)
 src/routes/api/posts/search/+server.ts 3ms (unchanged)
-src/routes/api/projects/[id]/+server.ts 6ms (unchanged)
-src/routes/api/projects/[id]/collaborators/[userId]/+server.ts 3ms (unchanged)
-src/routes/api/projects/[id]/collaborators/+server.ts 3ms (unchanged)
-src/routes/api/projects/[id]/stats/+server.ts 4ms (unchanged)
-src/routes/api/projects/[id]/tags/+server.ts 4ms (unchanged)
-src/routes/api/projects/[id]/tasks/+server.ts 3ms (unchanged)
-src/routes/api/projects/[id]/threads/[threadId]/+server.ts 2ms (unchanged)
-src/routes/api/projects/[id]/threads/+server.ts 6ms (unchanged)
+src/routes/api/projects/[id]/+server.ts 2ms (unchanged)
+src/routes/api/projects/[id]/collaborators/[userId]/+server.ts 2ms (unchanged)
+src/routes/api/projects/[id]/collaborators/+server.ts 2ms (unchanged)
+src/routes/api/projects/[id]/stats/+server.ts 3ms (unchanged)
+src/routes/api/projects/[id]/tags/+server.ts 2ms (unchanged)
+src/routes/api/projects/[id]/tasks/+server.ts 2ms (unchanged)
+src/routes/api/projects/[id]/threads/[threadId]/+server.ts 1ms (unchanged)
+src/routes/api/projects/[id]/threads/+server.ts 4ms (unchanged)
 src/routes/api/projects/+server.ts 2ms (unchanged)
-src/routes/api/prompts/[id]/+server.ts 4ms (unchanged)
-src/routes/api/prompts/+server.ts 3ms (unchanged)
-src/routes/api/prompts/create/+server.ts 2ms (unchanged)
-src/routes/api/proxy/pdf/+server.ts 3ms (unchanged)
-src/routes/api/repositories/[id]/+server.ts 5ms (unchanged)
-src/routes/api/repositories/[id]/branches/[branch]/+server.ts 7ms (unchanged)
-src/routes/api/repositories/[id]/branches/+server.ts 8ms (unchanged)
-src/routes/api/repositories/[id]/collaborators/[userId]/+server.ts 2ms (unchanged)
-src/routes/api/repositories/[id]/collaborators/+server.ts 3ms (unchanged)
-src/routes/api/repositories/[id]/merge/+server.ts 17ms (unchanged)
-src/routes/api/repositories/+server.ts 8ms (unchanged)
-src/routes/api/tags/[id]/+server.ts 6ms (unchanged)
-src/routes/api/tags/[id]/posts/[postId]/+server.ts 3ms (unchanged)
-src/routes/api/tags/[id]/posts/+server.ts 5ms (unchanged)
-src/routes/api/tags/+server.ts 4ms (unchanged)
+src/routes/api/prompts/[id]/+server.ts 3ms (unchanged)
+src/routes/api/prompts/+server.ts 1ms (unchanged)
+src/routes/api/prompts/create/+server.ts 1ms (unchanged)
+src/routes/api/proxy/pdf/+server.ts 1ms (unchanged)
+src/routes/api/repositories/[id]/+server.ts 4ms (unchanged)
+src/routes/api/repositories/[id]/branches/[branch]/+server.ts 4ms (unchanged)
+src/routes/api/repositories/[id]/branches/+server.ts 4ms (unchanged)
+src/routes/api/repositories/[id]/collaborators/[userId]/+server.ts 1ms (unchanged)
+src/routes/api/repositories/[id]/collaborators/+server.ts 2ms (unchanged)
+src/routes/api/repositories/[id]/merge/+server.ts 4ms (unchanged)
+src/routes/api/repositories/+server.ts 2ms (unchanged)
+src/routes/api/tags/[id]/+server.ts 4ms (unchanged)
+src/routes/api/tags/[id]/posts/[postId]/+server.ts 2ms (unchanged)
+src/routes/api/tags/[id]/posts/+server.ts 3ms (unchanged)
+src/routes/api/tags/+server.ts 3ms (unchanged)
 src/routes/api/tags/batch/+server.ts 2ms (unchanged)
-src/routes/api/tasks/[id]/+server.ts 4ms (unchanged)
+src/routes/api/tasks/[id]/+server.ts 3ms (unchanged)
 src/routes/api/tasks/[id]/attachments/+server.ts 2ms (unchanged)
-src/routes/api/tasks/+server.ts 7ms (unchanged)
+src/routes/api/tasks/+server.ts 4ms (unchanged)
 src/routes/api/tasks/filtered/+server.ts 2ms (unchanged)
-src/routes/api/tasks/hierarchy/+server.ts 11ms (unchanged)
-src/routes/api/tasks/search/+server.ts 3ms (unchanged)
+src/routes/api/tasks/hierarchy/+server.ts 10ms (unchanged)
+src/routes/api/tasks/search/+server.ts 2ms (unchanged)
 src/routes/api/test/+server.ts 1ms (unchanged)
 src/routes/api/threads/[id]/+server.ts 5ms (unchanged)
 src/routes/api/threads/[id]/count/+server.ts 1ms (unchanged)
-src/routes/api/threads/+server.ts 4ms (unchanged)
+src/routes/api/threads/+server.ts 5ms (unchanged)
 src/routes/api/threads/batch/+server.ts 2ms (unchanged)
-src/routes/api/transcribe/+server.ts 2ms
+src/routes/api/transcribe/+server.ts 1ms (unchanged)
 src/routes/api/tts/+server.ts 2ms (unchanged)
-src/routes/api/users/[id]/+server.ts 6ms (unchanged)
+src/routes/api/users/[id]/+server.ts 4ms (unchanged)
 src/routes/api/users/[id]/avatar/+server.ts 2ms (unchanged)
-src/routes/api/users/[id]/check-perks/+server.ts 5ms (unchanged)
-src/routes/api/users/[id]/cite/+server.ts 2ms (unchanged)
+src/routes/api/users/[id]/check-perks/+server.ts 4ms (unchanged)
+src/routes/api/users/[id]/cite/+server.ts 1ms (unchanged)
 src/routes/api/users/[id]/description/+server.ts 2ms (unchanged)
-src/routes/api/users/[id]/follow/+server.ts 10ms (unchanged)
+src/routes/api/users/[id]/follow/+server.ts 4ms (unchanged)
 src/routes/api/users/[id]/language/+server.ts 2ms (unchanged)
-src/routes/api/users/[id]/public/+server.ts 3ms (unchanged)
-src/routes/api/users/[id]/stats/+server.ts 6ms (unchanged)
-src/routes/api/users/[id]/status/+server.ts 5ms (unchanged)
+src/routes/api/users/[id]/public/+server.ts 1ms (unchanged)
+src/routes/api/users/[id]/stats/+server.ts 5ms (unchanged)
+src/routes/api/users/[id]/status/+server.ts 4ms (unchanged)
 src/routes/api/users/[id]/themes/+server.ts 2ms (unchanged)
 src/routes/api/users/[id]/tracking/+server.ts 4ms (unchanged)
-src/routes/api/users/[id]/wallpaper/+server.ts 4ms (unchanged)
-src/routes/api/users/[id]/wallpapers/+server.ts 6ms (unchanged)
-src/routes/api/users/+server.ts 5ms (unchanged)
+src/routes/api/users/[id]/wallpaper/+server.ts 2ms (unchanged)
+src/routes/api/users/[id]/wallpapers/+server.ts 3ms (unchanged)
+src/routes/api/users/+server.ts 3ms (unchanged)
 src/routes/api/users/bookmarks/+server.ts 1ms (unchanged)
-src/routes/api/users/public/batch/+server.ts 7ms (unchanged)
-src/routes/api/users/username/[username]/+server.ts 9ms (unchanged)
+src/routes/api/users/public/batch/+server.ts 5ms (unchanged)
+src/routes/api/users/username/[username]/+server.ts 7ms (unchanged)
 src/routes/api/users/username/[username]/media/+server.ts 4ms (unchanged)
-src/routes/api/verify/+server.ts 13ms (unchanged)
+src/routes/api/verify/+server.ts 8ms (unchanged)
 src/routes/api/verify/auth-check/+server.ts 2ms (unchanged)
 src/routes/api/verify/health/+server.ts 1ms (unchanged)
-src/routes/api/verify/invitation-codes/[id]/use/+server.ts 2ms (unchanged)
-src/routes/api/verify/invitation-codes/validate/+server.ts 3ms (unchanged)
-src/routes/api/verify/signin/+server.ts 9ms (unchanged)
+src/routes/api/verify/invitation-codes/[id]/use/+server.ts 1ms (unchanged)
+src/routes/api/verify/invitation-codes/validate/+server.ts 2ms (unchanged)
+src/routes/api/verify/signin/+server.ts 3ms (unchanged)
 src/routes/api/verify/signout/+server.ts 1ms (unchanged)
-src/routes/api/verify/signup/+server.ts 6ms (unchanged)
-src/routes/api/verify/users/[id]/+server.ts 10ms
-src/routes/api/verify/users/[id]/public/+server.ts 2ms (unchanged)
-src/routes/api/verify/users/[id]/stats/+server.ts 5ms (unchanged)
+src/routes/api/verify/signup/+server.ts 3ms (unchanged)
+src/routes/api/verify/users/[id]/+server.ts 5ms (unchanged)
+src/routes/api/verify/users/[id]/public/+server.ts 1ms (unchanged)
+src/routes/api/verify/users/[id]/stats/+server.ts 3ms (unchanged)
 src/routes/api/verify/users/count/+server.ts 1ms (unchanged)
 src/routes/api/video/convert/+server.ts 3ms (unchanged)
-src/routes/auth-callback/+page.svelte 15ms (unchanged)
-src/routes/auth/gmail/callback/+page.svelte 11ms (unchanged)
-src/routes/canvas/+layout.svelte 70ms (unchanged)
+src/routes/auth-callback/+page.svelte 6ms (unchanged)
+src/routes/auth/gmail/callback/+page.svelte 6ms (unchanged)
+src/routes/canvas/+layout.svelte 37ms (unchanged)
 src/routes/canvas/+page.svelte 0ms (unchanged)
 src/routes/canvas/launcher/+layout.svelte 0ms (unchanged)
-src/routes/canvas/launcher/+page.svelte 162ms (unchanged)
-src/routes/canvas/launcher/agents/+layout.svelte 1ms (unchanged)
+src/routes/canvas/launcher/+page.svelte 27ms (unchanged)
+src/routes/canvas/launcher/agents/+layout.svelte 0ms (unchanged)
 src/routes/canvas/launcher/agents/+page.svelte 0ms (unchanged)
 src/routes/canvas/launcher/setup/+layout.svelte 0ms (unchanged)
 src/routes/canvas/launcher/setup/+page.svelte 0ms (unchanged)
 src/routes/canvas/launcher/setup/actions/+page.svelte 0ms (unchanged)
 src/routes/canvas/launcher/setup/agents/+page.svelte 0ms (unchanged)
-src/routes/canvas/launcher/setup/flows/+page.svelte 1ms (unchanged)
-src/routes/canvas/launcher/setup/models/+page.svelte 2ms (unchanged)
+src/routes/canvas/launcher/setup/flows/+page.svelte 0ms (unchanged)
+src/routes/canvas/launcher/setup/models/+page.svelte 0ms (unchanged)
 src/routes/canvas/launcher/setup/objectives/+page.svelte 0ms (unchanged)
-src/routes/chat/+layout.svelte 4ms (unchanged)
-src/routes/chat/+page.svelte 40ms
-src/routes/game/+layout.server.ts 2ms (unchanged)
-src/routes/game/+layout.svelte 39ms (unchanged)
-src/routes/game/+page.svelte 47ms (unchanged)
-src/routes/game/building/+page.svelte 22ms (unchanged)
-src/routes/game/navigator/+page.svelte 31ms (unchanged)
+src/routes/chat/+layout.svelte 2ms (unchanged)
+src/routes/chat/+page.server.ts 1ms (unchanged)
+src/routes/chat/+page.svelte 15ms
+src/routes/game/+layout.server.ts 1ms (unchanged)
+src/routes/game/+layout.svelte 9ms (unchanged)
+src/routes/game/+page.svelte 19ms (unchanged)
+src/routes/game/building/+page.svelte 14ms (unchanged)
+src/routes/game/navigator/+page.svelte 18ms (unchanged)
 src/routes/game/navigator/+page.ts 1ms (unchanged)
-src/routes/game/organization/[id]/+page.svelte 8ms (unchanged)
-src/routes/game/room/[id]/+page.svelte 31ms (unchanged)
+src/routes/game/organization/[id]/+page.svelte 6ms (unchanged)
+src/routes/game/room/[id]/+page.svelte 23ms (unchanged)
 src/routes/game/room/+page.svelte 0ms (unchanged)
-src/routes/home/+layout.svelte 1ms (unchanged)
-src/routes/home/+page.svelte 72ms
+src/routes/home/+layout.svelte 0ms (unchanged)
+src/routes/home/+page.svelte 70ms (unchanged)
 src/routes/home/+page.ts 1ms (unchanged)
 src/routes/ide/+layout.svelte 5ms (unchanged)
-src/routes/ide/+page.server.ts 1ms (unchanged)
-src/routes/ide/+page.svelte 70ms (unchanged)
+src/routes/ide/+page.server.ts 0ms (unchanged)
+src/routes/ide/+page.svelte 50ms (unchanged)
 src/routes/ide/editor/languages.ts 2ms (unchanged)
 src/routes/ide/extensions/extensions.ts 3ms (unchanged)
-src/routes/ide/extensions/highlighting.ts 7ms (unchanged)
-src/routes/ide/services/ai-service.ts 3ms (unchanged)
-src/routes/ide/services/file-service.ts 6ms (unchanged)
-src/routes/ide/services/filesystem.ts 3ms (unchanged)
-src/routes/ide/services/keyboardShortcuts.ts 4ms (unchanged)
-src/routes/ide/services/repository-service.ts 49ms (unchanged)
-src/routes/ide/themes/highlighting.ts 19ms (unchanged)
-src/routes/ide/themes/vscode-dark.ts 6ms (unchanged)
+src/routes/ide/extensions/highlighting.ts 4ms (unchanged)
+src/routes/ide/services/ai-service.ts 2ms (unchanged)
+src/routes/ide/services/file-service.ts 4ms (unchanged)
+src/routes/ide/services/filesystem.ts 2ms (unchanged)
+src/routes/ide/services/keyboardShortcuts.ts 1ms (unchanged)
+src/routes/ide/services/repository-service.ts 12ms (unchanged)
+src/routes/ide/themes/highlighting.ts 8ms (unchanged)
+src/routes/ide/themes/vscode-dark.ts 3ms (unchanged)
 src/routes/lean/+layout.svelte 0ms (unchanged)
-src/routes/lean/+page.svelte 42ms (unchanged)
-src/routes/ledger/+layout.svelte 3ms (unchanged)
-src/routes/ledger/+page.svelte 25ms (unchanged)
+src/routes/lean/+page.svelte 24ms (unchanged)
+src/routes/ledger/+layout.svelte 4ms (unchanged)
+src/routes/ledger/+page.svelte 18ms (unchanged)
 src/routes/notes/+layout.svelte 3ms (unchanged)
-src/routes/notes/+page.svelte 242ms (unchanged)
-src/routes/welcome/+layout.svelte 1ms (unchanged)
-src/routes/welcome/+page.svelte 115ms (unchanged)
-src/scripts/audit-env.ts 16ms (unchanged)
-src/scripts/extract-icons.ts 17ms (unchanged)
-src/scripts/generateInvitationCodes.ts 8ms (unchanged)
-src/styles/themes.scss 83ms (unchanged)
-svelte.config.js 21ms (unchanged)
-tailwind.config.ts 8ms (unchanged)
-tests/test.ts 4ms (unchanged)
+src/routes/notes/+page.svelte 64ms (unchanged)
+src/routes/welcome/+layout.svelte 0ms (unchanged)
+src/routes/welcome/+page.svelte 50ms (unchanged)
+src/scripts/audit-env.ts 6ms (unchanged)
+src/scripts/extract-icons.ts 9ms (unchanged)
+src/scripts/generateInvitationCodes.ts 5ms (unchanged)
+src/styles/themes.scss 42ms (unchanged)
+svelte.config.js 2ms (unchanged)
+tailwind.config.ts 2ms (unchanged)
+tests/test.ts 1ms (unchanged)
 tsconfig.json 1ms (unchanged)
-vite.config.ts 5ms
+vite.config.ts 2ms (unchanged)
 
 /Users/jr/Repositories/ultralit/app/scripts/install-platform-deps.js
   2:22  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
   3:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
   4:12  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
   5:14  error  A `require()` style import is forbidden  @typescript-eslint/no-require-imports
+
+/Users/jr/Repositories/ultralit/app/src/lib/clients/invitationClient.ts
+  25:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/jr/Repositories/ultralit/app/src/lib/clients/securityClient.ts
+  14:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/components/analytics/UmamiAnalytics.svelte
   58:75  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -600,109 +608,41 @@ vite.config.ts 5ms
   238:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/agents/components/AgentsConfig.svelte
-  157:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  495:11  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
-  609:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  154:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  591:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/ai/components/analysis/LocalAIAnalysisButton.svelte
-   39:31  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   43:31  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   44:29  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   46:25  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   69:10  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   76:55  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   83:55  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  200:35  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  307:51  warning  Unnecessary escape character: \.              no-useless-escape
-  375:22  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  439:35  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  629:33  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  743:37  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  754:6   warning  Unexpected lexical declaration in case block  no-case-declarations
-  755:6   warning  Unexpected lexical declaration in case block  no-case-declarations
-  759:6   warning  Unexpected lexical declaration in case block  no-case-declarations
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/ai/components/analysis/LocalAIAnalysisModal.svelte
-   33:31  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   37:31  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   38:29  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   40:25  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   80:10  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   87:55  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-   94:55  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  184:35  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  329:22  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  393:35  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  583:33  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  692:37  warning  Unexpected any. Specify a different type      @typescript-eslint/no-explicit-any
-  703:6   warning  Unexpected lexical declaration in case block  no-case-declarations
-  704:6   warning  Unexpected lexical declaration in case block  no-case-declarations
-  708:6   warning  Unexpected lexical declaration in case block  no-case-declarations
+   46:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   51:29  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   53:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   78:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   84:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  203:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  380:22  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  445:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  635:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  749:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/email/components/EmailModal.svelte
    34:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  400:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  417:4   error    Do not assign to the exception parameter  no-ex-assign
-  423:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  427:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  828:13  warning  `{@html}` can lead to XSS attack          svelte/no-at-html-tags
-  835:13  warning  `{@html}` can lead to XSS attack          svelte/no-at-html-tags
-  842:12  warning  `{@html}` can lead to XSS attack          svelte/no-at-html-tags
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/ledger/utils/ledgerUtils.ts
-  376:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  406:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/ml/cv/utils/cvApi.ts
   47:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
-/Users/jr/Repositories/ultralit/app/src/lib/features/ml/cv/utils/detectionTagging.ts
-   73:22  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
-  190:4   warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/pdf/components/PDFReader.svelte
-  347:9  warning  `{@html}` can lead to XSS attack  svelte/no-at-html-tags
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/pdf/utils/pdf.ts
-   52:19  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
-  110:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
 /Users/jr/Repositories/ultralit/app/src/lib/features/posts/components/PostCard.svelte
-   550:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  1163:7   warning  `{@html}` can lead to XSS attack          svelte/no-at-html-tags
-  1272:6   warning  `{@html}` can lead to XSS attack          svelte/no-at-html-tags
+  500:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/posts/components/PostComposer.svelte
   339:20  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/posts/utils/attachmentTagging.ts
-   40:26  warning  Unnecessary escape character: \.          no-useless-escape
-   40:28  warning  Unnecessary escape character: \)          no-useless-escape
-   42:18  warning  Unnecessary escape character: \[          no-useless-escape
-   60:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   87:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   95:53  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  103:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  452:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  567:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  664:21  warning  Forbidden non-null assertion              @typescript-eslint/no-non-null-assertion
-  689:21  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  745:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/tasks/Kanban.svelte
-  1784:8  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  1904:6  warning  'handlePageMenuLeave' is not defined      no-undef
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/threads/utils/threadNaming.ts
   75:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/features/users/components/Avatar.svelte
   2:19  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/lib/features/users/components/Profile.svelte
-  548:3  warning  'descriptionValue' is not defined  no-undef
-
-/Users/jr/Repositories/ultralit/app/src/lib/pocketbase.ts
-  995:49  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/services/messageService.ts
   488:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -724,29 +664,11 @@ vite.config.ts 5ms
   382:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   526:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
-/Users/jr/Repositories/ultralit/app/src/lib/stores/pocketbase.ts
-  45:9  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
-  61:9  warning  Forbidden non-null assertion  @typescript-eslint/no-non-null-assertion
-
-/Users/jr/Repositories/ultralit/app/src/lib/stores/postStore.ts
-  412:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  415:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  484:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  487:16  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
 /Users/jr/Repositories/ultralit/app/src/lib/stores/textareaFocusStore.ts
   14:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   21:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   24:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   56:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/lib/types/types.ledger.ts
-  185:8   warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  329:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/lib/types/types.pdf.ts
-   24:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  122:13  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/lib/utils/pdfKeywordExtractor.ts
   128:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -773,17 +695,8 @@ vite.config.ts 5ms
   296:63  warning  Unnecessary escape character: \/  no-useless-escape
   296:67  warning  Unnecessary escape character: \.  no-useless-escape
 
-/Users/jr/Repositories/ultralit/app/src/routes/api/ai/local/chat/+server.ts
-  45:45  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
 /Users/jr/Repositories/ultralit/app/src/routes/api/ai/local/debug/+server.ts
   89:62  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/routes/api/email/analyze/+server.ts
-  66:32  warning  'EmailAIAnalysis' is not defined          no-undef
-  82:44  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  82:58  warning  'EmailAIAnalysis' is not defined          no-undef
-  93:22  warning  'EmailAIAnalysis' is not defined          no-undef
 
 /Users/jr/Repositories/ultralit/app/src/routes/api/email/messages/+server.ts
    45:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -801,41 +714,12 @@ vite.config.ts 5ms
    90:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   145:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
-/Users/jr/Repositories/ultralit/app/src/routes/api/email/send/templates/+server.ts
-   2:19  warning  'RequestHandler' is not defined    no-undef
-   8:11  warning  'json' is not defined              no-undef
-   8:16  warning  'EmailApiResponse' is not defined  no-undef
-  23:27  warning  'pb' is not defined                no-undef
-  28:10  warning  'json' is not defined              no-undef
-  28:15  warning  'EmailApiResponse' is not defined  no-undef
-  34:10  warning  'json' is not defined              no-undef
-  34:15  warning  'EmailApiResponse' is not defined  no-undef
-
 /Users/jr/Repositories/ultralit/app/src/routes/api/pdf/+server.ts
    10:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
    96:55  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   145:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   229:12  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
   252:50  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/routes/api/pdf/financial/+server.ts
-   42:68  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   76:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  151:35  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/routes/api/pdf/presentations/+server.ts
-   42:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   56:76  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  150:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  150:48  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  186:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  206:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  208:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-
-/Users/jr/Repositories/ultralit/app/src/routes/api/pdf/scientific/+server.ts
-   42:66  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   57:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  125:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
 /Users/jr/Repositories/ultralit/app/src/routes/api/pdf/tables/+server.ts
    73:57  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
@@ -853,13 +737,19 @@ vite.config.ts 5ms
 /Users/jr/Repositories/ultralit/app/src/routes/api/verify/users/[id]/+server.ts
   147:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
-/Users/jr/Repositories/ultralit/app/src/routes/ide/+page.svelte
-   151:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   256:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-   410:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
-  1185:11  warning  `{@html}` can lead to XSS attack          svelte/no-at-html-tags
+/Users/jr/Repositories/ultralit/app/src/routes/canvas/+layout.svelte
+  619:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  622:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
 
-✖ 179 problems (5 errors, 174 warnings)
+/Users/jr/Repositories/ultralit/app/src/routes/ide/+page.svelte
+   40:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  161:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  262:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  388:81  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  400:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  404:61  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 99 problems (4 errors, 95 warnings)
 
 error Command failed with exit code 1.
 info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.

@@ -5,6 +5,13 @@ import { pb } from '$lib/server/pocketbase';
 import type { PostAttachment, Post } from '$lib/types/types.posts';
 import { apiTryCatch, pbTryCatch, unwrap } from '$lib/utils/errorUtils';
 
+function getErrorStatus(error: unknown): number | null {
+	if (error && typeof error === 'object' && 'status' in error) {
+		return (error as { status: number }).status;
+	}
+	return null;
+}
+
 export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 	try {
 		if (locals.user && cookies) {
@@ -51,8 +58,9 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 			console.log('User retrieved:', { id: user.id, username: user.username });
 		} catch (error) {
 			console.error('Error fetching user:', error);
-			if (error.status === 404 || error.status === 403 || error.status === 401) {
-				// Create minimal user data for non-authenticated access
+
+			const status = getErrorStatus(error);
+			if (status === 404 || status === 403 || status === 401) {
 				user = {
 					id: post.user,
 					username: 'user',
@@ -61,11 +69,10 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 				};
 				console.log('Using fallback user data for non-authenticated access');
 			} else {
-				throw error; // Re-throw other errors
+				throw error;
 			}
 		}
 
-		// Get post attachments
 		const postAttachments = await pb.collection('posts_attachments').getFullList({
 			filter: `post = "${postId}"`
 		});
@@ -123,15 +130,16 @@ export const GET: RequestHandler = async ({ params, locals, cookies }) => {
 				commentUsers.set(userId, commentUser);
 			} catch (error) {
 				console.error('Error fetching comment user:', userId, error);
-				if (error.status === 404 || error.status === 403 || error.status === 401) {
-					// Create minimal user data for comment
+
+				const status = getErrorStatus(error);
+				if (status === 404 || status === 403 || status === 401) {
 					const fallbackUser = {
-						id: userId, // ✅ Use the comment userId, not post.user
+						id: userId,
 						username: 'user',
 						name: 'User',
 						avatar: null
 					};
-					commentUsers.set(userId, fallbackUser); // ✅ Set the fallback user in the map
+					commentUsers.set(userId, fallbackUser);
 					console.log('Using fallback user data for comment user:', userId);
 				} else {
 					throw error;

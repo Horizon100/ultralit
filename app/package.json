@@ -1,5 +1,5 @@
 {
-	"name": "dapp",
+	"name": "vrazum",
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
@@ -31,7 +31,18 @@
 		"find-empty-blocks": "yarn lint:css:svelte",
 		"audit:env": "node src/scripts/audit-env.ts",
 		"extract-icons": "node src/scripts/extract-icons.ts",
-		"generate-codes": "tsx src/scripts/generateInvitationCodes.ts"
+		"generate-codes": "tsx src/scripts/generateInvitationCodes.ts",
+		"docker:build": "docker compose build",
+		"docker:up": "docker compose up -d", 
+		"docker:down": "docker compose down",
+		"docker:logs": "docker compose logs -f",
+		"docker:restart": "docker compose restart vrazum",
+		"docker:clean": "docker compose down -v && docker system prune -f",
+		"test:docker": "docker compose up -d && sleep 30 && curl http://localhost:3000/api/health",
+		"dev:server": "vite dev --host 0.0.0.0 --port 5173",
+		"build:prod": "NODE_ENV=production vite build", 
+		"preview:server": "vite preview --host 0.0.0.0 --port 3000",
+		"start:prod": "NODE_ENV=production node build"
 	},
 	"devDependencies": {
 		"@erbelion/vite-plugin-sveltekit-purgecss": "^0.1.0",
@@ -183,6 +194,18 @@
 	},
 	"resolutions": {
 		"@codemirror/state": "6.5.2",
+		"@codemirror/view": "6.38.1",
+		"@codemirror/language": "6.11.2",
+		"@codemirror/autocomplete": "6.18.6",
+		"@codemirror/commands": "6.8.1",
+		"@codemirror/search": "6.5.7",
+		"@codemirror/lint": "6.8.2",
+		"@codemirror/lang-javascript": "6.2.2",
+		"@codemirror/lang-html": "6.4.9",
+		"@codemirror/lang-css": "6.3.0",
+		"@codemirror/lang-json": "6.0.1",
+		"@codemirror/lang-markdown": "6.3.0",
+		"@codemirror/lang-python": "6.1.6",
 		"yaml": "^2.4.2",
 		"postcss-load-config": "^4.0.2",
 		"preact": "10.24.3",

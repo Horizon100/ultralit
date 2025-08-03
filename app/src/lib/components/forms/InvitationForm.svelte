@@ -1,12 +1,12 @@
 <script lang="ts">
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { t } from '$lib/stores/translationStore';
-	import { 
-		signIn, 
+	import {
+		signIn,
 		signUp as registerUser,
-		saveUserSecurity, 
-		getUserSecurityQuestion, 
-		resetPasswordWithSecurity 
+		saveUserSecurity,
+		getUserSecurityQuestion,
+		resetPasswordWithSecurity
 	} from '$lib/pocketbase';
 	import horizon100 from '$lib/assets/thumbnails/horizon100.svg';
 	import { onMount, createEventDispatcher, tick } from 'svelte';
@@ -37,53 +37,56 @@
 	let confirmPassword: string = '';
 	let userSecurityQuestion: string = '';
 
-$: securityQuestions = Object.entries($t('security.passwordQuestions') as Record<string, string>).map(([key, value]) => ({
-  key,
-  question: value
-}));
+	$: securityQuestions = Object.entries(
+		$t('security.passwordQuestions') as Record<string, string>
+	).map(([key, value]) => ({
+		key,
+		question: value
+	}));
 
 	const dispatch = createEventDispatcher();
 
 	function close() {
 		dispatch('close');
 	}
-async function checkInvitationCode() {
-	if (!invitationCode) {
-		errorMessage = 'Please enter an invitation code';
-		return;
-	}
-
-	isCheckingCode = true;
-	errorMessage = '';
-
-	try {
-		console.log('🔍 Validating code:', invitationCode);
-		const result = await validateInvitationCode(invitationCode);
-		
-		console.log('🔍 Full validation result:', result);
-		console.log('🔍 result.data:', result.data);
-		console.log('🔍 result.data.id:', result.data?.id);
-
-		if (result.success && result.data) {
-			console.log('🔍 Data has properties:', Object.keys(result.data));
-			
-			isCodeValid = true;
-			validInvitationId = result.data.id ?? null;
-			console.log('🔍 Set validInvitationId to:', validInvitationId);
-			
-			successMessage = 'Invitation code accepted! Please continue with registration.';
-			console.log('Valid invitation code:', result.data);
-		} else {
-			errorMessage = result.error || 'Invalid or already used invitation code';
-			isCodeValid = false;
+	async function checkInvitationCode() {
+		if (!invitationCode) {
+			errorMessage = 'Please enter an invitation code';
+			return;
 		}
-	} catch (err) {
-		console.error('Error checking invitation code:', err);
-		errorMessage = err instanceof Error ? err.message : 'An error occurred while checking the invitation code';
-	} finally {
-		isCheckingCode = false;
+
+		isCheckingCode = true;
+		errorMessage = '';
+
+		try {
+			console.log('🔍 Validating code:', invitationCode);
+			const result = await validateInvitationCode(invitationCode);
+
+			console.log('🔍 Full validation result:', result);
+			console.log('🔍 result.data:', result.data);
+			console.log('🔍 result.data.id:', result.data?.id);
+
+			if (result.success && result.data) {
+				console.log('🔍 Data has properties:', Object.keys(result.data));
+
+				isCodeValid = true;
+				validInvitationId = result.data.id ?? null;
+				console.log('🔍 Set validInvitationId to:', validInvitationId);
+
+				successMessage = 'Invitation code accepted! Please continue with registration.';
+				console.log('Valid invitation code:', result.data);
+			} else {
+				errorMessage = result.error || 'Invalid or already used invitation code';
+				isCodeValid = false;
+			}
+		} catch (err) {
+			console.error('Error checking invitation code:', err);
+			errorMessage =
+				err instanceof Error ? err.message : 'An error occurred while checking the invitation code';
+		} finally {
+			isCheckingCode = false;
+		}
 	}
-}
 	export async function login(): Promise<void> {
 		if (!browser) return;
 
@@ -114,70 +117,83 @@ async function checkInvitationCode() {
 		}
 	}
 
-async function handleSignUp(): Promise<void> {
-  console.log('🚀 SIGNUP BUTTON CLICKED!');
-  console.log('📊 Current state:', {
-    browser,
-    isCodeValid,
-    validInvitationId,
-    email,
-    password: !!password,
-    selectedSecurityQuestion,
-    securityAnswer: !!securityAnswer
-  });
+	async function handleSignUp(): Promise<void> {
+		console.log('🚀 SIGNUP BUTTON CLICKED!');
+		console.log('📊 Current state:', {
+			browser,
+			isCodeValid,
+			validInvitationId,
+			email,
+			password: !!password,
+			selectedSecurityQuestion,
+			securityAnswer: !!securityAnswer
+		});
 
-  if (!browser || !isCodeValid || !validInvitationId) {
-    console.log('❌ Early return conditions:', { browser, isCodeValid, validInvitationId });
-    return;
-  }
+		if (!browser || !isCodeValid || !validInvitationId) {
+			console.log('❌ Early return conditions:', { browser, isCodeValid, validInvitationId });
+			return;
+		}
 
-  errorMessage = '';
-  successMessage = '';
-  isLoading = true;
+		errorMessage = '';
+		successMessage = '';
+		isLoading = true;
 
-  try {
-    if (!email || !password) {
-      errorMessage = 'Email and password are required';
-      isLoading = false;
-      return;
-    }
+		try {
+			if (!email || !password) {
+				errorMessage = 'Email and password are required';
+				isLoading = false;
+				return;
+			}
 
-    if (!selectedSecurityQuestion || !securityAnswer) {
-      errorMessage = 'Please select a security question and provide an answer';
-      isLoading = false;
-      return;
-    }
+			if (!selectedSecurityQuestion || !securityAnswer) {
+				errorMessage = 'Please select a security question and provide an answer';
+				isLoading = false;
+				return;
+			}
 
-    console.log('Attempting signup with:', email, password ? '(password provided)' : '(no password)');
-    console.log('Security question:', selectedSecurityQuestion);
-    console.log('Security answer provided:', !!securityAnswer);
+			console.log(
+				'Attempting signup with:',
+				email,
+				password ? '(password provided)' : '(no password)'
+			);
+			console.log('Security question:', selectedSecurityQuestion);
+			console.log('Security answer provided:', !!securityAnswer);
 
-    // Pass security question data to the signup function
-    const createdUser = await registerUser(email, password, selectedSecurityQuestion, securityAnswer);
-    
-    if (createdUser) {
-      console.log('User created successfully:', createdUser);
+			// Pass security question data to the signup function
+			const createdUser = await registerUser(
+				email,
+				password,
+				selectedSecurityQuestion,
+				securityAnswer
+			);
 
-      // Mark the invitation code as used
-      console.log(`Marking invitation code ${validInvitationId} as used by user ${createdUser.id}`);
-      const markResult = await markInvitationCodeAsUsed(validInvitationId, createdUser.id);
-      console.log('Mark invitation code result:', markResult);
+			if (createdUser) {
+				console.log('User created successfully:', createdUser);
 
-      // Login with the newly created credentials
-      await login();
-    } else {
-      errorMessage = 'Signup failed. Please try again.';
-    }
-  } catch (err) {
-    console.error('Unexpected signup error:', err);
-    errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred during signup';
-  } finally {
-    isLoading = false;
-  }
-}
+				// Mark the invitation code as used
+				console.log(
+					`Marking invitation code ${validInvitationId} as used by user ${createdUser.id}`
+				);
+				const markResult = await markInvitationCodeAsUsed(validInvitationId, createdUser.id);
+				console.log('Mark invitation code result:', markResult);
+
+				// Login with the newly created credentials
+				await login();
+			} else {
+				errorMessage = 'Signup failed. Please try again.';
+			}
+		} catch (err) {
+			console.error('Unexpected signup error:', err);
+			errorMessage =
+				err instanceof Error ? err.message : 'An unexpected error occurred during signup';
+		} finally {
+			isLoading = false;
+		}
+	}
 	$: invitationPlaceholder = $t('profile.invitationPlaceholder') as string;
 	$: emailPlaceholder = $t('profile.email') as string;
 	$: passwordPlaceholder = $t('profile.password') as string;
+	$: securityAnswerPlaceholder = $t('security.securityAnswerPlaceholder') as string;
 
 	$: invitationReasons = $t('profile.invitationReasons') as unknown as Array<{
 		bold: string;
@@ -185,14 +201,13 @@ async function handleSignUp(): Promise<void> {
 	}>;
 </script>
 
-<div class="auth-overlay" on:click|self={close}>
-	<div class="auth-content">
+<button class="auth-overlay" on:click|self={close} type="button" aria-label="Close modal">
+	<button class="auth-content" on:click|stopPropagation>
 		<div class="login-container">
 			<div class="credentials">
 				<form
 					on:submit|preventDefault={(e) => {
 						e.preventDefault();
-						// This ensures the form never handles the signup automatically
 					}}
 					class="auth-form"
 				>
@@ -286,56 +301,59 @@ async function handleSignUp(): Promise<void> {
 								{/if}
 							</button> -->
 						</span>
-						  <span class="security-question-select" transition:fly={{ duration: 300, delay: 300 }}>
-						<select bind:value={selectedSecurityQuestion} required disabled={isLoading}>
-						<option value="">{$t('security.selectQuestion')}</option>
-						{#each securityQuestions as question}
-							<option value={question.key}>{question.question}</option>
-						{/each}
-						</select>
-					
-					</span>
+						<span class="security-question-select" transition:fly={{ duration: 300, delay: 300 }}>
+							<select bind:value={selectedSecurityQuestion} required disabled={isLoading}>
+								<option value="">{$t('security.selectQuestion')}</option>
+								{#each securityQuestions as question}
+									<option value={question.key}>{question.question}</option>
+								{/each}
+							</select>
+						</span>
 					{/if}
 					{#if selectedSecurityQuestion}
 						<span class="security-answer-input" transition:fly={{ duration: 300, delay: 400 }}>
-						<input
-							type="text"
-							bind:value={securityAnswer}
-							placeholder={$t('security.securityAnswerPlaceholder')}
-							required
-							disabled={isLoading}
-						/>
+							<input
+								type="text"
+								bind:value={securityAnswer}
+								placeholder={securityAnswerPlaceholder}
+								required
+								disabled={isLoading}
+							/>
 						</span>
 					{/if}
-{#if selectedSecurityQuestion && securityAnswer}
-<div style="color: red; font-size: 12px;">
-  DEBUG: selectedSecurityQuestion = "{selectedSecurityQuestion}"<br>
-  DEBUG: securityAnswer = "{securityAnswer}"<br>
-  DEBUG: Both filled = {!!(selectedSecurityQuestion && securityAnswer)}
-</div>
-	<span class="signup-button" transition:fly={{ duration: 300, delay: 500 }}>
-		<button
-			class="round-btn invitation"
-			on:click={(e) => {
-				e.preventDefault();
-				handleSignUp();
-			}}
-			type="button"
-			disabled={isLoading || !email || !password || !selectedSecurityQuestion || !securityAnswer}
-		>
-			{#if isLoading}
-				<div class="small-spinner-container">
-					<div class="small-spinner">
-						<Icon name="Bot" />
-					</div>
-				</div>
-			{:else}
-				<span>{$t('profile.signup')}</span>
-				<Icon name="ChevronRight" />
-			{/if}
-		</button>
-	</span>
-{/if}
+					{#if selectedSecurityQuestion && securityAnswer}
+						<div style="color: red; font-size: 12px;">
+							DEBUG: selectedSecurityQuestion = "{selectedSecurityQuestion}"<br />
+							DEBUG: securityAnswer = "{securityAnswer}"<br />
+							DEBUG: Both filled = {!!(selectedSecurityQuestion && securityAnswer)}
+						</div>
+						<span class="signup-button" transition:fly={{ duration: 300, delay: 500 }}>
+							<button
+								class="round-btn invitation"
+								on:click={(e) => {
+									e.preventDefault();
+									handleSignUp();
+								}}
+								type="button"
+								disabled={isLoading ||
+									!email ||
+									!password ||
+									!selectedSecurityQuestion ||
+									!securityAnswer}
+							>
+								{#if isLoading}
+									<div class="small-spinner-container">
+										<div class="small-spinner">
+											<Icon name="Bot" />
+										</div>
+									</div>
+								{:else}
+									<span>{$t('profile.signup')}</span>
+									<Icon name="ChevronRight" />
+								{/if}
+							</button>
+						</span>
+					{/if}
 					{#if errorMessage}
 						<div class="error-message" transition:slide={{ duration: 200 }}>
 							{errorMessage}
@@ -364,8 +382,8 @@ async function handleSignUp(): Promise<void> {
 		<span class="auth-close">
 			<button class="auth" on:click={close}>Close</button>
 		</span>
-	</div>
-</div>
+	</button>
+</button>
 
 <style lang="scss">
 	// @use 'src/lib/styles/themes.scss' as *;
@@ -387,7 +405,7 @@ async function handleSignUp(): Promise<void> {
 		justify-content: center;
 		align-items: center;
 	}
-		@supports (-webkit-appearance: none) {
+	@supports (-webkit-appearance: none) {
 		select {
 			-webkit-appearance: none;
 			appearance: none;
@@ -470,7 +488,7 @@ async function handleSignUp(): Promise<void> {
 		line-height: 2;
 		margin-bottom: 1rem;
 	}
-		span.invitation-input {
+	span.invitation-input {
 		display: flex;
 		flex-direction: row;
 		justify-content: space-between;

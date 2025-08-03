@@ -64,16 +64,17 @@ export class DetectionAggregator {
 		detections.forEach((detection) => {
 			const key = detection.class_name;
 
-			// Only process detections above minimum confidence
 			if (detection.confidence < this.options.minConfidence) {
 				return;
 			}
 
 			if (this.detectionHistory.has(key)) {
-				const existing = this.detectionHistory.get(key)!;
-				existing.detections.push(detection);
-				existing.lastSeen = now;
-				existing.count++;
+				const existing = this.detectionHistory.get(key);
+				if (existing) {
+					existing.detections.push(detection);
+					existing.lastSeen = now;
+					existing.count++;
+				}
 			} else {
 				this.detectionHistory.set(key, {
 					detections: [detection],
@@ -84,10 +85,8 @@ export class DetectionAggregator {
 			}
 		});
 
-		// Clean up old detections outside aggregation window
 		this.cleanupOldDetections(now);
 	}
-
 	/**
 	 * Remove detections older than aggregation window
 	 */
@@ -95,14 +94,7 @@ export class DetectionAggregator {
 		const cutoff = now - this.options.aggregationWindow;
 
 		for (const [key, data] of this.detectionHistory.entries()) {
-			// Remove detections older than cutoff
-			data.detections = data.detections.filter((d) => (d.timestamp || now) > cutoff);
-
-			// Update count
-			data.count = data.detections.length;
-
-			// Remove entry if no recent detections
-			if (data.detections.length === 0) {
+			if (data.lastSeen < cutoff) {
 				this.detectionHistory.delete(key);
 			}
 		}
@@ -178,7 +170,6 @@ export function detectionsToTags(
 ): AttachmentGeneratedTag[] {
 	const { minConfidence = 0.6, maxTags = 10 } = options;
 
-	// Group detections by class name
 	const classGroups = new Map<string, Detection[]>();
 
 	detections.forEach((detection) => {
@@ -187,11 +178,13 @@ export function detectionsToTags(
 			if (!classGroups.has(className)) {
 				classGroups.set(className, []);
 			}
-			classGroups.get(className)!.push(detection);
+			const group = classGroups.get(className);
+			if (group) {
+				group.push(detection);
+			}
 		}
 	});
 
-	// Convert to tags
 	const tags: AttachmentGeneratedTag[] = [];
 
 	for (const [className, detectionGroup] of classGroups.entries()) {
@@ -205,10 +198,8 @@ export function detectionsToTags(
 		});
 	}
 
-	// Sort by confidence and limit
 	return tags.sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, maxTags);
 }
-
 /**
  * Update video attachment with detection-based tags
  */

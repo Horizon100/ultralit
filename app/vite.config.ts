@@ -2,6 +2,7 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig, loadEnv } from 'vite';
 import os from 'os';
 import path from 'path';
+import { version } from './package.json';
 
 export default defineConfig(({ mode }) => {
 	const env = loadEnv(mode, process.cwd(), '');
@@ -14,7 +15,9 @@ export default defineConfig(({ mode }) => {
 	const devOrigins = [
 		'http://localhost:5173',
 		'http://127.0.0.1:5173',
-		env.PUBLIC_POCKETBASE_URL || env.VITE_POCKETBASE_URL || 'http://localhost:8090'
+		'http://100.77.36.61:5173', // Server dev access
+		'http://100.77.36.61:3000',  // Server production access
+		env.PUBLIC_POCKETBASE_URL || env.POCKETBASE_URL || 'http://localhost:8090'
 	];
 
 	// Add code-server URL if specified in environment
@@ -67,17 +70,14 @@ export default defineConfig(({ mode }) => {
 			sourcemap: false,
 			rollupOptions: {
 				output: {
-					manualChunks: {
-						vendor: ['svelte', '@sveltejs/kit'],
+					manualChunks: mode === 'development' ? {
 						pocketbase: ['pocketbase']
-					}
+					} : undefined
 				}
 			}
 		},
 		define: {
-			// Remove console.log in production
-			'console.log': mode === 'production' ? '() => {}' : 'console.log',
-			'console.warn': mode === 'production' ? '() => {}' : 'console.warn'
+			__APP_VERSION__: JSON.stringify(version)
 		}
 	};
 });

@@ -98,7 +98,7 @@
 	}
 
 	const roles = ['hub', 'proxy', 'assistant', 'moderator'];
-	const statuses = ['active', 'inactive', 'maintenance', 'paused'];
+	const statuses = ['active', 'inactive', 'maintenance', 'paused', 'analyzing'];
 
 	$: filteredAgents = agents
 		.filter(

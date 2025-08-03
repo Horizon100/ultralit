@@ -9,7 +9,14 @@ export interface AttachmentGeneratedTag {
 	relevanceScore: number;
 	source: 'text' | 'image' | 'mixed' | 'pdf';
 }
-
+export interface PocketBaseAttachment {
+	id: string;
+	file_path: string;
+	original_name?: string;
+	mime_type?: string;
+	size?: number;
+	[key: string]: unknown;
+}
 export interface AttachmentTaggingResult {
 	tags: AttachmentGeneratedTag[];
 	attachmentId: string;
@@ -17,6 +24,7 @@ export interface AttachmentTaggingResult {
 	tagIds: string[];
 	analysis?: string;
 }
+type AttachmentInput = File | PocketBaseAttachment;
 
 export interface AttachmentTaggingOptions {
 	model?: string;
@@ -37,9 +45,9 @@ function cleanTagName(tagName: string): string {
 			.replace(/^(tag|tags?):\s*/i, '')
 			.replace(/^(label|labels?):\s*/i, '')
 			// Remove leading punctuation and numbers
-			.replace(/^[-•·\-—–\d+\.\)\]\s]+/, '')
+			.replace(/^[-•·\-—–\d+.)\]\s]+/, '')
 			// Remove quotes and brackets
-			.replace(/['""\[\]{}]/g, '')
+			.replace(/['""[\]{}]/g, '')
 			// Take only the first word if multiple words with separators
 			.split(/[,:;]+/)[0]
 			// Take only first word if space-separated and it's clearly multiple concepts
@@ -57,7 +65,7 @@ function cleanTagName(tagName: string): string {
 /**
  * Get image URL for attachment using PocketBase file API
  */
-export function getAttachmentImageUrl(attachment: any): string {
+export function getAttachmentImageUrl(attachment: PocketBaseAttachment): string {
 	const baseUrl = get(pocketbaseUrl);
 
 	console.log('🔍 Building attachment URL:', {
@@ -84,25 +92,29 @@ export function getAttachmentImageUrl(attachment: any): string {
 /**
  * Check if attachment is a PDF
  */
-export function isPdfFile(file: File | any): boolean {
-	const type = file.type || file.mime_type;
-	return type === 'application/pdf';
+export function isPdfFile(file: AttachmentInput): boolean {
+	if (file instanceof File) {
+		return file.type === 'application/pdf';
+	}
+	return file.mime_type === 'application/pdf';
 }
 
 /**
  * Check if attachment is suitable for text extraction
  */
-export function supportsTextExtraction(file: File | any): boolean {
-	const type = file.type || file.mime_type;
-	return type?.startsWith('image/') || type === 'application/pdf' || type?.startsWith('text/');
+export function supportsTextExtraction(file: AttachmentInput): boolean {
+	const type = file instanceof File ? file.type : file.mime_type;
+	if (!type) return false;
+	return type.startsWith('image/') || type === 'application/pdf' || type.startsWith('text/');
 }
 
 /**
  * Check if attachment is an image that can be analyzed
  */
-export function supportsImageAnalysis(file: File | any): boolean {
-	const type = file.type || file.mime_type;
-	return type?.startsWith('image/');
+export function supportsImageAnalysis(file: AttachmentInput): boolean {
+	const type = file instanceof File ? file.type : file.mime_type;
+	if (!type) return false;
+	return type.startsWith('image/');
 }
 
 /**
@@ -130,10 +142,10 @@ async function extractPdfKeywords(
 		}
 
 		const tags: AttachmentGeneratedTag[] = result.keywords
-			.map((keyword, index) => ({
+			.map((keyword: string, index: number) => ({
 				name: cleanTagName(keyword),
 				relevanceScore: 1.0 - index * 0.1,
-				source: 'pdf'
+				source: 'pdf' as const
 			}))
 			.filter((tag) => tag.name.length >= 2);
 
@@ -366,20 +378,20 @@ tools`;
 	// First try line-by-line parsing
 	let tagLines = response
 		.split('\n')
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0);
+		.map((line: string) => line.trim())
+		.filter((line: string) => line.length > 0);
 
 	// If we only got one line with commas, split by commas
 	if (tagLines.length === 1 && tagLines[0].includes(',')) {
 		tagLines = tagLines[0]
 			.split(',')
-			.map((tag) => tag.trim())
-			.filter((tag) => tag.length > 0);
+			.map((tag: string) => tag.trim())
+			.filter((tag: string) => tag.length > 0);
 	}
 
 	// Clean each tag aggressively
 	const cleanedTags = tagLines
-		.map((line) => {
+		.map((line: string) => {
 			// Remove prefixes like "tag:", "tags:", etc.
 			let cleaned = line.replace(/^(tag|tags?):\s*/i, '');
 			// Remove everything after first comma or colon
@@ -387,14 +399,14 @@ tools`;
 			// Clean the tag name
 			return cleanTagName(cleaned);
 		})
-		.filter((tag) => tag.length >= 2 && tag.length <= 15)
-		.filter((tag) => !['tag', 'tags', 'construction', 'activity'].includes(tag)) // Remove meta words
+		.filter((tag: string) => tag.length >= 2 && tag.length <= 15)
+		.filter((tag: string) => !['tag', 'tags', 'construction', 'activity'].includes(tag)) // Remove meta words
 		.slice(0, maxTags);
 
 	console.log('🏷️ AI response:', response);
 	console.log('🏷️ Cleaned tags:', cleanedTags);
 
-	return cleanedTags.map((tagName, index) => ({
+	return cleanedTags.map((tagName: string, index: number) => ({
 		name: tagName,
 		relevanceScore: 1.0 - index * 0.1,
 		source: 'image'
@@ -449,7 +461,7 @@ function generateFallbackImageTags(file: File, maxTags: number): AttachmentGener
  * Generate tags for image content using two-step process
  */
 async function generateImageTags(
-	attachment: File | any,
+	attachment: AttachmentInput,
 	options: AttachmentTaggingOptions = {}
 ): Promise<{ tags: AttachmentGeneratedTag[]; analysis: string }> {
 	const {
@@ -549,11 +561,11 @@ async function generateTextTags(
 	const tagLines = result.data.data.response
 		.trim()
 		.split('\n')
-		.map((line) => line.trim())
-		.filter((line) => line.length > 0)
+		.map((line: string) => line.trim())
+		.filter((line: string) => line.length > 0)
 		.slice(0, maxTags);
 
-	return tagLines.map((tagName, index) => ({
+	return tagLines.map((tagName: string, index: number) => ({
 		name: tagName.toLowerCase(),
 		relevanceScore: 1.0 - index * 0.1,
 		source: 'text'
@@ -564,11 +576,9 @@ async function generateTextTags(
  * Generate tags for a single attachment
  */
 export async function generateAttachmentTags(
-	attachment: File | any,
+	attachment: AttachmentInput,
 	options: AttachmentTaggingOptions = {}
 ): Promise<{ tags: AttachmentGeneratedTag[]; analysis?: string }> {
-	console.log('🏷️ Starting attachment tagging for:', attachment.name || attachment.original_name);
-
 	const {
 		includeImageAnalysis = true,
 		ocrLanguage = 'eng+fin+rus',
@@ -601,10 +611,10 @@ export async function generateAttachmentTags(
 
 				if (pdfResult.success) {
 					const pdfTags: AttachmentGeneratedTag[] = pdfResult.keywords
-						.map((keyword, index) => ({
+						.map((keyword: string, index: number) => ({
 							name: cleanTagName(keyword),
 							relevanceScore: 1.0 - index * 0.1,
-							source: 'pdf'
+							source: 'pdf' as const
 						}))
 						.filter((tag) => tag.name.length >= 2);
 
@@ -661,9 +671,11 @@ export async function generateAttachmentTags(
 
 		const key = cleanedName;
 		if (uniqueTags.has(key)) {
-			const existing = uniqueTags.get(key)!;
-			existing.relevanceScore = Math.max(existing.relevanceScore, tag.relevanceScore);
-			existing.source = existing.source !== tag.source ? 'mixed' : existing.source;
+			const existing = uniqueTags.get(key);
+			if (existing) {
+				existing.relevanceScore = Math.max(existing.relevanceScore, tag.relevanceScore);
+				existing.source = existing.source !== tag.source ? ('mixed' as const) : existing.source;
+			}
 		} else {
 			uniqueTags.set(key, {
 				...tag,
@@ -671,7 +683,6 @@ export async function generateAttachmentTags(
 			});
 		}
 	});
-
 	const finalTags = Array.from(uniqueTags.values())
 		.filter((tag) => tag.name.length >= 2)
 		.sort((a, b) => b.relevanceScore - a.relevanceScore)
@@ -686,7 +697,7 @@ export async function generateAttachmentTags(
 export async function handleAttachmentTagging(
 	attachmentId: string,
 	postId: string,
-	attachment: File | any,
+	attachment: AttachmentInput,
 	options: AttachmentTaggingOptions = {}
 ): Promise<AttachmentTaggingResult> {
 	try {
@@ -742,7 +753,7 @@ export async function handleAttachmentTagging(
  * Process attachment tagging asynchronously for multiple attachments
  */
 export async function processAttachmentTaggingAsync(
-	attachments: Array<{ id: string; postId: string; attachment: any }>,
+	attachments: Array<{ id: string; postId: string; attachment: AttachmentInput }>,
 	options: AttachmentTaggingOptions = {}
 ): Promise<void> {
 	setTimeout(async () => {

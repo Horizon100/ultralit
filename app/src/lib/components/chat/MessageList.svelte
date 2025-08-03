@@ -154,12 +154,12 @@
 		margin-top: 0;
 		padding: 0;
 		flex-direction: column;
-		justify-content: center;
+		justify-content: flex-start;
 		align-items: stretch;
-		height: auto;
+		height: 100%;
 		max-height: 79vh;
 		width: 100%;
-		max-width: 1000px;
+		max-width: 1200px;
 		// scrollbar-width: 2px;
 		// scrollbar-color: var(--secondary-color) transparent;
 		scroll-behavior: smooth;

@@ -1619,8 +1619,8 @@
 	}
 	.composer-overlay {
 		position: absolute;
-		bottom: 1rem;
-		margin-bottom: 1rem;
+		bottom: 0;
+		margin-bottom: 0.5rem;
 		left: 0;
 		width: 100%;
 		height: auto;
@@ -1632,7 +1632,7 @@
 		background-color: transparent;
 		width: calc(100% - 6.5rem) !important;
 		margin-left: 3.5rem;
-		margin-bottom: 2rem;
+
 
 		z-index: 1000;
 

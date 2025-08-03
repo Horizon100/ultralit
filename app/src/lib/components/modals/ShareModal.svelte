@@ -44,7 +44,15 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if isOpen && post}
-	<div class="modal-backdrop" on:click={handleBackdropClick} transition:fade={{ duration: 200 }}>
+	<div
+		class="modal-backdrop"
+		on:click={handleBackdropClick}
+		on:keydown={(e) => e.key === 'Escape' && handleClose()}
+		role="button"
+		aria-label="Close modal"
+		tabindex="0"
+		transition:fade={{ duration: 200 }}
+	>
 		<div class="modal-content" transition:scale={{ duration: 200, start: 0.95 }}>
 			<div class="modal-header">
 				<h2>{$t('generic.share')} {$t('posts.post')}</h2>

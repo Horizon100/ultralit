@@ -8,41 +8,48 @@ import type {
 	EmailAccount,
 	EmailMessage,
 	EmailApiResponse,
+	EmailAIAnalysis,
 	EmailAccountSetup
 } from '$lib/types/types.email';
+interface PocketBaseEmailMessage {
+	id: string;
+	subject?: string;
+	from?: { email: string };
+	bodyText?: string;
+	snippet?: string;
+	created: string;
+	updated: string;
+	[key: string]: unknown;
+}
 
-// POST /api/email/analyze - Analyze email with AI
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const { messageId } = await request.json();
 
 		if (!messageId) {
-			return json<EmailApiResponse>(
+			return json(
 				{
 					success: false,
 					error: 'Message ID is required'
-				},
+				} satisfies EmailApiResponse,
 				{ status: 400 }
 			);
 		}
 
-		// Get message
 		const message = await pb.collection('email_messages').getOne(messageId);
 
 		if (!message) {
-			return json<EmailApiResponse>(
+			return json(
 				{
 					success: false,
 					error: 'Message not found'
-				},
+				} satisfies EmailApiResponse,
 				{ status: 404 }
 			);
 		}
 
-		// Analyze with AI (you'll need to implement this based on your AI service)
 		const analysis = await analyzeEmailWithAI(message);
 
-		// Save analysis
 		const analysisData = {
 			messageId,
 			sentiment: analysis.sentiment,
@@ -58,35 +65,46 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		const savedAnalysis = await pb.collection('email_ai_analysis').create(analysisData);
 
-		// Update message with analysis reference
 		await pb.collection('email_messages').update(messageId, {
 			aiAnalysis: savedAnalysis.id
 		});
 
-		return json<EmailApiResponse<EmailAIAnalysis>>({
+		const analysisResponse: EmailAIAnalysis = {
+			id: savedAnalysis.id,
+			messageId: savedAnalysis.messageId,
+			sentiment: savedAnalysis.sentiment,
+			priority: savedAnalysis.priority,
+			category: savedAnalysis.category,
+			tags: JSON.parse(savedAnalysis.tags || '[]'),
+			topics: JSON.parse(savedAnalysis.topics || '[]'),
+			summary: savedAnalysis.summary,
+			actionItems: JSON.parse(savedAnalysis.actionItems || '[]'),
+			suggestedResponse: savedAnalysis.suggestedResponse,
+			confidenceScore: savedAnalysis.confidenceScore,
+			processedAt: new Date(savedAnalysis.processedAt)
+		};
+
+		return json({
 			success: true,
-			data: savedAnalysis
-		});
+			data: analysisResponse
+		} satisfies EmailApiResponse<EmailAIAnalysis>);
 	} catch (error) {
 		console.error('Failed to analyze email:', error);
-		return json<EmailApiResponse>(
+		return json(
 			{
 				success: false,
 				error: 'Failed to analyze email'
-			},
+			} satisfies EmailApiResponse,
 			{ status: 500 }
 		);
 	}
 };
 
-async function analyzeEmailWithAI(message: any): Promise<EmailAIAnalysis> {
-	// This is a simplified example - implement with your preferred AI service
-	// You could use OpenAI, Claude, or a local AI model
-
+async function analyzeEmailWithAI(message: PocketBaseEmailMessage): Promise<EmailAIAnalysis> {
 	const emailContent = `
-    Subject: ${message.subject}
-    From: ${message.from?.email}
-    Body: ${message.bodyText || message.snippet}
+    Subject: ${message.subject || 'No subject'}
+    From: ${message.from?.email || 'Unknown sender'}
+    Body: ${message.bodyText || message.snippet || 'No content'}
   `;
 
 	// Mock analysis - replace with actual AI service call
@@ -95,11 +113,12 @@ async function analyzeEmailWithAI(message: any): Promise<EmailAIAnalysis> {
 		messageId: message.id,
 		sentiment: Math.random() > 0.5 ? 'positive' : Math.random() > 0.5 ? 'neutral' : 'negative',
 		priority: Math.random() > 0.7 ? 'high' : Math.random() > 0.5 ? 'medium' : 'low',
-		category: 'business', // Could be extracted from content
+		category: 'business',
 		tags: ['email', 'business'],
-		summary: `This email is about ${message.subject.toLowerCase()}`,
+		topics: ['business', 'communication'],
+		summary: `This email is about ${(message.subject || 'an email').toLowerCase()}`,
 		actionItems: message.bodyText?.includes('meeting') ? ['Schedule meeting'] : [],
-		suggestedResponse: `Thank you for your email regarding ${message.subject}`,
+		suggestedResponse: `Thank you for your email regarding ${message.subject || 'your message'}`,
 		confidenceScore: 0.85,
 		processedAt: new Date()
 	};

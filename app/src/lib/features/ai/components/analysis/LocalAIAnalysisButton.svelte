@@ -22,18 +22,25 @@
 	let loading: boolean = false;
 	let analysis: string = '';
 	let error: string | null = null;
-	let analysisType:
+
+	type AnalysisType =
 		| 'summary'
 		| 'sentiment'
 		| 'tags'
 		| 'custom'
 		| 'image_description'
 		| 'image_tags'
+		| 'image_llava'
+		| 'image_generation'
 		| 'pdf_auto'
 		| 'pdf_tables'
 		| 'pdf_scientific'
 		| 'pdf_financial'
-		| 'pdf_presentation' = 'summary';
+		| 'pdf_presentation';
+	type PDFAnalysisType = 'pdf_tables' | 'pdf_scientific' | 'pdf_financial' | 'pdf_presentation';
+
+	let analysisType: AnalysisType = 'summary';
+
 	let customPrompt: string = '';
 	let loadingProgress: string = 'Starting analysis...';
 	let selectedImageAttachment: any = null;
@@ -62,6 +69,8 @@
 	const dispatch = createEventDispatcher<{
 		close: void;
 		analyzed: { postId: string; analysis: string; type: string };
+		promptSelect: { prompt: string };
+		modelSelect: { model: string };
 	}>();
 
 	$: pdfAttachments =
@@ -72,28 +81,23 @@
 	$: if (hasPdfs && !selectedPdfAttachment) {
 		selectedPdfAttachment = pdfAttachments[0];
 	}
-	// Get image attachments
 	$: imageAttachments = post.attachments?.filter((att: any) => att.file_type === 'image') || [];
 	$: hasImages = imageAttachments.length > 0;
 
-	// Auto-select first image if available
 	$: if (hasImages && !selectedImageAttachment) {
 		selectedImageAttachment = imageAttachments[0];
 	}
 	$: audioAttachments = post.attachments?.filter((att: any) => att.file_type === 'audio') || [];
 	$: hasAudio = audioAttachments.length > 0;
 
-	// Auto-select first audio if available
 	$: if (hasAudio && !selectedAudioAttachment) {
 		selectedAudioAttachment = audioAttachments[0];
 	}
-	// Close modal
 	function closeModal() {
 		isOpen = false;
 		dispatch('close');
 	}
 
-	// Handle escape key
 	function handleKeydown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
 			closeModal();
@@ -102,22 +106,22 @@
 
 	function getPrompt(): string {
 		if (analysisType.startsWith('pdf_')) {
-			const basePrompt = pdfPrompts[analysisType] || 'Analyze this PDF content:';
+			const pdfPromptKey = analysisType as keyof typeof pdfPrompts;
+			const basePrompt = pdfPrompts[pdfPromptKey] || 'Analyze this PDF content:';
 			return `${basePrompt}\n\nPost content: "${post.content}"`;
 		}
 
 		let basePrompt: string;
 
-		// Handle different analysis types
 		if (analysisType === 'custom') {
 			basePrompt = customPrompt.trim();
 		} else if (analysisType === 'tags') {
-			basePrompt = getTagsPrompt(5); // Use 5 tags for text content
+			basePrompt = getTagsPrompt(5);
 		} else {
-			basePrompt = prompts[analysisType] || '';
+			const promptKey = analysisType as keyof typeof prompts;
+			basePrompt = promptKey in prompts ? prompts[promptKey] : '';
 		}
 
-		// Ensure we have a valid prompt
 		if (!basePrompt || basePrompt.trim() === '') {
 			console.error('Empty prompt for analysis type:', analysisType);
 			throw new Error(`No prompt available for analysis type: ${analysisType}`);
@@ -126,7 +130,6 @@
 		return `${basePrompt}\n\nPost content: "${post.content}"`;
 	}
 
-	// Add this debug function to help troubleshoot:
 	function debugPrompt() {
 		try {
 			const prompt = getPrompt();
@@ -300,29 +303,31 @@
 						throw new Error('Not a valid tag structure');
 					}
 				} catch {
-					// Your existing fallback logic...
 					if (responseText.includes('\n')) {
 						tagArray = responseText
 							.split('\n')
-							.map((line) => line.trim().replace(/^[-•\d+\.]\s*/, ''))
-							.filter((line) => line.length > 0 && !line.includes('{') && !line.includes('"'));
+							.map((line: string) => line.trim().replace(/^[-•\d+.]\s*/, ''))
+							.filter(
+								(line: string) => line.length > 0 && !line.includes('{') && !line.includes('"')
+							);
 					} else if (responseText.includes(',')) {
 						tagArray = responseText
 							.split(',')
-							.map((tag) => tag.trim().replace(/['"]/g, ''))
-							.filter((tag) => tag.length > 0);
+							.map((tag: string) => tag.trim().replace(/['"]/g, ''))
+							.filter((tag: string) => tag.length > 0);
 					} else {
 						tagArray = [responseText.replace(/['"]/g, '')];
 					}
 				}
 
-				// Clean and validate tags
-				analysis = tagArray
-					.map((tag) => tag.toLowerCase().trim())
-					.filter((tag) => tag.length > 0 && tag !== 'tags')
+				const cleanedTags: string[] = tagArray
+					.map((tag: string) => tag.toLowerCase().trim())
+					.filter((tag: string) => tag.length > 0 && tag !== 'tags')
 					.slice(0, 8);
 
-				console.log('🤖 Final parsed tags:', analysis);
+				analysis = cleanedTags.join(', ');
+
+				console.log('🤖 Final parsed tags:', cleanedTags);
 			}
 		} catch (err) {
 			error = 'Failed to analyze image tags';
@@ -380,13 +385,12 @@
 		};
 
 		if (isImageAnalysis()) {
-			requestBody.prompt = prompts[analysisType];
+			const promptKey = analysisType as keyof typeof prompts;
+			if (promptKey in prompts) {
+				requestBody.prompt = prompts[promptKey];
+			}
 			requestBody.image_url = getImageUrl(selectedImageAttachment);
-			requestBody.is_image_analysis = true;
-		} else {
-			requestBody.prompt = getPrompt();
 		}
-
 		const analysisResult = await clientTryCatch(
 			fetch('/api/ai/local/generate', {
 				method: 'POST',
@@ -423,10 +427,12 @@
 
 		loading = false;
 	}
-
-	// Check if current analysis type is image-related
 	function isImageAnalysis(): boolean {
-		return analysisType === 'image_description' || analysisType === 'image_tags';
+		return (
+			analysisType === 'image_description' ||
+			analysisType === 'image_tags' ||
+			analysisType === 'image_llava'
+		);
 	}
 
 	// Reset when modal opens
@@ -589,7 +595,7 @@
 
 		pdfAnalysisLoading = false;
 	}
-	const typeMapping: Record<string, typeof analysisType> = {
+	const typeMapping: Record<string, PDFAnalysisType> = {
 		table: 'pdf_tables',
 		scientific: 'pdf_scientific',
 		financial: 'pdf_financial',
@@ -608,7 +614,7 @@
 
 		// If we detected a specific type, analyze with that type
 		if (detectedPdfType && detectedPdfType !== 'unknown') {
-			const typeMapping: Record<string, typeof analysisType> = {
+			const typeMapping: Record<string, PDFAnalysisType> = {
 				table: 'pdf_tables',
 				scientific: 'pdf_scientific',
 				financial: 'pdf_financial',
@@ -750,15 +756,15 @@
 				case 'pdf_auto':
 					return `Document Type: ${result.documentType || 'Unknown'} (${Math.round((result.confidence || 0) * 100)}% confidence)\n\nPages: ${result.metadata?.Pages || 'Unknown'}\nTitle: ${result.metadata?.Title || 'No title'}\nAuthor: ${result.metadata?.Author || 'Unknown'}`;
 
-				case 'pdf_tables':
+				case 'pdf_tables': {
 					const tables = result.tables || [];
 					const schedules = result.schedules || [];
 					return `Found ${tables.length} table(s) and ${schedules.length} schedule item(s)\n\n${tables.length > 0 ? `First table has ${tables[0]?.rowCount || 0} rows` : 'No tables found'}`;
-
-				case 'pdf_scientific':
+				}
+				case 'pdf_scientific': {
 					const sections = Object.keys(result.sections || {});
 					return `Scientific Paper Analysis:\nTitle: ${result.metadata?.title || 'Unknown'}\nAuthors: ${result.metadata?.authors?.join(', ') || 'Unknown'}\nSections found: ${sections.join(', ')}\nWord count: ${result.wordCount || 0}\nReferences: ${result.references?.length || 0}`;
-
+				}
 				case 'pdf_financial':
 					return `Financial Document: ${result.documentType || 'Unknown'}\nTotal Amount: ${result.totalAmount ? '$' + result.totalAmount : 'Not found'}\nAmounts found: ${result.amounts?.length || 0}\nDates found: ${result.dates?.length || 0}\nEntities: ${result.entities?.length || 0}`;
 
@@ -815,12 +821,23 @@
 	}
 </script>
 
+<!-- <h2 id="modal-title" class="sr-only">AI Analysis Modal</h2> -->
+
 <!-- Modal backdrop -->
 {#if isOpen}
 	<!-- Modal content -->
+	<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+
 	<div
 		class="modal-content"
+		role="dialog"
+		aria-modal="true"
+		aria-labelledby="modal-title"
+		tabindex="-1"
 		on:click|stopPropagation
+		on:keydown={(e) => {
+			if (e.key === 'Escape') closeModal();
+		}}
 		transition:fly={{ y: 50, duration: 300, easing: cubicOut }}
 	>
 		<!-- Results section -->
@@ -867,13 +884,13 @@
 			{/if}
 			{#if pdfAnalysisResult}
 				<div class="analysis-result pdf-result" transition:fly={{ y: 20, duration: 300 }}>
-					<label class="result-label">
+					<div class="result-label">
 						<Icon name="FileText" size={14} />
 						PDF Analysis:
 						{#if detectedPdfType}
 							<span class="detected-type">({detectedPdfType})</span>
 						{/if}
-					</label>
+					</div>
 
 					<div class="analysis-text">
 						{formatPdfAnalysis(pdfAnalysisResult, analysisType)}
@@ -905,10 +922,10 @@
 
 			{#if transcription}
 				<div class="analysis-result" transition:fly={{ y: 20, duration: 300 }}>
-					<label class="result-label">
+					<div class="result-label">
 						<Icon name="FileText" size={14} />
 						Audio Transcription:
-					</label>
+					</div>
 					<div class="analysis-text">{transcription}</div>
 
 					<!-- Copy button -->
@@ -923,10 +940,10 @@
 			{/if}
 			{#if analysis}
 				<div class="analysis-result" transition:fly={{ y: 20, duration: 300 }}>
-					<label class="result-label">
+					<div class="result-label">
 						<Icon name="Brain" size={14} />
 						AI Analysis:
-					</label>
+					</div>
 					<div class="analysis-text">{analysis}</div>
 
 					<!-- Copy button -->
@@ -1044,11 +1061,7 @@
 						disabled={!selectedAudioAttachment || transcriptionLoading}
 						title={transcriptionLoading ? 'Transcribing...' : 'Transcribe Audio to Text'}
 					>
-						<Icon
-							name={transcriptionLoading ? 'Loader2' : 'FileText'}
-							size={14}
-							class={transcriptionLoading ? 'animate-spin' : ''}
-						/>
+						<Icon name={transcriptionLoading ? 'Loader2' : 'FileText'} size={14} />
 						{transcriptionLoading ? 'Transcribing...' : 'Transcribe'}
 					</button>
 				{/if}
@@ -1061,6 +1074,15 @@
 					>
 						<Icon name="Image" size={14} />
 						Describe Image
+					</button>
+					<button
+						class="type-btn"
+						class:active={analysisType === 'image_llava'}
+						on:click={() => (analysisType = 'image_llava')}
+						disabled={!selectedImageAttachment}
+					>
+						<Icon name="Eye" size={14} />
+						Llava Analysis
 					</button>
 					<button
 						class="type-btn"
@@ -1531,7 +1553,6 @@
 		font-weight: 500;
 		font-size: 0.8rem;
 		color: var(--text-color);
-		truncate: true;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;

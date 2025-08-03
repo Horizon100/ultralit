@@ -8,6 +8,63 @@ import type {
 	AccountFormData,
 	TransactionFormData
 } from '$lib/types/types.ledger';
+import type { RecordModel } from 'pocketbase';
+
+function mapRecordToLedgerAccount(record: RecordModel): LedgerAccount {
+	return {
+		id: record.id,
+		name: record.name || '',
+		type: record.type || 'asset',
+		balance: record.balance || 0,
+		currency: record.currency || 'USD',
+		description: record.description || undefined,
+		parentAccount: record.parentAccount || undefined,
+		isActive: record.isActive ?? true,
+		created: record.created,
+		updated: record.updated
+	};
+}
+
+function mapRecordToTransaction(record: RecordModel): Transaction {
+	return {
+		id: record.id,
+		date: record.date || new Date().toISOString(),
+		type: record.type || 'expense',
+		amount: record.amount || 0,
+		currency: record.currency || 'USD',
+		account: record.account || record.expand?.accountId?.name || '',
+		accountId: record.accountId || '',
+		category: record.category || record.expand?.categoryId?.name || '',
+		categoryId: record.categoryId || undefined,
+		description: record.description || '',
+		reference: record.reference || undefined,
+		status: record.status || 'pending',
+		paymentMethod: record.paymentMethod || undefined,
+		attachments: record.attachments || undefined,
+		tags: record.tags || undefined,
+		contactId: record.contactId || undefined,
+		contactName: record.contactName || record.expand?.contactId?.name || undefined,
+		projectId: record.projectId || undefined,
+		invoiceId: record.invoiceId || undefined,
+		recurringId: record.recurringId || undefined,
+		created: record.created,
+		updated: record.updated,
+		userId: record.userId || ''
+	};
+}
+
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+	if (typeof error === 'string') {
+		return error;
+	}
+	if (error && typeof error === 'object' && 'message' in error) {
+		return String(error.message);
+	}
+	return 'Unknown error occurred';
+}
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	try {
@@ -109,10 +166,11 @@ async function getAccounts(userId: string, page: number, limit: number): Promise
 			filter: `userId = "${userId}"`,
 			sort: '-created'
 		});
+		const mappedAccounts = accounts.items.map(mapRecordToLedgerAccount);
 
 		const response: LedgerApiResponse<LedgerAccount[]> = {
 			success: true,
-			data: accounts.items as LedgerAccount[],
+			data: mappedAccounts,
 			total: accounts.totalItems,
 			page: accounts.page,
 			limit: accounts.perPage
@@ -134,7 +192,6 @@ async function getTransactions(
 	try {
 		let filter = `userId = "${userId}"`;
 
-		// Add filters based on search parameters
 		const startDate = searchParams.get('startDate');
 		const endDate = searchParams.get('endDate');
 		const type = searchParams.get('transactionType');
@@ -167,9 +224,11 @@ async function getTransactions(
 			expand: 'accountId,categoryId,contactId'
 		});
 
+		const mappedTransactions = transactions.items.map(mapRecordToTransaction);
+
 		const response: LedgerApiResponse<Transaction[]> = {
 			success: true,
-			data: transactions.items as Transaction[],
+			data: mappedTransactions,
 			total: transactions.totalItems,
 			page: transactions.page,
 			limit: transactions.perPage
@@ -196,7 +255,7 @@ async function createAccount(data: AccountFormData, userId: string): Promise<Res
 
 		const response: LedgerApiResponse<LedgerAccount> = {
 			success: true,
-			data: account as LedgerAccount,
+			data: mapRecordToLedgerAccount(account),
 			message: 'Account created successfully'
 		};
 
@@ -224,7 +283,7 @@ async function createTransaction(data: TransactionFormData, userId: string): Pro
 
 		const response: LedgerApiResponse<Transaction> = {
 			success: true,
-			data: transaction as Transaction,
+			data: mapRecordToTransaction(transaction),
 			message: 'Transaction created successfully'
 		};
 
@@ -254,7 +313,7 @@ async function updateAccount(
 
 		const response: LedgerApiResponse<LedgerAccount> = {
 			success: true,
-			data: account as LedgerAccount,
+			data: mapRecordToLedgerAccount(account),
 			message: 'Account updated successfully'
 		};
 
@@ -301,7 +360,7 @@ async function updateTransaction(
 
 		const response: LedgerApiResponse<Transaction> = {
 			success: true,
-			data: transaction as Transaction,
+			data: mapRecordToTransaction(transaction),
 			message: 'Transaction updated successfully'
 		};
 

@@ -44,7 +44,7 @@
 	} from '$lib/stores/sidenavStore';
 	import { capitalizeFirst, processWordCrop, processWordMinimize } from '$lib/utils/textHandlers';
 	import { clientTryCatch } from '$lib/utils/errorUtils';
-	// import { createHoverManager } from '$lib/utils/hoverUtils';
+	import { getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
 
 	let currentProjectId: string | null = null;
 	projectStore.subscribe((state) => {
@@ -86,20 +86,6 @@
 	let allTasksBackup: KanbanTask[] = [];
 	let usersMap = new Map();
 	let isLoadingUsers = false;
-
-	// const pageHoverManager = createHoverManager({
-	// 	hoverZone: 50,
-	// 	minScreenWidth: 700,
-	// 	debounceDelay: 100,
-	// 	controls: ['sidenav'],
-	// 	direction: 'left'
-	// });
-
-	// const {
-	// 	hoverState: pageHoverState,
-	// 	handleMenuLeave: handlePageMenuLeave,
-	// 	toggleMenu: togglePageMenu
-	// } = pageHoverManager;
 
 	const userNameCache = new Map<string, string>();
 
@@ -178,7 +164,7 @@
 	 */
 	const unsubscribe = projectStore.subscribe((store) => {
 		currentProjectId = store.currentProjectId;
-		loadData(currentProjectId); // Reload data when project changes
+		loadData(currentProjectId);
 	});
 
 	function getRandomBrightColor(tagName: string): string {
@@ -188,8 +174,6 @@
 		const h = hash % 360;
 		return `hsl(${h}, 70%, 60%)`;
 	}
-
-	// Load data from PocketBase
 
 	async function loadTasks(projectId: string | null) {
 		try {
@@ -220,7 +204,6 @@
 			const data: { items: TaskResponse[] } = await response.json();
 			console.log('Tasks data loaded:', data);
 
-			// Define the response type we expect from the API
 			interface TaskResponse {
 				id: string;
 				title: string;
@@ -247,15 +230,12 @@
 				agentMessages?: string[];
 			}
 
-			// Reset all columns tasks
 			columns.update((cols) => {
 				return cols.map((col) => ({ ...col, tasks: [] }));
 			});
 
-			// Store all tasks for filtering purposes
 			allTasksBackup = [];
 
-			// Distribute tasks to appropriate columns
 			columns.update((cols) => {
 				data.items.forEach((task: TaskResponse) => {
 					const taskObj: KanbanTask = {
@@ -281,10 +261,8 @@
 						agentMessages: task.agentMessages || []
 					};
 
-					// Add to our backup of all tasks
 					allTasksBackup.push(taskObj);
 
-					// Find the appropriate column based on status
 					const targetColumns = reverseStatusMapping[
 						task.status as keyof typeof reverseStatusMapping
 					] || ['Backlog'];
@@ -293,7 +271,6 @@
 					if (targetColumn) {
 						targetColumn.tasks.push(taskObj);
 					} else {
-						// If we can't find a matching column, default to Backlog
 						const backlog = cols.find((col) => col.title === 'Backlog');
 						if (backlog) backlog.tasks.push(taskObj);
 					}
@@ -301,7 +278,6 @@
 				return cols;
 			});
 
-			// Initial application of task view filtering
 			if (taskViewMode !== TaskViewMode.All) {
 				applyTaskViewFilter();
 			}
@@ -330,7 +306,6 @@
 	}
 	async function loadTags(projectId: string | null) {
 		try {
-			// Always use the general tags endpoint, ignore projectId
 			const url = '/api/tags';
 
 			console.log('Loading tags from:', url);
@@ -342,7 +317,6 @@
 				const errorText = await response.text();
 				console.error('Tags fetch failed:', response.status, errorText);
 
-				// If the endpoint doesn't exist, return empty tags instead of failing
 				if (response.status === 404) {
 					console.log('Tags endpoint not found, returning empty tags');
 					tags.set([]);
@@ -368,7 +342,6 @@
 			console.error('Error loading tags:', err);
 			console.error('Error stack:', err instanceof Error ? err.stack : 'No stack');
 
-			// Set empty tags so the component doesn't break
 			tags.set([]);
 			throw err;
 		}
@@ -427,20 +400,17 @@
 		try {
 			console.log(`Updating tags for task ${taskId} with:`, tagIds);
 
-			// Prepare the update data
 			const updateData: Partial<Task> & { taggedTasks: string } = {
 				taggedTasks: tagIds.join(','),
 				taskTags: tagIds
 			};
 
-			// If taskDescription is provided, update it as well
 			if (taskDescription !== undefined) {
 				updateData.taskDescription = taskDescription;
 			}
 
 			console.log('Update data:', updateData);
 
-			// Update the task directly
 			const updateResponse = await fetch(`/api/tasks/${taskId}`, {
 				method: 'PATCH',
 				headers: {
@@ -515,7 +485,6 @@
 			 */
 			const taskStatus = task.status;
 
-			// Prepare attachment IDs as a comma-separated string
 			const attachmentIds = updatedAttachments.map((att) => att.id).join(',');
 
 			const taskData = {
@@ -543,7 +512,6 @@
 			let url = '/api/tasks';
 			let method: 'POST' | 'PATCH' = 'POST';
 
-			// If task has an ID that's not auto-generated locally, it's an update
 			if (task.id && !task.id.startsWith('local_')) {
 				url = `/api/tasks/${task.id}`;
 				method = 'PATCH';
@@ -561,7 +529,6 @@
 
 			const savedTask = await response.json();
 
-			// Update the task in the columns
 			columns.update((cols) => {
 				return cols.map((col) => ({
 					...col,
@@ -575,7 +542,7 @@
 									due_date: savedTask.due_date ? new Date(savedTask.due_date) : null,
 									start_date: savedTask.start_date ? new Date(savedTask.start_date) : null,
 									tags: savedTask.taggedTasks ? savedTask.taggedTasks.split(',') : [],
-									status: savedTask.status // Make sure status is updated from the server response
+									status: savedTask.status
 								}
 							: t
 					)
@@ -597,13 +564,11 @@
 
 	function confirmDelete() {
 		if (taskToDelete) {
-			// If the task to delete is currently open in the modal, close it first
 			if (selectedTask && selectedTask.id === taskToDelete) {
 				isModalOpen = false;
 				selectedTask = null;
 			}
 
-			// Then delete the task
 			deleteTask(taskToDelete)
 				.then(() => {
 					isDeleteConfirmOpen = false;
@@ -773,10 +738,8 @@
 				if (taskIndex !== -1) {
 					const task = deepCopy(fromColumn.tasks[taskIndex]);
 
-					// First move the task in the UI for immediate feedback
 					fromColumn.tasks.splice(taskIndex, 1);
 
-					// Define statusMapping with proper typing
 					const statusMapping: Record<string, KanbanTask['status']> = {
 						Backlog: 'backlog',
 						'To Do': 'todo',
@@ -790,14 +753,12 @@
 						Archived: 'archive'
 					};
 
-					// Get the correct new status with type safety
 					let newStatus: KanbanTask['status'];
 					const columnTitle = toColumn.title as keyof typeof statusMapping;
 
 					if (columnTitle in statusMapping) {
 						newStatus = statusMapping[columnTitle];
 					} else {
-						// Handle case where column title doesn't map directly to a status
 						newStatus = toColumn.status;
 					}
 
@@ -805,7 +766,6 @@
 						`Moving task from ${fromColumn.title} to ${toColumn.title} - new status: ${newStatus}`
 					);
 
-					// Ensure newStatus is a valid status value
 					const validStatuses: KanbanTask['status'][] = [
 						'backlog',
 						'todo',
@@ -834,23 +794,19 @@
 
 					toColumn.tasks.push(task);
 
-					// Use simple updateTask instead of updateTaskStatus to avoid user assignment issues
 					(async () => {
 						try {
-							// Simple status update without user assignment logic
 							await updateTask(taskId, { status: task.status });
 						} catch (err) {
 							console.error('Error updating task status:', err);
 							error.set(err instanceof Error ? err.message : 'Failed to move tasks');
 
-							// Revert the UI changes
 							fromColumn.tasks.splice(taskIndex, 0, task);
 							const revertIndex = toColumn.tasks.findIndex((t) => t.id === taskId);
 							if (revertIndex !== -1) {
 								toColumn.tasks.splice(revertIndex, 1);
 							}
 
-							// Trigger UI update
 							columns.update((c) => c);
 						}
 					})();
@@ -869,7 +825,6 @@
 		});
 	}
 	function toggleAllColumns() {
-		// Update the state
 		allColumnsOpen = !allColumnsOpen;
 
 		columns.update((cols) => {
@@ -1016,7 +971,6 @@
 	function toggleAddTag() {
 		showAddTag = !showAddTag;
 		if (showAddTag) {
-			// Focus the input when it becomes visible
 			setTimeout(() => addTagInput?.focus(), 0);
 		}
 	}
@@ -1029,7 +983,6 @@
 		if (newTagName.trim()) {
 			const currentUserId = get(currentUser)?.id;
 
-			// Handle case where user is not available
 			if (!currentUserId) {
 				error.set('User not authenticated');
 				return;
@@ -1063,7 +1016,6 @@
 			const title = input.value.trim();
 
 			if (title) {
-				// Find the Backlog column (should be the first one with id=1)
 				columns.update((cols) => {
 					const backlogColumn = cols.find((col) => col.title === 'Backlog');
 
@@ -1117,7 +1069,6 @@
 					return cols;
 				});
 
-				// Clear the input field
 				input.value = '';
 			}
 		}
@@ -1135,7 +1086,7 @@
 				};
 				selectedTask.attachments = [...selectedTask.attachments, attachment];
 			}
-			selectedTask = { ...selectedTask }; // Trigger reactivity
+			selectedTask = { ...selectedTask };
 		}
 	}
 
@@ -1188,9 +1139,8 @@
 			} else {
 				selectedTask.tags = selectedTask.tags.filter((id) => id !== tagId);
 			}
-			selectedTask = { ...selectedTask }; // Trigger reactivity
+			selectedTask = { ...selectedTask };
 
-			// If task is already saved to PocketBase, update the tags relation
 			if (selectedTask.id && !selectedTask.id.startsWith('local_')) {
 				console.log(`Toggling tag ${tagId} on task ${selectedTask.id}`);
 				updateTaskTags(selectedTask.id, selectedTask.tags, selectedTask.taskDescription)
@@ -1213,32 +1163,28 @@
 			} else {
 				selectedTask.allocatedAgents = selectedTask.allocatedAgents.filter((id) => id !== agentId);
 			}
-			selectedTask = { ...selectedTask }; // Trigger reactivity
+			selectedTask = { ...selectedTask };
 		}
 	}
-	// Update these helper functions to check allTasksBackup instead of just visible tasks
+
 	function hasSubtasks(taskId: string): boolean {
 		if (!taskId) return false;
 
-		// Check in the complete tasks backup, not just currently visible tasks
 		return allTasksBackup.some((task) => task.parent_task === taskId);
 	}
 
 	function countSubtasks(taskId: string): number {
 		if (!taskId) return 0;
 
-		// Count in the complete tasks backup
 		return allTasksBackup.filter((task) => task.parent_task === taskId).length;
 	}
 
 	function getSubtasks(taskId: string): KanbanTask[] {
 		if (!taskId) return [];
 
-		// Get from the complete tasks backup
 		return allTasksBackup.filter((task) => task.parent_task === taskId);
 	}
 
-	// Reactive statement to maintain a map of parent task titles
 	$: parentTaskNames = (() => {
 		const map = new Map<string, string>();
 		allTasksBackup.forEach((task) => {
@@ -1250,12 +1196,10 @@
 	async function getParentTaskTitle(parentId: string | undefined): Promise<string> {
 		if (!parentId) return 'Unknown';
 
-		// Check local cache first
 		if (parentTaskNames.has(parentId)) {
 			return parentTaskNames.get(parentId) || 'Unknown';
 		}
 
-		// If not in cache, fetch from API
 		try {
 			const response = await fetch(`/api/tasks/${parentId}`);
 			if (!response.ok) throw new Error('Failed to fetch parent task');
@@ -1263,7 +1207,6 @@
 			const parentTask = await response.json();
 			const title = parentTask.title || 'Unknown';
 
-			// Update cache
 			parentTaskNames.set(parentId, title);
 
 			return title;
@@ -1277,7 +1220,6 @@
 
 		event.stopPropagation();
 
-		// Find the parent task
 		let parentTask: KanbanTask | null = null;
 		$columns.forEach((col) => {
 			col.tasks.forEach((task) => {
@@ -1288,10 +1230,8 @@
 		});
 
 		if (parentTask) {
-			// Add a visual transition effect
 			taskTransition = true;
 
-			// Update the task with a small delay for visual feedback
 			setTimeout(() => {
 				selectedTask = deepCopy(parentTask);
 				isEditingTitle = false;
@@ -1299,7 +1239,6 @@
 				showSubtasks = false;
 				selectedDeadline = null;
 
-				// Reset the transition flag after a moment
 				setTimeout(() => {
 					taskTransition = false;
 				}, 300);
@@ -1346,7 +1285,6 @@
 
 				await updateTaskAssignment(taskId, '');
 
-				// Update in columns
 				columns.update((cols) => {
 					return cols.map((col) => ({
 						...col,
@@ -1366,25 +1304,20 @@
 
 	function searchTasks(query: string) {
 		if (!query.trim()) {
-			// If search is empty, restore original tasks
 			applyFilters();
 			return;
 		}
 
-		// Normalize the search query (lowercase)
 		const normalizedQuery = query.toLowerCase().trim();
 
 		columns.update((cols) => {
 			return cols.map((col) => {
-				// Start with tasks that would be shown based on other active filters
 				let filteredTasks = [...allTasksBackup];
 
-				// Apply tag filters if active
 				if (selectedTagIds.length > 0) {
 					filteredTasks = filterTasksByTags(filteredTasks, selectedTagIds, requireAllTags);
 				}
 
-				// Apply task view mode filters
 				switch (taskViewMode) {
 					case TaskViewMode.OnlySubtasks:
 						filteredTasks = filteredTasks.filter((task) => !!task.parent_task);
@@ -1396,27 +1329,20 @@
 						break;
 				}
 
-				// Apply search query - search in title, description, and tags
 				filteredTasks = filteredTasks.filter((task) => {
-					// Check if task belongs to this column
 					const belongsInColumn = col.status === task.status;
 
 					if (!belongsInColumn) return false;
 
-					// Search in title
 					if (task.title.toLowerCase().includes(normalizedQuery)) return true;
 
-					// Search in description
 					if (task.taskDescription?.toLowerCase().includes(normalizedQuery)) return true;
 
-					// Search in tags
 					const taskTags = $tags.filter((tag) => task.tags.includes(tag.id));
 					if (taskTags.some((tag) => tag.name.toLowerCase().includes(normalizedQuery))) return true;
 
-					// Search by priority
 					if (task.priority.toLowerCase().includes(normalizedQuery)) return true;
 
-					// Search by creator or assignee name (async, but works for pre-loaded names)
 					if (
 						task.createdBy &&
 						userNameCache.has(task.createdBy) &&
@@ -1460,9 +1386,7 @@
 			selectedTask = { ...selectedTask, priority: newPriority };
 		}
 
-		// Update in the backend
 		try {
-			// Fix: Create a proper Task object for updateTask, only include Task-compatible fields
 			const taskUpdate: Partial<Task> = {
 				id: task.id,
 				title: task.title,
@@ -1490,7 +1414,7 @@
 			await updateTask(task.id, taskUpdate);
 		} catch (err) {
 			console.error('Error updating task priority:', err);
-			// Revert back if the update fails
+
 			columns.update((cols) => {
 				return cols.map((col) => ({
 					...col,
@@ -1498,7 +1422,6 @@
 				}));
 			});
 
-			// Also revert the backup
 			allTasksBackup = allTasksBackup.map((t) =>
 				t.id === task.id ? { ...t, priority: task.priority } : t
 			);
@@ -1518,7 +1441,6 @@
 					tasks: col.tasks.filter((task) => task.priority === 'high')
 				}));
 			} else {
-				// Reset from backup
 				return getColumnTasksFromBackup();
 			}
 		});
@@ -1535,7 +1457,6 @@
 	function togglePriorityView(event: MouseEvent) {
 		event.stopPropagation();
 
-		// Ensure all columns are open when applying priority filters
 		if (taskViewMode === TaskViewMode.All) {
 			if (!allColumnsOpen) {
 				toggleAllColumns();
@@ -1557,20 +1478,15 @@
 		}
 	}
 
-	// Get all tags for a specific task, with selected tags first
 	function getOrderedTaskTags(task: KanbanTask, allTags: Tag[]): Tag[] {
 		if (!task.tags || task.tags.length === 0) {
-			// If no tags are selected, return all tags
 			return allTags;
 		}
 
-		// Get tags that are selected for this task
 		const selectedTags = allTags.filter((tag) => task.tags.includes(tag.id));
 
-		// Get tags that are not selected for this task
 		const unselectedTags = allTags.filter((tag) => !task.tags.includes(tag.id));
 
-		// Return selected tags first, then unselected tags
 		return [...selectedTags, ...unselectedTags];
 	}
 	/**
@@ -1593,12 +1509,10 @@
 		event.preventDefault();
 		event.stopPropagation();
 
-		// Store scroll accumulation in a closure to track between events
 		if (!task._scrollAccumulation) {
 			task._scrollAccumulation = { day: 0, month: 0, year: 0 };
 		}
 
-		// Different sensitivity levels based on part
 		let sensitivity = 1;
 		switch (part) {
 			case 'day':
@@ -1612,16 +1526,12 @@
 				break;
 		}
 
-		// Calculate delta and add to accumulated value
 		const delta = event.deltaY > 0 ? -1 : 1;
 		task._scrollAccumulation[part] += delta * sensitivity;
 
-		// Check if we've crossed the threshold to actually change the date
 		if (Math.abs(task._scrollAccumulation[part]) >= 1) {
-			// Round to the nearest integer and get its sign
 			const change = Math.sign(task._scrollAccumulation[part]);
 
-			// Apply the change to the date
 			const newDate = new Date(date);
 			switch (part) {
 				case 'day':
@@ -1635,17 +1545,14 @@
 					break;
 			}
 
-			// Reset the accumulation to the remainder after applying
 			task._scrollAccumulation[part] %= 1;
 
-			// Update the task with the new date
 			if (dateType === 'start_date') {
 				task.start_date = newDate;
 			} else {
 				task.due_date = newDate;
 			}
 
-			// Update task in the UI and backend
 			columns.update((cols) => {
 				return cols.map((col) => ({
 					...col,
@@ -1696,7 +1603,6 @@
 			? task.tags.filter((id) => id !== tag.id)
 			: [...task.tags, tag.id];
 
-		// Update columns
 		columns.update((cols) => {
 			return cols.map((col) => ({
 				...col,
@@ -1704,16 +1610,12 @@
 			}));
 		});
 
-		// Update backup
 		updateBackup(task.id, newTags);
 
-		// Update backend
 		updateTaskTags(task.id, newTags);
 	}
 
 	function populateUserCacheFromTasks() {
-		// This assumes your tasks already have user information embedded
-		// If they don't, we'll just use current user info
 		const currentUserId = $currentUser?.id;
 		const currentUserData = $currentUser;
 
@@ -1721,11 +1623,10 @@
 			localUsersCache.set(currentUserId, {
 				id: currentUserData.id,
 				name: currentUserData.name || currentUserData.username || currentUserData.email || 'You',
-				avatar: currentUserData.avatar
+				avatar: currentUserData.avatar || undefined
 			});
 		}
 
-		// For other users, create placeholder entries
 		const allUserIds = [
 			...new Set([
 				...allTasksBackup.map((task) => task.createdBy).filter(Boolean),
@@ -1735,7 +1636,6 @@
 
 		allUserIds.forEach((userId) => {
 			if (userId && !localUsersCache.has(userId) && userId !== currentUserId) {
-				// Create placeholder - no API call
 				localUsersCache.set(userId, {
 					id: userId,
 					name: 'User',
@@ -1744,24 +1644,20 @@
 			}
 		});
 
-		// Trigger reactivity
 		localUsersCache = localUsersCache;
 	}
 
-	// Helper functions - NO API CALLS
 	function getUser(userId: string): { name: string; avatar?: string; id: string } | null {
 		if (!userId) return null;
 
-		// Check current user first
 		if ($currentUser?.id === userId) {
 			return {
 				id: $currentUser.id,
 				name: $currentUser.name || $currentUser.username || $currentUser.email || 'You',
-				avatar: $currentUser.avatar
+				avatar: $currentUser.avatar || undefined
 			};
 		}
 
-		// Check local cache
 		return localUsersCache.get(userId) || null;
 	}
 
@@ -1774,16 +1670,15 @@
 
 	function getUserAvatar(userId: string): string {
 		const user = getUser(userId);
-		if (!user || !user.avatar) return '';
+		if (!user) return '';
 
-		// Use the avatar URL utility
-		return getAvatarUrl({
+		return getAvatarUrlWithFallback({
 			id: user.id,
-			avatar: user.avatar,
-			collectionId: 'users'
-		} as any);
+			avatar: user.avatar || undefined,
+			name: user.name,
+			collectionId: '_pb_users_auth_'
+		});
 	}
-
 	function getUserInitial(userId: string): string {
 		const user = getUser(userId);
 		if (!user) return 'U';
@@ -1820,12 +1715,10 @@
 		if (currentProjectId) {
 			loadData(currentProjectId);
 		}
-		// Don't load data when currentProjectId is null/empty
 	}
-	// Reactive statement for taskTags with null check
+
 	$: taskTags = selectedTask ? $tags.filter((tag) => selectedTask?.tags?.includes(tag.id)) : [];
 
-	// Reactive statement for columnCounts
 	$: columnCounts = $columns.reduce(
 		(acc, column) => {
 			acc[column.status] = column.tasks.length;
@@ -1875,14 +1768,9 @@
 			question: 0
 		}
 	} as InternalChatMessage;
-	// onMount(() => {
-	// 	pageCleanup = pageHoverManager.initialize();
-	// });
+
 	onDestroy(() => {
 		unsubscribe();
-		// if (pageCleanup) {
-		// 	pageCleanup();
-		// }
 	});
 </script>
 
@@ -1898,12 +1786,7 @@
 {:else}
 	<div class="lean-container" class:nav-open={$showSettings}>
 		{#if $showSidenav}
-			<div
-				class="column-wrapper"
-				on:mouseleave={() => {
-					handlePageMenuLeave();
-				}}
-			>
+			<div class="column-wrapper">
 				<div class="calendar-container">
 					<TaskCalendar />
 				</div>
@@ -2362,7 +2245,7 @@
 					></textarea>
 				{:else}
 					<div class="description-display" on:click={() => (isEditingDescription = true)}>
-						{capitalizeFirst(descriptionText)}
+						{capitalizeFirst(typeof descriptionText === 'string' ? descriptionText : '')}
 					</div>
 				{/if}
 			</div>
@@ -2508,7 +2391,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	// @use 'src/lib/styles/themes.scss' as *;
+
 	* {
 		/* font-family: 'Merriweather', serif; */
 		/* font-family: 'Roboto', sans-serif; */
@@ -2569,16 +2452,7 @@
 	.lean-container {
 		display: flex;
 	}
-	// .lean-container.nav-open {
-	// 	margin-left: 5rem;
-	// }
-	// .column-wrapper.nav-open {
-	// 	margin-left: 5rem;
-	// 	padding: 0.5rem;
-	// 	& .kanban-container.nav-open {
-	// 		margin-left: 0 !important;
-	// 	}
-	// }
+
 	.input-wrapper {
 		display: flex;
 		width: auto;
@@ -2589,7 +2463,7 @@
 	}
 	p {
 		font-size: 1.1rem;
-		// padding: 1rem 0;
+
 		margin: 0;
 		line-height: 1.5;
 		color: var(--text-color);
@@ -2605,7 +2479,7 @@
 			font-weight: 100;
 			font-size: 0.8rem;
 			line-height: 1.25;
-			// max-height: 1rem;
+
 			max-height: 10rem;
 			overflow: hidden;
 			text-align: left;
@@ -2631,7 +2505,7 @@
 		margin-left: auto;
 		margin-right: 1rem;
 		gap: 0.5rem;
-		// box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
 		display: flex;
 		justify-content: flex-end;
 		align-items: center;
@@ -2769,7 +2643,7 @@
 		height: 100%;
 		margin-left: 0.5rem;
 		margin-right: 0.5rem;
-		// backdrop-filter: blur(20px);
+
 		border-radius: 2rem;
 		border: 1px solid var(--line-color);
 		transition: all 0.3s ease;
@@ -2810,13 +2684,12 @@
 		justify-content: flex-start;
 		width: calc(25%);
 		transition: all 0.3s ease;
-		// border: 1px solid var(--secondary-color);
+
 		border-radius: 2rem;
 		transition: all 0.3s ease;
 		height: auto;
 
 		&:hover {
-			// border: 1px solid var(--secondary-color);
 			background: var(--primary-color);
 		}
 	}
@@ -2850,7 +2723,6 @@
 		border-left: 0.5rem solid var(--color-backlog);
 	}
 	.task-card.status-todo {
-		//   border: 1px solid var(--color-todo);
 		border-left: 0.5rem solid var(--color-todo);
 	}
 	.task-card.status-inprogress {
@@ -2927,43 +2799,6 @@
 			width: 0.5rem;
 		}
 	}
-	// .kanban-column.column-cancel:has(.column-header.active-cancel) {
-	//   flex: 0 0 400px;
-	// }
-	// .kanban-column.column-archived:has(.column-header.active-archived) {
-	//   flex: 0 0 400px;
-	// }
-
-	// .kanban-column.column-backlog {
-	//   background-color: var(--color-backlog);
-	// }
-	// .kanban-column.column-todo {
-	//   background-color: var(--color-todo);
-	// }
-	// .kanban-column.column-inprogress {
-	//   background-color: var(--color-inprogress);
-	// }
-	// .kanban-column.column-review {
-	//   background-color: var(--color-review);
-	// }
-	// .kanban-column.column-done {
-	//   background-color: var(--color-done);
-	// }
-	// .kanban-column.column-hold {
-	//   background-color: var(--color-hold);
-	// }
-	// .kanban-column.column-postpone {
-	//   background-color: var(--color-postpone);
-	// }
-	// .kanban-column.column-delegate {
-	//   background-color: var(--color-delegate);
-	// }
-	// .kanban-column.column-cancel {
-	//   background-color: var(--color-cancel);
-	// }
-	// .kanban-column.column-archive {
-	//   background-color: var(--color-archive);
-	// }
 
 	.kanban-column.collapsed.column-backlog,
 	.kanban-column.collapsed.column-todo,
@@ -3000,7 +2835,7 @@
 
 	textarea {
 		width: 100%;
-		// padding: 0.5rem;
+
 		align-items: center;
 		justify-content: center;
 		border-radius: 1rem;
@@ -3009,7 +2844,6 @@
 		resize: none !important;
 		color: var(--text-color);
 		transition: transform 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
-		// font-size: 1.1em;
 
 		&.selected {
 			background-color: var(--line-color);
@@ -3026,7 +2860,7 @@
 		padding: 0 0.5rem;
 		border-radius: 2rem;
 		gap: 0.5rem;
-		// border: 1px solid var(--secondary-color);
+
 		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
@@ -3047,8 +2881,7 @@
 		textarea.title-input {
 			background: var(--primary-color);
 			font-size: 1.2rem;
-			// padding: 0.5rem;
-			// border: 1px solid var(--line-color);
+
 			border-radius: 1rem;
 			color: var(--text-color);
 			text-align: left;
@@ -3060,7 +2893,7 @@
 
 		h1 {
 			font-size: 1.8rem;
-			// border: 1px solid var(--line-color);
+
 			border-radius: 1rem;
 			color: var(--text-color);
 			text-align: left;
@@ -3079,7 +2912,7 @@
 
 	.parent-task-section {
 		flex-direction: row !important;
-		// border-bottom: 1px solid var(--line-color);
+
 		padding: 1rem;
 		gap: 1rem;
 		p {
@@ -3146,18 +2979,16 @@
 		overflow-x: hidden;
 		height: 80px;
 		font-size: 1.1rem;
-		// border: 1px solid var(--line-color);
+
 		border-radius: 1rem;
 		line-height: 1.5;
-		// padding: 1rem;
 	}
 	.task-card {
-		// background: var(--secondary-color);
 		border-top: 1px solid var(--line-color);
 		border-bottom: 1px solid var(--line-color);
 
 		border-left: 0.5rem solid var(--line-color);
-		// margin-bottom: 0.5rem;
+
 		cursor: move;
 		display: flex;
 		flex-direction: column;
@@ -3205,14 +3036,12 @@
 		z-index: 2000;
 	}
 	.task-card:hover {
-		// transform: scale(1.05) translateX(0) rotate(0deg);
 		box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-		// padding: 0.25rem;
+
 		z-index: 1;
 
 		&.description {
 			overflow: hidden !important;
-			// padding: 0.5rem;
 		}
 	}
 
@@ -3227,16 +3056,6 @@
 		text-align: l;
 		margin: 0;
 		text-transform: capitalize;
-		//   white-space: pre-wrap;
-		//   overflow-wrap: break-word;
-		//   word-wrap: break-word;
-		//   word-break: normal;
-		//   hyphens: auto;
-		//   -webkit-hyphens: auto;
-		//   -ms-hyphens: auto;
-		//   -webkit-line-break: normal;
-		//   line-break: normal;
-		//   text-wrap: balance;
 	}
 
 	.tag-list {
@@ -3251,7 +3070,6 @@
 		opacity: 1;
 
 		&:hover {
-			// padding: 0.5rem;
 			border-radius: 1rem;
 			position: relative;
 			width: calc(100% - 1rem) !important;
@@ -3268,7 +3086,7 @@
 		}
 		& .tag {
 			color: var(--text-color);
-			// opacity: 0.5;
+
 			border: none;
 			padding: 0.25rem;
 			opacity: 0.5;
@@ -3289,7 +3107,7 @@
 		& .tag-card {
 			color: var(--text-color);
 			letter-spacing: 0 !important;
-			// opacity: 0.5;
+
 			border: none;
 			padding: 0.25rem;
 			display: none;
@@ -3312,9 +3130,9 @@
 		align-items: center;
 		bottom: 0;
 		margin-left: 0.5rem !important;
-		// border-top: 1px solid var(--line-color);
+
 		gap: 0.5rem;
-		// padding: 0.25rem 0trem;
+
 		margin: 0;
 		margin-top: 0.5rem;
 		width: 100%;
@@ -3397,7 +3215,7 @@
 					display: flex;
 					justify-content: center;
 					flex-direction: row;
-					// width: 8rem;
+
 					display: flex;
 
 					font-size: 0.8rem;
@@ -3438,22 +3256,15 @@
 	}
 
 	.timeline {
-		// color: var(--text-color);
-		// padding: 0.25rem 0.5rem;
-		// border-bottom-left-radius: 0.5rem;
-		// border-top-right-radius: 0.5rem;
 		font-size: 0.75rem;
-		// display: inline-block;
+
 		letter-spacing: 0.1rem;
-		// position: absolute;
-		// left: 0;
-		// bottom: 0;
 	}
 	.timeline-container .date-part,
 	.timeline-container .month-part,
 	.timeline-container .year-part {
 		cursor: ns-resize;
-		// padding: 0.5rem;
+
 		border-radius: 0.5rem;
 		transition: all 0.2s ease;
 		text-align: center;
@@ -3469,7 +3280,6 @@
 	.timeline-container .month-part:hover,
 	.timeline-container .year-part:hover {
 		background-color: var(--tertiary-color);
-		// padding: 0.5rem;
 	}
 
 	.timeline-container .date-part {
@@ -3904,7 +3714,6 @@
 			}
 		}
 		&:hover {
-			// background: var(--tertiary-color);
 			color: var(--text-color);
 		}
 	}
@@ -4025,7 +3834,6 @@
 	.view-controls button.active {
 		background-color: var(--primary-color);
 		color: var(--tertiary-color);
-		// border-color: var(--color-primary);
 	}
 
 	.priority-toggle.high {
@@ -4117,8 +3925,6 @@
 	.toggle-btn.active-delegate,
 	.toggle-btn.active-cancel,
 	.toggle-btn.active-archive {
-		//   transform: translateY(2px);
-		//   box-shadow: 0 0 0 1x white inset;
 		border-radius: 0.5rem;
 		font-weight: 800;
 		font-size: 0.8rem;
@@ -4331,26 +4137,7 @@
 			z-index: 1000;
 			gap: 0.5rem;
 		}
-		// .view-controls button {
-		//     display: flex;
-		//     flex-direction: row;
-		//     padding: 0.5rem;
-		//     background-color: transparent;
-		//     border: 1px solid var(--color-border);
-		//     border-radius: 4px;
-		//     cursor: pointer;
-		//     transition: all 0.2s ease;
-		//     color: var(--placeholder-color);
-		//     &:hover {
-		//         background: var(--secondary-color);
-		//     }
-		// }
 
-		// .view-controls button.active {
-		//     background-color: var(--color-primary);
-		//     color: var(--tertiary-color);
-		//     border-color: var(--color-primary);
-		// }
 		.toggle-btn.active-backlog,
 		.toggle-btn.active-todo,
 		.toggle-btn.active-inprogress,
@@ -4361,8 +4148,6 @@
 		.toggle-btn.active-delegate,
 		.toggle-btn.active-cancel,
 		.toggle-btn.active-archive {
-			//   transform: translateY(2px);
-			//   box-shadow: 0 0 0 1x white inset;
 			border-radius: 0.5rem;
 			font-weight: 800;
 			font-size: 0.6rem;
@@ -4384,7 +4169,7 @@
 			justify-content: top;
 			align-items: stretch;
 			transition: all 0.3s ease;
-			// border: 1px solid var(--secondary-color);
+
 			border-radius: 1rem;
 			transition: all 0.3s ease;
 		}
@@ -4487,7 +4272,7 @@
 			flex: 1 1 100%;
 			min-width: 200px;
 			max-width: calc(33% - 1rem);
-			//width may break horizontal shift scroll
+
 			word-break: break-word;
 			transition: all 0.3s ease;
 			&:hover {
@@ -4502,10 +4287,9 @@
 		.task-card:hover {
 			transform: translateX(0) translateY(0);
 			padding: 0;
-			// transform: scale(1.05) translateX(0) rotate(2deg);
+
 			box-shadow: none;
-			// box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-			// border: 1px solid var(--line-color);
+
 			border: 1px solid transparent;
 			z-index: 1;
 			&.description {
@@ -4527,7 +4311,7 @@
 		.title-section {
 			h1 {
 				font-size: 1.4rem;
-				// border: 1px solid var(--line-color);
+
 				border-radius: 1rem;
 				color: var(--text-color);
 				text-align: left;
@@ -4565,7 +4349,7 @@
 			overflow-y: auto;
 			height: 80px;
 			font-size: 0.9rem;
-			// border: 1px solid var(--line-color);
+
 			border-radius: 1rem;
 			padding: 1rem;
 		}
@@ -4677,7 +4461,6 @@
 			margin: 0;
 		}
 		.kanban-column {
-			// max-width: 100%;
 			display: flex;
 			flex-direction: column;
 		}
@@ -4724,7 +4507,7 @@
 						display: flex;
 						justify-content: center;
 						flex-direction: row;
-						// width: 8rem;
+
 						display: flex;
 
 						font-size: 1rem;
@@ -4762,22 +4545,15 @@
 		}
 
 		.timeline {
-			// color: var(--text-color);
-			// padding: 0.25rem 0.5rem;
-			// border-bottom-left-radius: 0.5rem;
-			// border-top-right-radius: 0.5rem;
 			font-size: 0.75rem;
-			// display: inline-block;
+
 			letter-spacing: 0.1rem;
-			// position: absolute;
-			// left: 0;
-			// bottom: 0;
 		}
 		.timeline-container .date-part,
 		.timeline-container .month-part,
 		.timeline-container .year-part {
 			cursor: ns-resize;
-			// padding: 0.5rem;
+
 			border-radius: 0.5rem;
 			transition: all 0.2s ease;
 			text-align: center;
@@ -4794,7 +4570,6 @@
 		.timeline-container .month-part:hover,
 		.timeline-container .year-part:hover {
 			background-color: var(--tertiary-color);
-			// padding: 0.5rem;
 		}
 
 		.timeline-container .date-part {
@@ -4869,10 +4644,9 @@
 
 		.task-card:hover {
 			transform: translateX(0);
-			// transform: scale(1.05) translateX(0) rotate(2deg);
+
 			box-shadow: none;
-			// box-shadow: 0px 1px 210px 1px rgba(255, 255, 255, 0.2);
-			// border: 1px solid var(--line-color);
+
 			border: 1px solid transparent;
 			z-index: 1;
 

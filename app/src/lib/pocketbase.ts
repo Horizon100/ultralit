@@ -19,14 +19,30 @@ export interface RequestInitCustom {
 	body?: string | FormData;
 	credentials?: 'include' | 'omit' | 'same-origin';
 }
-type UserProfileResponse = {
+
+interface AvatarUploadResponse {
+	success: boolean;
+	user?: User;
+	error?: string;
+	data?: {
+		success: boolean;
+		user?: User;
+		error?: string;
+	};
+}
+
+export interface UploadSuccessUser {
+	id: string;
+	uploadSuccess: true;
+}
+
+export type UserProfileResponse = {
 	user: Partial<User>;
-	profile: unknown; // Use unknown instead of any
-	posts: unknown[]; // Use unknown[] instead of any[]
+	profile: unknown;
+	posts: unknown[];
 	totalPosts: number;
 };
 
-// Define the wrapped response type from apiTryCatch
 type ApiResponse<T> = {
 	data: T;
 	success: boolean;
@@ -544,20 +560,29 @@ export async function signIn(
 }
 
 export async function signUp(
-	email: string, 
+	email: string,
 	password: string,
 	securityQuestion?: string,
 	securityAnswer?: string
 ): Promise<User | null> {
 	console.log('Signing up user...');
 
-	const result = await fetchTryCatch<{ success: boolean; user?: User; error?: string }>(
+	const result = await fetchTryCatch<{
+		success: boolean;
+		user?: User;
+		error?: string;
+		data?: {
+			success: boolean;
+			user?: User;
+			error?: string;
+		};
+	}>(
 		'/api/verify/signup',
 		{
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ 
-				email, 
+			body: JSON.stringify({
+				email,
 				password,
 				securityQuestion,
 				securityAnswer
@@ -566,32 +591,33 @@ export async function signUp(
 		10000
 	);
 
-if (isSuccess(result)) {
-	const data = result.data;
-	
-	console.log('🔍 Signup API response:', data);
-	
-	// Handle the apiTryCatch wrapped response
-	let actualData = data;
-	if (data.success && data.data) {
-		actualData = data.data; // Unwrap the nested response
+	if (isSuccess(result)) {
+		const data = result.data;
+
+		console.log('🔍 Signup API response:', data);
+
+		let actualData = data;
+		if (data.success && data.data) {
+			actualData = data.data; // Unwrap the nested response
+		}
+
+		console.log('🔍 Actual data:', actualData);
+		console.log('🔍 Actual user:', actualData.user);
+
+		if (!actualData.success) {
+			throw new Error(actualData.error || 'Unknown error during sign-up');
+		}
+		if (!actualData.user) {
+			console.log('❌ No user data found in response');
+			throw new Error('Sign-up failed: no user data received');
+		}
+
+		clearAuthCache();
+		currentUser.set(actualData.user);
+		return actualData.user;
 	}
-	
-	console.log('🔍 Actual data:', actualData);
-	console.log('🔍 Actual user:', actualData.user);
-	
-	if (!actualData.success) {
-		throw new Error(actualData.error || 'Unknown error during sign-up');
-	}
-	if (!actualData.user) {
-		console.log('❌ No user data found in response');
-		throw new Error('Sign-up failed: no user data received');
-	}
-	
-	clearAuthCache();
-	currentUser.set(actualData.user);
-	return actualData.user;
-}
+	console.log('❌ Sign-up failed:', result);
+	return null;
 }
 
 export async function signOut(): Promise<void> {
@@ -982,7 +1008,10 @@ export async function authenticateWithGoogleOAuth() {
 	}
 }
 
-export async function uploadAvatar(userId: string, file: File): Promise<User | null> {
+export async function uploadAvatar(
+	userId: string,
+	file: File
+): Promise<User | UploadSuccessUser | null> {
 	try {
 		const formData = new FormData();
 		formData.append('avatar', file);
@@ -1007,10 +1036,8 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
 			throw new Error(data.error || 'Unknown error during upload');
 		}
 
-		// Upload succeeded! Don't worry about parsing complex user data
-		// Just return a minimal success object and let the UI refresh separately
 		console.log('Avatar upload successful!');
-		return { id: userId, uploadSuccess: true } as any;
+		return { id: userId, uploadSuccess: true };
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
 			throw new Error('Avatar upload timed out. Please try again.');
@@ -1019,15 +1046,13 @@ export async function uploadAvatar(userId: string, file: File): Promise<User | n
 		return null;
 	}
 }
-// Add these functions to your lib/pocketbase.ts file
 
 export async function uploadProfileWallpaper(userId: string, file: File): Promise<User | null> {
 	const uploadResult = await fileTryCatch(
 		(async () => {
 			const formData = new FormData();
-			formData.append('profileWallpaper', file); // This field is already handled in your verify endpoint
-
-			const url = `/api/verify/users/${userId}`; // Use the existing verify endpoint
+			formData.append('profileWallpaper', file);
+			const url = `/api/verify/users/${userId}`;
 			const response = await fetch(url, {
 				method: 'PATCH',
 				body: formData,
@@ -1062,7 +1087,6 @@ export async function uploadProfileWallpaper(userId: string, file: File): Promis
 		console.warn('No user data returned, but upload may have succeeded');
 		return null;
 	}
-	// Update current user if it's the same user
 	if (userId === updatedUser.id) {
 		currentUser.update((user) => {
 			if (!user) return user;
@@ -1118,7 +1142,6 @@ export async function updateUserDescription(userId: string, description: string)
 
 	const updatedUser = updateResult.data;
 
-	// Update current user if it's the same user
 	const currentUserValue = get(currentUser);
 	if (currentUserValue && userId === currentUserValue.id) {
 		currentUser.update((user) => {
@@ -1129,7 +1152,6 @@ export async function updateUserDescription(userId: string, description: string)
 			};
 		});
 
-		// Update auth cache
 		if (cachedAuthState && cachedAuthState.user) {
 			cachedAuthState.user = {
 				...cachedAuthState.user,
@@ -1181,56 +1203,56 @@ export function unsubscribeFromChanges(unsubscribe: () => void): void {
  * Save user's security question and answer
  */
 export async function saveUserSecurity(
-  userId: string,
-  securityQuestion: string, 
-  securityAnswer: string
+	userId: string,
+	securityQuestion: string,
+	securityAnswer: string
 ): Promise<boolean> {
-  console.log('Saving security info for user:', userId);
+	console.log('Saving security info for user:', userId);
 
-  const result = await fetchTryCatch<{ success: boolean; error?: string }>(
-    '/api/auth/security',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, securityQuestion, securityAnswer })
-    },
-    10000
-  );
+	const result = await fetchTryCatch<{ success: boolean; error?: string }>(
+		'/api/auth/security',
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ userId, securityQuestion, securityAnswer })
+		},
+		10000
+	);
 
-  if (!isSuccess(result)) {
-    console.error('Failed to save security info:', result.error);
-    throw new Error(result.error);
-  }
+	if (!isSuccess(result)) {
+		console.error('Failed to save security info:', result.error);
+		throw new Error(result.error);
+	}
 
-  return result.data.success;
+	return result.data.success;
 }
 
 /**
  * Get user's security question by email
  */
 export async function getUserSecurityQuestion(email: string): Promise<string> {
-  console.log('Getting security question for email:', email);
+	console.log('Getting security question for email:', email);
 
-  const result = await fetchTryCatch<{ success: boolean; question?: string; error?: string }>(
-    `/api/auth/security?email=${encodeURIComponent(email)}`,
-    {
-      method: 'GET',
-      headers: { 'Content-Type': 'application/json' }
-    },
-    10000
-  );
+	const result = await fetchTryCatch<{ success: boolean; question?: string; error?: string }>(
+		`/api/auth/security?email=${encodeURIComponent(email)}`,
+		{
+			method: 'GET',
+			headers: { 'Content-Type': 'application/json' }
+		},
+		10000
+	);
 
-  if (!isSuccess(result)) {
-    console.error('Failed to get security question:', result.error);
-    throw new Error(result.error);
-  }
+	if (!isSuccess(result)) {
+		console.error('Failed to get security question:', result.error);
+		throw new Error(result.error);
+	}
 
-  const data = result.data;
-  if (!data.success || !data.question) {
-    throw new Error('No security question found for this email');
-  }
+	const data = result.data;
+	if (!data.success || !data.question) {
+		throw new Error('No security question found for this email');
+	}
 
-  return data.question;
+	return data.question;
 }
 
 /**
@@ -1241,31 +1263,31 @@ export async function getUserSecurityQuestion(email: string): Promise<string> {
  * @returns A boolean indicating whether the reset was successful
  */
 export async function resetPasswordWithSecurity(
-  email: string,
-  securityAnswer: string,
-  newPassword: string
+	email: string,
+	securityAnswer: string,
+	newPassword: string
 ): Promise<boolean> {
-  console.log('Resetting password with security answer for email:', email);
+	console.log('Resetting password with security answer for email:', email);
 
-  const result = await fetchTryCatch<{ success: boolean; error?: string }>(
-    '/api/auth/reset-password',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, securityAnswer, newPassword })
-    },
-    10000
-  );
+	const result = await fetchTryCatch<{ success: boolean; error?: string }>(
+		'/api/auth/reset-password',
+		{
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ email, securityAnswer, newPassword })
+		},
+		10000
+	);
 
-  if (!isSuccess(result)) {
-    console.error('Password reset with security failed:', result.error);
-    throw new Error(result.error);
-  }
+	if (!isSuccess(result)) {
+		console.error('Password reset with security failed:', result.error);
+		throw new Error(result.error);
+	}
 
-  const data = result.data;
-  if (!data.success && data.error) {
-    throw new Error(data.error);
-  }
+	const data = result.data;
+	if (!data.success && data.error) {
+		throw new Error(data.error);
+	}
 
-  return data.success;
+	return data.success;
 }

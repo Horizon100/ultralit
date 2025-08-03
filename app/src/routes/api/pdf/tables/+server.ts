@@ -4,19 +4,38 @@ import type { RequestHandler } from './$types';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import crypto from 'crypto';
-import * as pdfjs from 'pdfjs-dist';
 import type { TableAnalysisResult } from '$lib/types/types.pdf';
 
-// Configure worker path for pdf.js
-if (typeof window === 'undefined') {
-	pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-		'pdfjs-dist/build/pdf.worker.mjs',
-		import.meta.url
-	).href;
+// Dynamic import of pdfjs to avoid build-time issues
+let pdfjs: any = null;
+
+async function initPdfJs() {
+	if (!pdfjs) {
+		// Use dynamic import to avoid build-time issues
+		pdfjs = await import('pdfjs-dist/legacy/build/pdf.js');
+		
+		// Configure worker only if GlobalWorkerOptions exists
+		if (pdfjs.GlobalWorkerOptions) {
+			try {
+				pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+					'pdfjs-dist/legacy/build/pdf.worker.js',
+					import.meta.url
+				).href;
+			} catch (error) {
+				console.warn('Failed to set PDF worker src:', error);
+				// Fallback - disable worker
+				pdfjs.GlobalWorkerOptions.workerSrc = null;
+			}
+		}
+	}
+	return pdfjs;
 }
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
+		// Initialize PDF.js
+		await initPdfJs();
+		
 		const contentType = request.headers.get('content-type');
 
 		const tempId = crypto.randomUUID();
@@ -133,15 +152,18 @@ async function extractSchedules(filePath: string): Promise<any[]> {
 
 async function extractWithLayout(filePath: string): Promise<string> {
 	try {
+		// Ensure pdfjs is initialized
+		const pdf = await initPdfJs();
+		
 		const fs = await import('fs');
 		const data = fs.readFileSync(filePath);
-		const loadingTask = pdfjs.getDocument({ data });
-		const pdf = await loadingTask.promise;
+		const loadingTask = pdf.getDocument({ data });
+		const pdfDoc = await loadingTask.promise;
 
 		let text = '';
 
-		for (let i = 1; i <= pdf.numPages; i++) {
-			const page = await pdf.getPage(i);
+		for (let i = 1; i <= pdfDoc.numPages; i++) {
+			const page = await pdfDoc.getPage(i);
 			const textContent = await page.getTextContent();
 
 			// Group text items by their vertical position to preserve layout

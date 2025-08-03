@@ -97,16 +97,16 @@
 	} from '$lib/types/types';
 
 	// ===== COMPONENT PROPS =====
-	export let message: InternalChatMessage | null = null;
+	// export let message: InternalChatMessage | null = null;
 	export let seedPrompt: string = '';
-	export let additionalPrompt: string = '';
+	// export let additionalPrompt: string = '';
 	export let aiModel: AIModel;
 	export let userId: string;
 	export let attachment: File | null = null;
 	export let promptType: PromptType = 'NORMAL';
-	export let threadId: string | null = null;
-	export let initialMessageId: string | null = null;
-	export let namingThread = true;
+	// export let threadId: string | null = null;
+	// export let initialMessageId: string | null = null;
+	// export let namingThread = true;
 
 	// ===== LOCAL STATE (dramatically reduced!) =====
 	let textareaElement: HTMLTextAreaElement | null = null;
@@ -206,26 +206,6 @@
 		handleMenuLeave: handlePageMenuLeave,
 		toggleMenu: togglePageMenu
 	} = pageHoverManager;
-
-	// ===== REACTIVE STATEMENTS (simplified) =====
-	// $: filteredThreads = (() => {
-	// 	let filtered = threads || [];
-	// 	if (
-	// 		showFavoriteThreads &&
-	// 		$currentUser?.favoriteThreads &&
-	// 		$currentUser.favoriteThreads.length > 0
-	// 	) {
-	// 		if ($threadsStore.showFavoriteThreads && $currentUser?.favoriteThreads?.length) {
-	// 			const favoriteThreads = $currentUser.favoriteThreads;
-	// 			filtered = filtered.filter((thread) => favoriteThreads.includes(thread.id));
-	// 		}
-	// 	}
-	// 	if ($searchQuery?.trim()) {
-	// 		const query = $searchQuery.toLowerCase();
-	// 		filtered = filtered.filter((thread) => thread.name?.toLowerCase().includes(query));
-	// 	}
-	// 	return filtered;
-	// })();
 
 	$: currentThread = threads?.find((t) => t.id === currentThreadId) || null;
 
@@ -759,218 +739,215 @@
 	}
 </script>
 
-{#if $currentUser}
+<div
+	class="chat-interface"
+	in:fly={{ y: -200, duration: 300 }}
+	out:fade={{ duration: 200 }}
+	class:nav-open={$showSettings}
+	role="application"
+	aria-label="Chat application interface"
+	on:mouseleave={() => {
+		handlePageMenuLeave();
+	}}
+>
 	<div
-		class="chat-interface"
-		in:fly={{ y: -200, duration: 300 }}
-		out:fade={{ duration: 200 }}
-		class:nav-open={$showSettings}
-		on:mouseleave={() => {
-			handlePageMenuLeave();
-		}}
+		class="chat-container"
+		transition:fly={{ x: 300, duration: 300 }}
+		class:drawer-visible={$showOverlay}
 	>
-		<div
-			class="chat-container"
-			transition:fly={{ x: 300, duration: 300 }}
-			class:drawer-visible={$showOverlay}
-		>
-			<!-- Thread Sidebar Component -->
+		<!-- Thread Sidebar Component -->
 
-			<ThreadSidebar
-				{threads}
-				{currentThreadId}
-				{isCreatingThread}
-				{isLoadingProject}
-				{isLoadingThreads}
-				searchQuery={$searchQuery}
-				{isExpanded}
-				{showSortOptions}
-				{showUserFilter}
-				swipeConfig={drawerSwipeConfig}
-				on:createThread={handleCreateNewThread}
-				on:loadThread={(e) => handleLoadThread(e.detail.threadId)}
-				on:deleteThread={(e) => handleDeleteThread(e.detail.event, e.detail.threadId)}
-				on:favoriteThread={(e) => onFavoriteThread(e.detail.event, e.detail.thread)}
-				on:searchChange={(e) => handleSearchChange(e.detail.query)}
-			>
-				<!-- Sort Options Slot -->
-				<div slot="sortOptions">
-					{#each $allSortOptions as option}
+		<ThreadSidebar
+			{threads}
+			{currentThreadId}
+			{isCreatingThread}
+			{isLoadingProject}
+			{isLoadingThreads}
+			searchQuery={$searchQuery}
+			{isExpanded}
+			{showSortOptions}
+			{showUserFilter}
+			drawerSwipeConfig={drawerSwipeConfig || {}}
+			on:createThread={handleCreateNewThread}
+			on:loadThread={(e) => handleLoadThread(e.detail.threadId)}
+			on:deleteThread={(e) => handleDeleteThread(e.detail.event, e.detail.threadId)}
+			on:favoriteThread={(e) => onFavoriteThread(e.detail.event, e.detail.thread)}
+			on:searchChange={(e) => handleSearchChange(e.detail.query)}
+		>
+			<!-- Sort Options Slot -->
+			<div slot="sortOptions">
+				{#each $allSortOptions as option}
+					<button
+						class="dropdown-item"
+						class:selected={$sortOptionInfo.value === option.value}
+						on:click={() => UIUtils.setSortOption(option.value)}
+					>
+						<Icon name={option.icon} size={16} />
+						<span>{option.label}</span>
+						{#if $sortOptionInfo.value === option.value}
+							<span class="check-icon">
+								<Icon name="Check" size={16} />
+							</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+
+			<!-- User Filter Slot -->
+			<div slot="userFilter">
+				<div class="dropdown-header">
+					<h3>Filter by Users</h3>
+					{#if $selectedUserIds.size > 0}
+						<button class="clear-button" on:click={UIUtils.clearSelectedUsers}> Clear all </button>
+					{/if}
+				</div>
+
+				{#if $availableUsers.length === 0}
+					<div class="no-users">No users found</div>
+				{:else}
+					{#each $availableUsers as user}
 						<button
 							class="dropdown-item"
-							class:selected={$sortOptionInfo.value === option.value}
-							on:click={() => UIUtils.setSortOption(option.value)}
+							class:selected={$selectedUserIds.has(user.id)}
+							on:click={() => UIUtils.toggleUserSelection(user.id)}
 						>
-							<Icon name={option.icon} size={16} />
-							<span>{option.label}</span>
-							{#if $sortOptionInfo.value === option.value}
+							<span>{user.name}</span>
+							{#if $selectedUserIds.has(user.id)}
 								<span class="check-icon">
 									<Icon name="Check" size={16} />
 								</span>
 							{/if}
 						</button>
 					{/each}
-				</div>
+				{/if}
+			</div>
+		</ThreadSidebar>
 
-				<!-- User Filter Slot -->
-				<div slot="userFilter">
-					<div class="dropdown-header">
-						<h3>Filter by Users</h3>
-						{#if $selectedUserIds.size > 0}
-							<button class="clear-button" on:click={UIUtils.clearSelectedUsers}>
-								Clear all
-							</button>
-						{/if}
-					</div>
+		<!-- Main Chat Area -->
 
-					{#if $availableUsers.length === 0}
-						<div class="no-users">No users found</div>
-					{:else}
-						{#each $availableUsers as user}
-							<button
-								class="dropdown-item"
-								class:selected={$selectedUserIds.has(user.id)}
-								on:click={() => UIUtils.toggleUserSelection(user.id)}
-							>
-								<span>{user.name}</span>
-								{#if $selectedUserIds.has(user.id)}
-									<span class="check-icon">
-										<Icon name="Check" size={16} />
-									</span>
-								{/if}
-							</button>
-						{/each}
-					{/if}
-				</div>
-			</ThreadSidebar>
-
-			<!-- Main Chat Area -->
-
-			<div class="chat-container" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
-				<div
-					class="chat-content"
-					class:drawer-visible={$showThreadList}
-					in:fly={{ x: 200, duration: 300 }}
-					out:fade={{ duration: 200 }}
+		<div class="chat-wapper" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
+			<div
+				class="chat-content"
+				class:drawer-visible={$showThreadList}
+				in:fly={{ x: 200, duration: 300 }}
+				out:fade={{ duration: 200 }}
+			>
+				<!-- Chat Header Component -->
+				<ChatHeader
+					{currentThread}
+					{userId}
+					{isUpdatingThreadName}
+					{editedThreadName}
+					{isMinimized}
+					{promptSuggestions}
+					on:startEditing={(e) => startEditingThreadName()}
+					on:cancelEditing={() => uiStore.setEditingThreadName(false)}
+					on:promptSelected={(e) => handleStartPromptSelection(e.detail.promptText)}
+					on:sendMessage={(e) => handleSendMessage(e.detail.message)}
 				>
-					<!-- Chat Header Component -->
-					<ChatHeader
-						{currentThread}
-						{userId}
-						{isUpdatingThreadName}
-						{editedThreadName}
-						{isMinimized}
-						{promptSuggestions}
-						on:startEditing={(e) => startEditingThreadName()}
-						on:cancelEditing={() => uiStore.setEditingThreadName(false)}
-						on:promptSelected={(e) => handleStartPromptSelection(e.detail.promptText)}
-						on:sendMessage={(e) => handleSendMessage(e.detail.message)}
-					>
-						<!-- Placeholder Input Slot -->
-					</ChatHeader>
-					<MessageInput
-						userInput={$userInput}
-						isLoading={$isLoading}
-						isAiActive={$isAiActive}
-						{currentThreadId}
-						{aiModel}
-						{selectedModelLabel}
-						{selectedPromptLabel}
-						placeholderText={String($currentPlaceholder || '')}
-						showTextModal={$showTextModal}
-						createHovered={$createHovered}
-						isPlaceholder={true}
-						bind:textareaElement
-						on:sendMessage={(e) => handleSendMessage(e.detail.message)}
-						on:toggleSection={(e) => toggleSection(e.detail.section)}
-						on:toggleAiActive={toggleAiActive}
-						on:modelSelection={(e) => handleModelSelection(e.detail)}
-						on:sysPromptSelect={(e) => console.log('Sys prompt selected:', e.detail)}
-						on:promptSelect={(e) => console.log('Prompt selected:', e.detail)}
-						on:collaboratorSelect={(e) => console.log('Collaborator selected:', e.detail)}
-						on:loadThread={(e) => handleLoadThread(e.detail.threadId)}
-						on:inputCleared={() => chatStore.clearUserInput()}
-						on:textModalOpen={() => uiStore.setShowTextModal(true)}
-					/>
-					<!-- Message List Component (only when thread is selected) -->
-					{#if currentThread}
-						<MessageList
-							chatMessages={$chatMessages}
-							isLoadingMessages={$isLoadingMessages}
-							isTypingInProgress={$isTypingInProgress}
-							{userId}
-							{name}
-							{aiModel}
-							{promptType}
-							{latestMessageId}
-							{hiddenReplies}
-							bind:chatMessagesDiv
-							on:processMessageContent={(e) =>
-								MessageService.processMessageContentWithReplyable(
-									e.detail.content,
-									e.detail.messageId
-								)}
-							on:toggleReplies={(e) => toggleReplies(e.detail.messageId)}
-							on:replyToMessage={(e) =>
-								handleReplyToMessage(e.detail.text, e.detail.parentMsgId, e.detail.contextMessages)}
-						/>
+					<!-- Placeholder Input Slot -->
+				</ChatHeader>
 
-						<!-- Message Input Component (main input for existing threads) -->
-						{#if !currentThread}
-							<MessageInput
-								userInput={$userInput}
-								isLoading={$isLoading}
-								isAiActive={$isAiActive}
-								{currentThreadId}
-								{aiModel}
-								{selectedModelLabel}
-								{selectedPromptLabel}
-								placeholderText={String($currentPlaceholder || '')}
-								showTextModal={$showTextModal}
-								createHovered={$createHovered}
-								isPlaceholder={true}
-								bind:textareaElement
-								on:sendMessage={(e) => handleSendMessage(e.detail.message)}
-								on:toggleSection={(e) => toggleSection(e.detail.section)}
-								on:toggleAiActive={toggleAiActive}
-								on:modelSelection={(e) => handleModelSelection(e.detail)}
-								on:sysPromptSelect={(e) => console.log('Sys prompt selected:', e.detail)}
-								on:promptSelect={(e) => console.log('Prompt selected:', e.detail)}
-								on:collaboratorSelect={(e) => console.log('Collaborator selected:', e.detail)}
-								on:loadThread={(e) => handleLoadThread(e.detail.threadId)}
-								on:inputCleared={() => chatStore.clearUserInput()}
-								on:textModalOpen={() => uiStore.setShowTextModal(true)}
-							/>
-						{/if}
+				<!-- Message List Component (only when thread is selected) -->
+				{#if currentThread}
+					<MessageList
+						chatMessages={$chatMessages}
+						isLoadingMessages={$isLoadingMessages}
+						isTypingInProgress={$isTypingInProgress}
+						{userId}
+						{name}
+						{aiModel}
+						{promptType}
+						{latestMessageId}
+						{hiddenReplies}
+						bind:chatMessagesDiv
+						on:processMessageContent={(e) =>
+							MessageService.processMessageContentWithReplyable(
+								e.detail.content,
+								e.detail.messageId
+							)}
+						on:toggleReplies={(e) => toggleReplies(e.detail.messageId)}
+						on:replyToMessage={(e) =>
+							handleReplyToMessage(e.detail.text, e.detail.parentMsgId, e.detail.contextMessages)}
+					/>
+
+					<!-- Message Input Component (main input for existing threads) -->
+					{#if !currentThread}
+						<MessageInput
+							userInput={$userInput}
+							isLoading={$isLoading}
+							isAiActive={$isAiActive}
+							{currentThreadId}
+							{aiModel}
+							{selectedModelLabel}
+							{selectedPromptLabel}
+							placeholderText={String($currentPlaceholder || '')}
+							showTextModal={$showTextModal}
+							createHovered={$createHovered}
+							isPlaceholder={true}
+							bind:textareaElement
+							on:sendMessage={(e) => handleSendMessage(e.detail.message)}
+							on:toggleSection={(e) => toggleSection(e.detail.section)}
+							on:toggleAiActive={toggleAiActive}
+							on:modelSelection={(e) => handleModelSelection(e.detail)}
+							on:sysPromptSelect={(e) => console.log('Sys prompt selected:', e.detail)}
+							on:promptSelect={(e) => console.log('Prompt selected:', e.detail)}
+							on:collaboratorSelect={(e) => console.log('Collaborator selected:', e.detail)}
+							on:loadThread={(e) => handleLoadThread(e.detail.threadId)}
+							on:inputCleared={() => chatStore.clearUserInput()}
+							on:textModalOpen={() => uiStore.setShowTextModal(true)}
+						/>
 					{/if}
-				</div>
+				{/if}
+				<MessageInput
+					userInput={$userInput}
+					isLoading={$isLoading}
+					isAiActive={$isAiActive}
+					{currentThreadId}
+					{aiModel}
+					{selectedModelLabel}
+					{selectedPromptLabel}
+					placeholderText={String($currentPlaceholder || '')}
+					showTextModal={$showTextModal}
+					createHovered={$createHovered}
+					isPlaceholder={true}
+					bind:textareaElement
+					on:sendMessage={(e) => handleSendMessage(e.detail.message)}
+					on:toggleSection={(e) => toggleSection(e.detail.section)}
+					on:toggleAiActive={toggleAiActive}
+					on:modelSelection={(e) => handleModelSelection(e.detail)}
+					on:sysPromptSelect={(e) => console.log('Sys prompt selected:', e.detail)}
+					on:promptSelect={(e) => console.log('Prompt selected:', e.detail)}
+					on:collaboratorSelect={(e) => console.log('Collaborator selected:', e.detail)}
+					on:loadThread={(e) => handleLoadThread(e.detail.threadId)}
+					on:inputCleared={() => chatStore.clearUserInput()}
+					on:textModalOpen={() => uiStore.setShowTextModal(true)}
+				/>
 			</div>
 		</div>
 	</div>
+</div>
 
-	<!-- Delete Modal -->
-	{#if showDeleteModal}
-		<div class="modal-overlay" transition:fade={{ duration: 200 }}>
-			<div class="modal-content delete" transition:scale={{ duration: 300 }}>
-				<div class="modal-header">
-					<h3>{$t('generic.delete')} {$t('threads.thread')}</h3>
-				</div>
-				<div class="modal-body">
-					<p>{deleteNotification}</p>
-				</div>
-				<div class="modal-actions">
-					<button class="btn btn-cancel" on:click={cancelDelete}>
-						{$t('generic.no')}
-					</button>
-					<button class="btn btn-delete" on:click={confirmDelete}>
-						{$t('generic.yes')}
-					</button>
-				</div>
+<!-- Delete Modal -->
+{#if showDeleteModal}
+	<div class="modal-overlay" transition:fade={{ duration: 200 }}>
+		<div class="modal-content delete" transition:scale={{ duration: 300 }}>
+			<div class="modal-header">
+				<h3>{$t('generic.delete')} {$t('threads.thread')}</h3>
+			</div>
+			<div class="modal-body">
+				<p>{deleteNotification}</p>
+			</div>
+			<div class="modal-actions">
+				<button class="btn btn-cancel" on:click={cancelDelete}>
+					{$t('generic.no')}
+				</button>
+				<button class="btn btn-delete" on:click={confirmDelete}>
+					{$t('generic.yes')}
+				</button>
 			</div>
 		</div>
-	{/if}
-{:else}
-	<p>User is not authenticated</p>
+	</div>
 {/if}
 
 <!-- <link href="https://fonts.googleapis.com/css?family=Montserrat" rel="stylesheet" /> -->
@@ -1560,6 +1537,7 @@
 	//   border-left: 2px solid var(--reply-border, #ddd) !important;
 	//   padding-left: 0.75rem !important;
 	// }
+
 	span.header-btns {
 		display: flex;
 		flex-direction: column;
@@ -2019,11 +1997,10 @@
 	.chat-interface {
 		display: flex;
 
-		max-width: 1600px;
+		// max-width: 1600px;
 		width: 100%;
 	}
-	.chat-interface.nav-open {
-	}
+
 	.chat-container {
 		flex-grow: 1;
 		display: flex;
@@ -2035,7 +2012,7 @@
 		overflow-x: hidden;
 		// /* left: 20%; */
 		width: 100%;
-		padding: 1rem;
+		// padding: 1rem;
 		// background: rgba(0, 0, 0, 0.2);
 		top: 0;
 		left: auto;
@@ -2049,22 +2026,21 @@
 	}
 
 	.chat-content {
-		flex-grow: 1;
 		display: flex;
 		flex-direction: column;
-		background: var(--bg-gradient);
-		justify-content: flex-start;
+		// background: var(--bg-gradient);
+		justify-content: space-between;
 		align-items: center;
-		width: auto !important;
 		margin-top: 0.5rem !important;
 		margin-left: 0.5rem !important;
 		margin-right: 0.5rem;
 
-		border: 1px solid var(--line-color);
+		// border: 1px solid var(--line-color);
 		border-radius: 2rem;
 		// animation: pulsateShadow 1.5s infinite alternate;
 		// background: radial-gradient(circle, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%);
-		width: 100%;
+		width: calc(100vw - 6rem);
+		max-width: 1600px;
 		height: calc(100% - 1rem);
 		// width: 50%;
 		// margin: 0 1rem;
@@ -2105,7 +2081,10 @@
 			}
 		}
 	}
-
+	.chat-wrapper {
+		display: flex;
+		width: auto;
+	}
 	.drawer-visible {
 		& .btn-row {
 			display: flex;
@@ -2121,7 +2100,7 @@
 			justify-content: flex-start;
 			align-items: flex-end;
 			width: 100%;
-			max-width: 1200px;
+			// max-width: 1200px;
 			margin-bottom: 0;
 		}
 		& .prompts {
@@ -2179,6 +2158,13 @@
 		& .thread-info {
 			margin-left: 0;
 			margin-right: 0;
+		}
+	}
+	.chat-container.drawer-visible {
+		justify-content: space-between;
+		& .chat-content {
+			width: 100vw;
+			flex: 1;
 		}
 	}
 
@@ -3426,7 +3412,7 @@
 			.chat-container {
 				right: 0;
 				margin-right: 0;
-				width: auto;
+				width: 100%;
 				margin-left: 0;
 			}
 

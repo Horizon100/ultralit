@@ -6,6 +6,7 @@
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import PostComposer from '$lib/features/posts/components//PostComposer.svelte';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
+	import { t } from '$lib/stores/translationStore';
 
 	export let isOpen: boolean = false;
 	export let post: PostWithInteractions | CommentWithInteractions | null = null;
@@ -30,7 +31,6 @@
 	) {
 		if (!post) return;
 
-		// Get attachments from the event - PostComposer already sends File[]
 		const attachments = event.detail.attachments || [];
 
 		dispatch('quote', {
@@ -66,15 +66,11 @@
 			<div class="modal-body">
 				{#if post}
 					<div class="quoted-post">
-						<PostCard {post} showActions={false} isPreview={true} />
+						<PostCard {post} showActions={false} />
 					</div>
 
 					<div class="composer-section">
-						<PostComposer
-							placeholder="Add your comment..."
-							buttonText="Quote Post"
-							on:submit={handleQuoteSubmit}
-						/>
+						<PostComposer isQuote={true} on:submit={handleQuoteSubmit} />
 					</div>
 				{/if}
 			</div>
@@ -146,10 +142,6 @@
 		padding: 20px;
 		max-height: calc(90vh - 80px);
 		overflow-y: auto;
-	}
-
-	.quote-section {
-		margin-bottom: 20px;
 	}
 
 	.quoted-post {

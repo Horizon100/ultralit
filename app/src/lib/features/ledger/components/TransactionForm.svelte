@@ -6,7 +6,10 @@
 		Category,
 		Contact
 	} from '$lib/types/types.ledger';
-	import { validateTransaction, generateTransactionReference } from '../utils/ledger.utils';
+	import {
+		validateTransaction,
+		generateTransactionReference
+	} from '$lib/features/ledger/utils/ledgerUtils';
 
 	export let accounts: LedgerAccount[] = [];
 	export let categories: Category[] = [];
@@ -80,14 +83,21 @@
 		const tagInput = document.getElementById('tagInput') as HTMLInputElement;
 		const tag = tagInput.value.trim();
 
-		if (tag && !formData.tags.includes(tag)) {
-			formData.tags = [...formData.tags, tag];
-			tagInput.value = '';
+		if (tag) {
+			if (!formData.tags) {
+				formData.tags = [];
+			}
+
+			if (!formData.tags.includes(tag)) {
+				formData.tags = [...formData.tags, tag];
+				tagInput.value = '';
+			}
 		}
 	}
-
 	function removeTag(tagToRemove: string) {
-		formData.tags = formData.tags.filter((tag) => tag !== tagToRemove);
+		if (formData.tags) {
+			formData.tags = formData.tags.filter((tag) => tag !== tagToRemove);
+		}
 	}
 
 	function handleKeydown(event: KeyboardEvent) {
@@ -246,7 +256,7 @@
 					<label for="tags">Tags</label>
 					<div class="tags-input">
 						<div class="tags-container">
-							{#each formData.tags as tag}
+							{#each formData.tags || [] as tag}
 								<span class="tag">
 									{tag}
 									<button type="button" on:click={() => removeTag(tag)}>×</button>

@@ -27,7 +27,7 @@ export const GET: RequestHandler = async ({ locals }) => {
 			overview,
 			recentTransactions,
 			accounts,
-			upcomingBills: [], // Will implement this later
+			upcomingBills: [],
 			monthlyTrends
 		};
 
@@ -87,10 +87,10 @@ async function getLedgerOverview(userId: string): Promise<LedgerOverview> {
 			filter: `userId = "${userId}" && type = "expense" && status = "pending"`
 		});
 
-		const totalIncome = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-		const totalExpenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
-		const accountsReceivable = receivableTransactions.reduce((sum, t) => sum + t.amount, 0);
-		const accountsPayable = payableTransactions.reduce((sum, t) => sum + t.amount, 0);
+		const totalIncome = incomeTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+		const totalExpenses = expenseTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+		const accountsReceivable = receivableTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+		const accountsPayable = payableTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
 
 		return {
 			accountsPayable,
@@ -130,10 +130,34 @@ async function getRecentTransactions(userId: string, limit: number = 10): Promis
 			expand: 'accountId,categoryId,contactId'
 		});
 
-		return transactions.items.map((item) => ({
-			...item,
-			account: item.expand?.accountId?.name || 'Unknown Account'
-		})) as Transaction[];
+		// Safely map PocketBase records to Transaction objects
+		return transactions.items.map(
+			(item): Transaction => ({
+				id: item.id,
+				date: item.date || new Date().toISOString().split('T')[0],
+				type: item.type || 'expense',
+				amount: item.amount || 0,
+				currency: item.currency || 'USD',
+				account: item.expand?.accountId?.name || 'Unknown Account',
+				accountId: item.accountId || '',
+				category: item.expand?.categoryId?.name || item.category || 'Uncategorized',
+				categoryId: item.categoryId,
+				description: item.description || '',
+				reference: item.reference,
+				status: item.status || 'pending',
+				paymentMethod: item.paymentMethod,
+				attachments: item.attachments || [],
+				tags: item.tags || [],
+				contactId: item.contactId,
+				contactName: item.expand?.contactId?.name,
+				projectId: item.projectId,
+				invoiceId: item.invoiceId,
+				recurringId: item.recurringId,
+				created: item.created,
+				updated: item.updated,
+				userId: item.userId || userId
+			})
+		);
 	} catch (error) {
 		console.error('Error fetching recent transactions:', error);
 		return [];
@@ -156,7 +180,20 @@ async function getActiveAccounts(userId: string): Promise<LedgerAccount[]> {
 			sort: 'name'
 		});
 
-		return accounts as LedgerAccount[];
+		// Safely map PocketBase records to LedgerAccount objects
+		return accounts.map(
+			(item): LedgerAccount => ({
+				id: item.id,
+				name: item.name || 'Unknown Account',
+				type: item.type || 'asset',
+				balance: item.balance || 0,
+				currency: item.currency || 'USD',
+				isActive: item.isActive ?? true,
+				description: item.description || '',
+				created: item.created,
+				updated: item.updated
+			})
+		);
 	} catch (error) {
 		console.error('Error fetching active accounts:', error);
 		return [];
@@ -186,8 +223,8 @@ async function getMonthlyTrends(userId: string, months: number = 6): Promise<Mon
 				filter: `userId = "${userId}" && type = "expense" && date >= "${startDateStr}" && date <= "${endDateStr}" && status != "cancelled"`
 			});
 
-			const income = incomeTransactions.reduce((sum, t) => sum + t.amount, 0);
-			const expenses = expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
+			const income = incomeTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
+			const expenses = expenseTransactions.reduce((sum, t) => sum + (t.amount || 0), 0);
 
 			trends.push({
 				month: date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),

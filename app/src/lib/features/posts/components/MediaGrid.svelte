@@ -9,8 +9,7 @@
 	import { goto } from '$app/navigation';
 
 	export let username: string;
-	export let isActive: boolean = false; // Add this prop to control when to load
-
+	export let isActive: boolean = false;
 	let mediaItems: PostAttachment[] = [];
 	let loading = true;
 	let loadingMore = false;
@@ -24,9 +23,7 @@
 
 	const MEDIA_PER_PAGE = 20;
 	const MAX_RETRIES = 3;
-	const LOAD_THROTTLE_MS = 10000; // 10 seconds for your strict rate limits
-
-	// Export the total count so parent component can access it
+	const LOAD_THROTTLE_MS = 10000;
 	export { totalMediaCount };
 	$: console.log('🔍 MediaGrid DEBUG:', {
 		username,
@@ -54,20 +51,18 @@
 			const response = await fetch(
 				`/api/users/username/${username}/media?offset=${offset}&limit=${MEDIA_PER_PAGE}`,
 				{
-					credentials: 'include' // ADD THIS LINE
+					credentials: 'include'
 				}
 			);
 
 			if (!response.ok) {
 				const errorData = await response.json().catch(() => ({}));
 
-				// Handle rate limiting specifically
 				if (response.status === 429) {
 					error = 'Loading too fast, waiting...';
 					console.warn('Rate limit hit, retrying after longer delay');
 
-					// Exponential backoff for rate limits
-					const waitTime = Math.min(10000, 3000 + retryCount * 2000); // Max 10 seconds
+					const waitTime = Math.min(10000, 3000 + retryCount * 2000);
 					setTimeout(() => {
 						error = '';
 						retryCount++;
@@ -109,17 +104,14 @@
 
 			const newItemsCount = (actualData.items || []).length;
 
-			// Use the hasMore from API response if available, otherwise calculate based on returned items
 			if (actualData.hasMore !== undefined) {
 				hasMore = actualData.hasMore;
 			} else {
-				// If we got fewer items than requested, we've reached the end
 				hasMore = newItemsCount === MEDIA_PER_PAGE;
 			}
 
 			currentOffset = append ? currentOffset + newItemsCount : newItemsCount;
 
-			// Update total count from API response
 			if (actualData.totalItems !== undefined) {
 				totalMediaCount = actualData.totalItems;
 			}
@@ -133,7 +125,6 @@
 				infiniteScrollActive: !!infiniteScrollManager
 			});
 
-			// Setup infinite scroll if we just got initial data
 			if (!append && mediaItems.length > 0 && hasMore && !infiniteScrollManager) {
 				console.log('🔄 Setting up infinite scroll after initial data load');
 				setTimeout(() => setupInfiniteScroll(), 100);
@@ -149,7 +140,6 @@
 			console.error('Error fetching media data:', err);
 			error = 'Failed to load media data';
 
-			// Retry logic for network errors
 			if (retryCount < MAX_RETRIES && !append) {
 				retryCount++;
 				console.log(`🔄 Retrying media fetch, attempt ${retryCount}/${MAX_RETRIES}`);
@@ -207,7 +197,6 @@
 	}
 
 	function openMediaModal(attachment: PostAttachment) {
-		// Navigate to the post page using the existing post field
 		const postId = attachment.post;
 		if (postId) {
 			goto(`/${username}/posts/${postId}`);
@@ -215,11 +204,27 @@
 			console.warn('No post ID found for attachment:', attachment);
 		}
 	}
+	function handleVideoMouseEnter(event: Event) {
+		const video = event.currentTarget as HTMLVideoElement;
+		video.play().catch(() => {
+			// Handle play promise rejection
+		});
+	}
 
+	function handleVideoMouseLeave(event: Event) {
+		const video = event.currentTarget as HTMLVideoElement;
+		video.pause();
+		video.currentTime = 0;
+	}
+
+	function handleImageError(event: Event) {
+		const img = event.currentTarget as HTMLImageElement;
+		console.warn('Failed to load image:', img.src);
+		img.style.display = 'none';
+	}
 	onMount(() => {
 		console.log('🔄 MediaGrid mounted - setting up...');
 
-		// Don't auto-load, wait for isActive
 		if (isActive && username) {
 			(async () => {
 				await fetchMediaData(0, false);
@@ -238,7 +243,6 @@
 		}
 	});
 
-	// Update setupInfiniteScroll to match home page pattern
 	function setupInfiniteScroll() {
 		if (infiniteScrollManager) {
 			infiniteScrollManager.destroy();
@@ -252,7 +256,7 @@
 					console.error('Error loading more media:', error);
 				}
 			},
-			hasMore: () => hasMore && !loading, // Similar to effectiveHasMore
+			hasMore: () => hasMore && !loading,
 			isLoading: () => loadingMore || loading,
 			triggerId: 'media-loading-trigger',
 			debug: true
@@ -262,7 +266,6 @@
 		return infiniteScrollManager;
 	}
 
-	// Update the reactive statement to trigger infinite scroll setup
 	$: {
 		if (username && browser && isActive && mediaItems.length === 0 && !loading) {
 			console.log('🔄 Loading media for first time:', username);
@@ -278,7 +281,6 @@
 		}
 	}
 
-	// Handle tab changes - disable/enable infinite scroll
 	$: {
 		if (infiniteScrollManager) {
 			if (!isActive) {
@@ -291,7 +293,6 @@
 		}
 	}
 
-	// Setup infinite scroll after data loads or when state changes
 	$: {
 		console.log('🔍 Reactive check values:', {
 			username: !!username,
@@ -302,7 +303,6 @@
 		});
 
 		if (username && browser && isActive && mediaItems.length === 0) {
-			// Remove && !loading
 			console.log('🔄 Loading media for first time:', username);
 			fetchMediaData();
 		}
@@ -313,26 +313,6 @@
 			infiniteScrollManager.destroy();
 		}
 	});
-
-	// $: if (username && browser && isActive) { // ADD && isActive
-	//     console.log('🔄 Username changed, fetching media for:', username);
-	//     // Reset infinite scroll when username changes
-	//     if (infiniteScrollManager) {
-	//         infiniteScrollManager.destroy();
-	//         infiniteScrollManager = null;
-	//     }
-	//     retryCount = 0;
-	//     lastLoadTime = 0;
-	//     fetchMediaData().then(() => {
-	//         if (mediaItems.length > 0 && hasMore) {
-	//             setTimeout(() => setupInfiniteScroll(), 100);
-	//         }
-	//     });
-	// }
-	// $: if (isActive && username && browser && mediaItems.length === 0 && !loading) {
-	//     console.log('🔥 Tab became active, loading media');
-	//     fetchMediaData();
-	// }
 </script>
 
 <section
@@ -368,11 +348,8 @@
 								class="media-content"
 								muted
 								preload="metadata"
-								on:mouseenter={(e) => e.target.play()}
-								on:mouseleave={(e) => {
-									e.target.pause();
-									e.target.currentTime = 0;
-								}}
+								on:mouseenter={handleVideoMouseEnter}
+								on:mouseleave={handleVideoMouseLeave}
 							>
 								<track kind="captions" />
 							</video>
@@ -386,10 +363,7 @@
 							alt={item.original_name || 'Media attachment'}
 							class="media-content"
 							loading="lazy"
-							on:error={(e) => {
-								console.warn('Failed to load image:', getMediaUrl(item));
-								e.target.style.display = 'none';
-							}}
+							on:error={handleImageError}
 						/>
 					{:else}
 						<!-- Fallback for other media types -->
@@ -439,19 +413,12 @@
 </section>
 
 <style lang="scss">
-	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
 	.media-section {
 		padding: 0;
 		width: 100%;
-	}
-
-	.loading-container {
-		display: flex;
-		justify-content: center;
-		padding: 40px 20px;
 	}
 
 	.error-container {

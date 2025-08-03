@@ -13,7 +13,7 @@
 	} from './extensions/extensions';
 	import { getFileSystem, type FileSystem } from './services/filesystem';
 	import { getCodeSuggestion, explainCode, generateCode } from './services/ai-service';
-	import { syntaxTree } from '@codemirror/language'; // From the example you provided
+	import { syntaxTree } from '@codemirror/language';
 	import CodeMirror from 'svelte-codemirror-editor';
 	import type { Repository, CodeFolders, CodeFiles, CodeCommits } from '$lib/types/types.ide';
 	import {
@@ -37,7 +37,7 @@
 
 	let editorElement: HTMLElement;
 	let editorView: EditorView;
-	let currentLanguage: Extension;
+	let currentLanguage: any;
 	let activeFile = 'main.ts';
 	let fileSystem = getFileSystem();
 	let files: FileSystem = {};
@@ -68,24 +68,19 @@
 
 		const result = await clientTryCatch(
 			(async () => {
-				// Check if this is a repository file
 				if (activeRepoFile) {
 					const content = editorView.state.doc.toString();
 
-					// Save to server
 					await saveFile(activeRepoFile, content);
 
-					// Remove from unsaved changes
 					unsavedChanges.delete(activeFile);
 					unsavedChanges = new Set(unsavedChanges);
 
 					return { type: 'repository', file: activeFile };
 				} else {
-					// For files not from repository, just update local storage
 					const content = editorView.state.doc.toString();
 					fileSystem.updateFile(activeFile, content);
 
-					// Show a success notification
 					ideNotifications.update((notifications) => [
 						{
 							id: `local_save_${Date.now()}`,
@@ -97,7 +92,6 @@
 						...notifications
 					]);
 
-					// Remove from unsaved changes
 					unsavedChanges.delete(activeFile);
 					unsavedChanges = new Set(unsavedChanges);
 
@@ -110,7 +104,6 @@
 		if (isFailure(result)) {
 			console.error('Failed to save file:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `save_error_${Date.now()}`,
@@ -123,32 +116,53 @@
 			]);
 		}
 	}
+	function getLanguageName(filename: string): string {
+		const fileExtension = filename.split('.').pop()?.toLowerCase();
 
+		switch (fileExtension) {
+			case 'js':
+				return 'JavaScript';
+			case 'jsx':
+				return 'JSX';
+			case 'ts':
+				return 'TypeScript';
+			case 'tsx':
+				return 'TSX';
+			case 'html':
+			case 'svelte':
+				return 'HTML';
+			case 'css':
+				return 'CSS';
+			case 'json':
+				return 'JSON';
+			case 'md':
+				return 'Markdown';
+			case 'py':
+				return 'Python';
+			default:
+				return 'Text';
+		}
+	}
 	function createEditor() {
 		if (!editorElement || !browser) return;
 
 		const result = tryCatchSync(() => {
-			// Get language extension for active file
 			currentLanguage = getLanguageExtension(activeFile);
 
-			// Get proper highlighting based on the file and theme
-			const themeHighlighting = getLanguageHighlighting(activeFile, darkMode);
-
-			// Ensure extensions are properly typed
-			const basicExtensions: Extension[] = createBasicExtensions(
-				darkMode,
-				currentLanguage
-			) as Extension[];
-			const autosaveExtension: Extension = createAutosaveExtension((content) => {
+			const basicExtensions = createBasicExtensions(darkMode, currentLanguage);
+			const autosaveExtension = createAutosaveExtension((content) => {
 				files[activeFile] = content;
 				fileSystem.updateFile(activeFile, content);
 				unsavedChanges.add(activeFile);
 				unsavedChanges = new Set(unsavedChanges);
-			}) as Extension;
+			});
+
+			// Combine extensions with proper typing
+			const allExtensions = [...basicExtensions, autosaveExtension] as any[];
 
 			const startState = EditorState.create({
 				doc: files[activeFile] || '',
-				extensions: [...basicExtensions, autosaveExtension] as any
+				extensions: allExtensions
 			});
 
 			if (editorView) {
@@ -160,7 +174,6 @@
 				parent: editorElement
 			});
 
-			// Setup keyboard shortcuts
 			if (cleanupKeyboardShortcuts) {
 				cleanupKeyboardShortcuts();
 			}
@@ -175,7 +188,6 @@
 		if (isFailure(result)) {
 			console.error('Editor initialization failed:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `editor_error_${Date.now()}`,
@@ -192,18 +204,14 @@
 	async function openRepoFile(file: CodeFiles) {
 		const result = await clientTryCatch(
 			(async () => {
-				// Add the file content to local file system if it doesn't exist
 				if (!files[file.name]) {
-					// Convert array content to string if needed
 					const content = Array.isArray(file.content) ? file.content.join('\n') : file.content;
 					fileSystem.createFile(file.name, content);
-					files = await fileSystem.getFiles(); // Now we can await
+					files = await fileSystem.getFiles();
 				}
 
-				// Store the active repository file
 				activeRepoFile = file;
 
-				// Open the file in the editor
 				openFile(file.name);
 
 				return true;
@@ -214,7 +222,6 @@
 		if (isFailure(result)) {
 			console.error('Error opening repository file:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `open_repo_file_error_${Date.now()}`,
@@ -239,7 +246,6 @@
 			activeFile = filename;
 
 			if (editorView && browser) {
-				// Get language extension for the file
 				currentLanguage = getLanguageExtension(filename);
 
 				const newState = EditorState.create({
@@ -249,7 +255,7 @@
 						createAutosaveExtension((content) => {
 							files[activeFile] = content;
 							fileSystem.updateFile(activeFile, content);
-							// Mark file as having unsaved changes
+
 							unsavedChanges.add(activeFile);
 							unsavedChanges = new Set(unsavedChanges);
 						})
@@ -258,7 +264,6 @@
 
 				editorView.setState(newState);
 			} else if (browser) {
-				// Editor not initialized yet
 				createEditor();
 			}
 
@@ -268,7 +273,6 @@
 		if (isFailure(result)) {
 			console.error('Error updating editor:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `open_file_error_${Date.now()}`,
@@ -280,14 +284,12 @@
 				...notifications
 			]);
 
-			// If state update fails, try recreating the editor
 			createEditor();
 		}
 	}
 
 	function closeFile(filename: string) {
 		const result = tryCatchSync(() => {
-			// Check for unsaved changes
 			if (unsavedChanges.has(filename)) {
 				const shouldClose = confirm(`${filename} has unsaved changes. Close anyway?`);
 				if (!shouldClose) return false;
@@ -295,14 +297,12 @@
 
 			openFiles = openFiles.filter((f) => f !== filename);
 
-			// Clear unsaved changes for this file
 			unsavedChanges.delete(filename);
 			unsavedChanges = new Set(unsavedChanges);
 
 			if (activeFile === filename && openFiles.length > 0) {
 				activeFile = openFiles[0];
 
-				// Reset active repo file if needed
 				if (activeRepoFile?.name === filename) {
 					activeRepoFile = null;
 				}
@@ -316,7 +316,6 @@
 		if (isFailure(result)) {
 			console.error('Error closing file:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `close_file_error_${Date.now()}`,
@@ -341,22 +340,18 @@
 
 		const result = await clientTryCatch(
 			(async () => {
-				// Determine the current path
-				const currentPath = '/'; // You can enhance this to use selected folder path
+				const currentPath = '/';
 
-				// Create the file using your client method
 				const newFile = await createFile(
 					selectedRepo.id,
 					selectedBranch,
 					fileName,
-					['// New file created'], // Initial content
+					['// New file created'],
 					currentPath
 				);
 
-				// Update the file list
 				repoFiles = [...repoFiles, newFile];
 
-				// Open the newly created file
 				openRepoFile(newFile);
 
 				return newFile;
@@ -367,7 +362,6 @@
 		if (isFailure(result)) {
 			console.error('Error creating file:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `create_file_error_${Date.now()}`,
@@ -391,10 +385,10 @@
 		const result = tryCatchSync(() => {
 			darkMode = !darkMode;
 			if (editorView) {
-				const basicExtensions = createBasicExtensions(darkMode, currentLanguage) as Extension[];
+				const basicExtensions = createBasicExtensions(darkMode, currentLanguage) as any[];
 				const autosaveExtension = createAutosaveExtension((content) => {
 					fileSystem.updateFile(activeFile, content);
-					// Handle the Promise separately for files update
+
 					fileSystem
 						.getFiles()
 						.then((updatedFiles) => {
@@ -403,7 +397,7 @@
 						.catch((error) => {
 							console.error('Error updating files after autosave:', error);
 						});
-				}) as Extension;
+				}) as any;
 
 				const newState = EditorState.create({
 					doc: editorView.state.doc,
@@ -418,7 +412,6 @@
 		if (isFailure(result)) {
 			console.error('Error toggling theme:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `toggle_theme_error_${Date.now()}`,
@@ -467,23 +460,17 @@
 		}
 	}
 
-	// New method to analyze the syntax tree (from the example you provided)
 	function analyzeSyntaxTree() {
 		if (!editorView) return;
 
-		// Get the syntax tree from the editor
 		const tree = syntaxTree(editorView.state);
 
-		// This is just an example - you can customize how you use the tree
 		console.log('Syntax tree:', tree);
 
-		// Show a simple analysis in the AI panel
 		isAiPanelOpen = true;
 		aiResponse = `# Syntax Tree Analysis\n\nThe current document has a syntax tree with ${
 			tree.length
 		} nodes. This analysis helps understand the structure of your code.\n\n`;
-
-		// You could perform more advanced analysis here based on the specific language
 	}
 
 	async function explainCurrentCode() {
@@ -549,7 +536,7 @@
 				}
 
 				fileSystem.updateFile(activeFile, editorView.state.doc.toString());
-				files = await fileSystem.getFiles(); // Now we can await
+				files = await fileSystem.getFiles();
 
 				isAiPanelOpen = false;
 
@@ -561,7 +548,6 @@
 		if (isFailure(result)) {
 			console.error('Error applying AI suggestion:', result.error);
 
-			// Show error notification
 			ideNotifications.update((notifications) => [
 				{
 					id: `apply_ai_error_${Date.now()}`,
@@ -617,7 +603,6 @@
 		if (!branchName) return;
 
 		try {
-			// Create root folder for new branch
 			const response = await fetch('/api/ide/folders', {
 				method: 'POST',
 				headers: {
@@ -662,7 +647,7 @@
 					path: `/${folderName}`,
 					repository: selectedRepo.id,
 					branch: selectedBranch,
-					parent: null // You might want to implement nested folders later
+					parent: null
 				})
 			});
 
@@ -718,7 +703,7 @@
 		} else {
 			expandedFolders.add(folderId);
 		}
-		expandedFolders = new Set(expandedFolders); // Trigger reactivity
+		expandedFolders = new Set(expandedFolders);
 	}
 	async function handleCreateRepository() {
 		const repoName = prompt('Enter new repository name:');
@@ -736,15 +721,13 @@
 		}
 	}
 
-	// Select repository
 	async function selectRepository(repo: Repository) {
 		selectedRepo = repo;
 		selectedBranch = repo.defaultBranch;
-		branches = [repo.defaultBranch, 'main']; // In real app, fetch branches from API
+		branches = [repo.defaultBranch, 'main'];
 		await loadRepositoryContents();
 	}
 
-	// Create new branch
 	async function handleCreateBranch() {
 		if (!selectedRepo) return;
 
@@ -755,7 +738,6 @@
 			const { success, error } = await createBranch(selectedRepo.id, branchName);
 
 			if (success) {
-				// Refresh branch list and contents
 				branches = [...branches, branchName];
 				selectedBranch = branchName;
 				await loadRepositoryContents();
@@ -767,7 +749,6 @@
 		}
 	}
 
-	// Create new folder
 	async function handleCreateFolder() {
 		if (!selectedRepo || !selectedBranch) return;
 
@@ -798,18 +779,13 @@
 		if (!selectedRepo || !selectedBranch) return;
 
 		try {
-			// Show loading state if needed
-
-			// Fetch both folders and files in parallel using your client methods
 			const [foldersResponse, filesResponse] = await Promise.all([
 				fetchFolders(selectedRepo.id, selectedBranch),
 				fetchFiles(selectedRepo.id, selectedBranch)
 			]);
 
 			folders = foldersResponse.items || [];
-			repoFiles = filesResponse || []; // Adjust based on your actual API response
-
-			// Hide loading state if needed
+			repoFiles = filesResponse || [];
 		} catch (error) {
 			console.error('Failed to load repository contents:', error);
 			alert('Failed to load repository contents');
@@ -822,7 +798,6 @@
 
 	onMount(async () => {
 		if (browser) {
-			// Load repositories
 			const repoResult = await clientTryCatch(
 				(async () => {
 					return await fetchRepositories();
@@ -833,7 +808,6 @@
 			if (isFailure(repoResult)) {
 				console.error('Failed to load repositories:', repoResult.error);
 
-				// Show error notification
 				ideNotifications.update((notifications) => [
 					{
 						id: `load_repos_error_${Date.now()}`,
@@ -848,14 +822,11 @@
 				repositories = repoResult.data;
 			}
 
-			// Initialize files and editor
 			const editorResult = await clientTryCatch(
 				(async () => {
-					// Get files (now properly awaiting the Promise)
 					files = await fileSystem.getFiles();
 
 					if (Object.keys(files).length === 0) {
-						// Add default files if none exist
 						fileSystem.createFile(
 							'main.ts',
 							'// Welcome to the editor!\n\nfunction hello() {\n  console.log("Hello, world!");\n}\n\nhello();'
@@ -868,10 +839,9 @@
 							'styles.css',
 							'/* Main styles */\nbody {\n  font-family: sans-serif;\n  margin: 0;\n  padding: 20px;\n}\n'
 						);
-						files = await fileSystem.getFiles(); // Await this as well
+						files = await fileSystem.getFiles();
 					}
 
-					// Create the editor
 					createEditor();
 
 					return true;
@@ -882,7 +852,6 @@
 			if (isFailure(editorResult)) {
 				console.error('Editor initialization failed:', editorResult.error);
 
-				// Show error notification
 				ideNotifications.update((notifications) => [
 					{
 						id: `editor_init_error_${Date.now()}`,
@@ -1027,7 +996,15 @@
 					{#each repositories as repo}
 						<div
 							class="repository-item {selectedRepo?.id === repo.id ? 'active' : 'deactive'}"
+							role="button"
+							tabindex="0"
 							on:click={() => selectRepository(repo)}
+							on:keydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									selectRepository(repo);
+								}
+							}}
 						>
 							<span>
 								<span class="repo-icon">
@@ -1070,7 +1047,20 @@
 					<div class="file-explorer">
 						{#each folders.filter((f) => !f.parent) as folder}
 							<div class="folder-item">
-								<div class="folder-header" on:click={() => toggleFolder(folder.id)}>
+								<div
+									class="folder-header"
+									role="button"
+									tabindex="0"
+									aria-expanded={expandedFolders.has(folder.id)}
+									aria-label="Toggle folder {folder.name}"
+									on:click={() => toggleFolder(folder.id)}
+									on:keydown={(e) => {
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault();
+											toggleFolder(folder.id);
+										}
+									}}
+								>
 									<span class="folder-icon">
 										{expandedFolders.has(folder.id) ? '📂' : '📁'}
 									</span>
@@ -1083,7 +1073,16 @@
 										{#each repoFiles.filter((f) => f.path.startsWith(folder.path)) as file}
 											<div
 												class="file-item {activeFile === file.name ? 'active' : ''}"
+												role="button"
+												tabindex="0"
+												aria-label="Open file {file.name}"
 												on:click={() => openFile(file.name)}
+												on:keydown={(e) => {
+													if (e.key === 'Enter' || e.key === ' ') {
+														e.preventDefault();
+														openFile(file.name);
+													}
+												}}
 											>
 												<span class="file-icon">
 													{#if file.name.endsWith('.ts')}
@@ -1145,7 +1144,7 @@
 
 			<div class="status-bar">
 				<div class="status-left">
-					{activeFile ? `${activeFile} | ${currentLanguage?.name || 'TypeScript'}` : 'No file open'}
+					{activeFile ? `${activeFile} | ${getLanguageName(activeFile)}` : 'No file open'}
 				</div>
 				<div class="status-right">
 					<button on:click={getAIAssistance} class="status-ai-button"> AI </button>
@@ -1182,6 +1181,7 @@
 									<div class="ai-thinking">Thinking...</div>
 								{:else}
 									<div class="ai-markdown">
+										<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 										{@html sanitizedHtml}
 									</div>
 								{/if}
@@ -1220,7 +1220,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	// @use 'src/lib/styles/themes.scss' as *;
+
 	* {
 		font-family: var(--font-family);
 	}
@@ -1375,7 +1375,7 @@
 	}
 	.sidebar-header h3 {
 		margin: 0;
-		//   font-size: 0.6em;
+
 		font-weight: 600;
 	}
 
@@ -1390,9 +1390,7 @@
 		align-items: flex-start;
 		gap: 0;
 		transition: all 0.2s ease;
-		// transform: translateY(-90%);
-		// overflow: hidden;
-		// padding: 0.5rem;
+
 		margin-bottom: 1rem;
 		& span.repo-header {
 			display: flex;
@@ -1421,7 +1419,6 @@
 			justify-content: center;
 		}
 		& .repository-item.deactive {
-			// display: none;
 			font-size: 0.6em;
 			display: flex;
 			justify-content: flex-start;

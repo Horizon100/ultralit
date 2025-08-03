@@ -21,7 +21,11 @@ export interface PDFAnalysisResult {
 	documentType: DocumentTypeResult['type'];
 	confidence: number;
 	metadata: PDFMetadata;
-	extractedData?: any;
+	extractedData?:
+		| ScientificAnalysisResult
+		| TableAnalysisResult
+		| PresentationAnalysisResult
+		| FinancialAnalysisResult;
 }
 
 // Table-specific types
@@ -119,7 +123,11 @@ export interface OCRResult {
 export interface BatchResult {
 	filename: string;
 	size: number;
-	analysis?: any;
+	analysis?:
+		| ScientificAnalysisResult
+		| TableAnalysisResult
+		| PresentationAnalysisResult
+		| FinancialAnalysisResult;
 	error?: string;
 	success: boolean;
 }

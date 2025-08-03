@@ -7,7 +7,7 @@ export const GET: RequestHandler = async ({ locals, request }) => {
 	console.log('🔍 Auth check GET request');
 
 	const cookieHeader = request.headers.get('cookie') || '';
-	const parsedCookies = {};
+	const parsedCookies: Record<string, string> = {};
 
 	if (cookieHeader) {
 		try {
@@ -52,7 +52,7 @@ export const POST: RequestHandler = async ({ locals, request }) => {
 	console.log('🔍 Auth check POST request');
 
 	const cookieHeader = request.headers.get('cookie') || '';
-	const parsedCookies = {};
+	const parsedCookies: Record<string, string> = {};
 
 	if (cookieHeader) {
 		try {

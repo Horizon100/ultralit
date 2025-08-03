@@ -98,10 +98,10 @@ export default {
 		shareLink: 'Share with a link',
 		copyLink: 'Copy link to post',
 		textareaPlaceholder: 'What´s on your mind?',
-		postButton: 'Post',
 		posting: 'Posting...',
 		errorExpression: 'Oops!',
 		errorComment: 'Error posting comment:',
+		addComment: 'Add your comment...',
 		addingComment: 'Adding comment:',
 		followUser: 'Follow user',
 		reply: 'Reply',
@@ -115,7 +115,13 @@ export default {
 		seeAll: 'See all',
 		joinConversation: 'Join Conversation',
 		noMorePosts: 'No more posts to load',
-		hasntPosted: 'has not posted anything yet.'
+		hasntPosted: 'has not posted anything yet.',
+		replyPlaceholder: 'Write your reply...',
+		replyButton: 'Reply',
+		postPlaceholder: "What's on your mind?",
+		postButton: 'Post',
+		quotePlaceholder: 'Add your thoughts to this quote...',
+		quoteButton: 'Quote'
 	},
 	lang: {
 		notification: 'Language: English',
@@ -825,7 +831,8 @@ export default {
 	],
 	terms: {
 		title: 'Terms of Service',
-		description: 'These are the Terms of Service for vRazum. By using our service, you agree to these terms.',
+		description:
+			'These are the Terms of Service for vRazum. By using our service, you agree to these terms.',
 		content: [
 			{
 				heading: '1. Use of Service',
@@ -865,74 +872,75 @@ export default {
 			}
 		]
 	},
-privacy: {
-	title: 'Privacy Policy',
-	description: 'Your privacy is important to us. This Privacy Policy outlines how Vrazum (vrazum.com) collects, uses, and protects your data.',
-	content: [
-		{
-			heading: '1. Information We Collect',
-			body: 'We collect your name or username and email address when you register or interact with our services.'
+	privacy: {
+		title: 'Privacy Policy',
+		description:
+			'Your privacy is important to us. This Privacy Policy outlines how Vrazum (vrazum.com) collects, uses, and protects your data.',
+		content: [
+			{
+				heading: '1. Information We Collect',
+				body: 'We collect your name or username and email address when you register or interact with our services.'
+			},
+			{
+				heading: '2. Email Communications',
+				body: 'We may send newsletters or updates if you opt in. You can unsubscribe at any time.'
+			},
+			{
+				heading: '3. Analytics',
+				body: 'We use Umami for privacy-focused analytics to understand how users interact with our platform.'
+			},
+			{
+				heading: '4. Tracking Technologies',
+				body: 'We use cookies, web beacons, local storage, and session data to enhance your experience and support essential functionality.'
+			},
+			{
+				heading: '5. Social Login',
+				body: 'We allow sign-in via Google. This simplifies access while maintaining your security.'
+			},
+			{
+				heading: '6. Children’s Privacy',
+				body: 'Vrazum is not intended for users under the age of 13, and we do not knowingly collect their data.'
+			},
+			{
+				heading: '7. Contact Information',
+				body: 'You may contact us at support@vrazum.com or via the form at www.vrazum.com/contact.'
+			},
+			{
+				heading: '8. Device Access',
+				body: 'We may request access to your device’s camera and photo gallery to provide specific features.'
+			},
+			{
+				heading: '9. Payments',
+				body: 'We accept payments online and handle payment information securely through third-party processors.'
+			},
+			{
+				heading: '10. Compliance',
+				body: 'We comply with CalOPPA, GDPR, CCPA, and applicable Russian data protection laws.'
+			}
+		]
+	},
+	security: {
+		passwordQuestions: {
+			motherMaiden: "What is your mother's maiden name?",
+			childhoodFriend: 'What is the name of your best childhood friend?',
+			firstPet: 'What was the name of your first pet?',
+			birthCity: 'In what city were you born?',
+			favoriteTeacher: 'What is the name of your favorite teacher?',
+			firstCar: 'What was the make of your first car?',
+			childhoodStreet: 'What street did you grow up on?',
+			favoriteBook: 'What is your favorite book?',
+			dreamJob: 'What was your dream job as a child?',
+			favoriteFood: 'What is your favorite food?'
 		},
-		{
-			heading: '2. Email Communications',
-			body: 'We may send newsletters or updates if you opt in. You can unsubscribe at any time.'
-		},
-		{
-			heading: '3. Analytics',
-			body: 'We use Umami for privacy-focused analytics to understand how users interact with our platform.'
-		},
-		{
-			heading: '4. Tracking Technologies',
-			body: 'We use cookies, web beacons, local storage, and session data to enhance your experience and support essential functionality.'
-		},
-		{
-			heading: '5. Social Login',
-			body: 'We allow sign-in via Google. This simplifies access while maintaining your security.'
-		},
-		{
-			heading: '6. Children’s Privacy',
-			body: 'Vrazum is not intended for users under the age of 13, and we do not knowingly collect their data.'
-		},
-		{
-			heading: '7. Contact Information',
-			body: 'You may contact us at support@vrazum.com or via the form at www.vrazum.com/contact.'
-		},
-		{
-			heading: '8. Device Access',
-			body: 'We may request access to your device’s camera and photo gallery to provide specific features.'
-		},
-		{
-			heading: '9. Payments',
-			body: 'We accept payments online and handle payment information securely through third-party processors.'
-		},
-		{
-			heading: '10. Compliance',
-			body: 'We comply with CalOPPA, GDPR, CCPA, and applicable Russian data protection laws.'
-		}
-	]
-},
-security: {
-  passwordQuestions: {
-    motherMaiden: "What is your mother's maiden name?",
-    childhoodFriend: "What is the name of your best childhood friend?",
-    firstPet: "What was the name of your first pet?",
-    birthCity: "In what city were you born?",
-    favoriteTeacher: "What is the name of your favorite teacher?",
-    firstCar: "What was the make of your first car?",
-    childhoodStreet: "What street did you grow up on?",
-    favoriteBook: "What is your favorite book?",
-    dreamJob: "What was your dream job as a child?",
-    favoriteFood: "What is your favorite food?"
-  },
-  selectQuestion: "Select a security question",
-  securityAnswer: "Your answer",
-  securityAnswerPlaceholder: "Enter your answer (case-insensitive)",
-  resetWithHint: "Reset with Security Question",
-  securityQuestionTitle: "Security Question",
-  answerQuestion: "Answer your security question to reset password",
-  newPassword: "New Password",
-  confirmPassword: "Confirm New Password",
-  passwordsMatch: "Passwords must match",
-  resetSuccess: "Password reset successfully"
-}
+		selectQuestion: 'Select a security question',
+		securityAnswer: 'Your answer',
+		securityAnswerPlaceholder: 'Enter your answer (case-insensitive)',
+		resetWithHint: 'Reset with Security Question',
+		securityQuestionTitle: 'Security Question',
+		answerQuestion: 'Answer your security question to reset password',
+		newPassword: 'New Password',
+		confirmPassword: 'Confirm New Password',
+		passwordsMatch: 'Passwords must match',
+		resetSuccess: 'Password reset successfully'
+	}
 };

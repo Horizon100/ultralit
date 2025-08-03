@@ -42,7 +42,6 @@
 	let availableActions: Actions[] = [];
 	let selectedProvider: AIProviderType | null = null;
 
-	// Form fields
 	let agentName = '';
 	let agentDescription = '';
 	let agentMaxAttempts = 5;
@@ -51,7 +50,6 @@
 	let agentModel: string[] = [];
 	let agentActions: string[] = [];
 
-	// Sorting and filtering
 	let searchQuery = '';
 	let sortOption = '';
 	let selectedRole: string | null = null;
@@ -117,7 +115,7 @@
 
 		try {
 			await modelStore.cleanupDuplicateModels($currentUser.id);
-			// Reload models after cleanup
+
 			await modelStore.loadModels($currentUser.id);
 			updateStatus = 'Duplicate models cleaned up successfully!';
 		} catch (error) {
@@ -153,7 +151,6 @@
 				const data = result.data;
 				localServerStatus = data.server_info?.status === 'connected' ? 'online' : 'offline';
 
-				// Convert local models to SelectableAIModel format
 				localModels = (data.models || []).map((model: any) => ({
 					id: model.api_type,
 					name: model.name,
@@ -201,7 +198,6 @@
 	function selectProvider(provider: AIProviderType) {
 		selectedProvider = provider;
 
-		// If selecting local provider and models aren't loaded, load them
 		if (provider === 'local' && localModels.length === 0) {
 			loadLocalModels();
 		}
@@ -242,7 +238,7 @@
 	}
 
 	const roles = ['hub', 'proxy', 'assistant', 'moderator'];
-	const statuses = ['active', 'inactive', 'maintenance', 'paused'];
+	const statuses = ['active', 'inactive', 'maintenance', 'paused', 'analyzing'];
 
 	async function loadAgents() {
 		showLoading();
@@ -450,7 +446,6 @@
 	}
 
 	async function handleSubmit() {
-		// Enhanced validation for required fields
 		const missingFields = [];
 
 		if (!agentName?.trim()) {
@@ -481,7 +476,6 @@
 			console.log('🔄 Processing agent submission...');
 			updateStatus = 'Processing models...';
 
-			// Ensure models exist in the models collection and get their IDs
 			const modelIds = await ensureModelsExist(agentModel, $currentUser?.id || '');
 
 			const agentData: Partial<AIAgent> = {
@@ -490,18 +484,15 @@
 				max_attempts: agentMaxAttempts,
 				user_input: agentUserInput.toLowerCase() as 'end' | 'never' | 'always',
 				prompt: agentPrompt.trim(),
-				// Use the model IDs for the relation field
 				model: modelIds,
-				role: selectedRole!.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
+				role: selectedRole?.toLowerCase() as 'hub' | 'proxy' | 'assistant' | 'moderator',
 				status: 'active'
 			};
 
-			// Handle actions - store as JSON if it's a text field, or as array if it's JSON field
 			if (agentActions.length > 0) {
 				agentData.actions = agentActions;
 			}
 
-			// Handle tags - store as JSON if it's a text field, or as array if it's JSON field
 			if (selectedTags.length > 0) {
 				agentData.tags = selectedTags;
 			}
@@ -510,7 +501,6 @@
 			updateStatus = 'Saving agent...';
 
 			if (selectedAgent) {
-				// For updates
 				const result = await agentStore.updateAgentAPI(
 					selectedAgent.id,
 					avatarFile
@@ -518,11 +508,9 @@
 								const formData = new FormData();
 								if (avatarFile) formData.append('avatar', avatarFile);
 
-								// Add all other fields to FormData
 								for (const [key, value] of Object.entries(agentData)) {
 									if (value !== undefined && value !== null) {
 										if (Array.isArray(value)) {
-											// For relation fields, send as JSON array
 											formData.append(key, JSON.stringify(value));
 										} else {
 											formData.append(key, String(value));
@@ -540,18 +528,15 @@
 
 				console.log('✅ Agent updated successfully:', result);
 			} else {
-				// For creation
 				const result = await agentStore.createAgent(
 					avatarFile
 						? (() => {
 								const formData = new FormData();
 								if (avatarFile) formData.append('avatar', avatarFile);
 
-								// Add all other fields to FormData
 								for (const [key, value] of Object.entries(agentData)) {
 									if (value !== undefined && value !== null) {
 										if (Array.isArray(value)) {
-											// For relation fields, send as JSON array
 											formData.append(key, JSON.stringify(value));
 										} else {
 											formData.append(key, String(value));
@@ -570,13 +555,11 @@
 				console.log('✅ Agent created successfully:', result);
 			}
 
-			// Success - clean up the form
 			showCreateForm = false;
 			selectedAgent = null;
 			resetForm();
 			avatarFile = null;
 
-			// Reload agents to ensure we have the latest data
 			await agentStore.loadAgents();
 			updateStatus = 'Agent saved successfully!';
 			setTimeout(() => {
@@ -589,7 +572,7 @@
 			} else {
 				updateStatus = 'Error saving agent. Please try again.';
 			}
-			// Clear error status after 5 seconds
+
 			setTimeout(() => {
 				updateStatus = '';
 			}, 5000);
@@ -599,7 +582,6 @@
 		console.log('=== DEBUG AVAILABLE MODELS ===');
 		console.log('Total availableModels:', availableModels.length);
 
-		// Group by provider to see duplicates
 		const grouped = availableModels.reduce(
 			(acc, model) => {
 				if (!acc[model.provider]) acc[model.provider] = [];
@@ -613,7 +595,6 @@
 			console.log(`${provider}:`, models.length, 'models');
 			models.forEach((m) => console.log(`  - ${m.name} (${m.id}) [${m.api_type}]`));
 
-			// Check for duplicates within provider
 			const duplicates = models.filter(
 				(model, index) => models.findIndex((m) => m.api_type === model.api_type) !== index
 			);
@@ -623,9 +604,7 @@
 		});
 		console.log('================================');
 	}
-	function showRoleInfo() {
-		// Implement role info modal or tooltip
-	}
+	function showRoleInfo() {}
 
 	function addTag(tag: string) {
 		if (tag && !selectedTags.includes(tag)) {
@@ -710,25 +689,25 @@
 
 							<div class="container-row">
 								<div class="data-counts">
-									<button class="delete-button" on:click={() => handleDelete(agent)}>
-										<Icon name="Trash2" size={16} />
+									<button class="remove-button" on:click={() => handleDelete(agent)}>
+										<Icon name="Trash2" size={24} />
 									</button>
 									<button class="mini-button" on:click={() => showEdit(agent)}>
-										<Icon name="Settings" size={16} />
+										<Icon name="Settings" size={24} />
 									</button>
 									<button class="mini-button" on:click={() => showGenerator(agent)}>
-										<Icon name="RefreshCcw" size={16} />
+										<Icon name="RefreshCcw" size={24} />
 									</button>
 								</div>
 								<div class="action-buttons">
-									<button class="delete-button" on:click={() => handleDelete(agent)}>
-										<Icon name="Trash2" size={16} />
+									<button class="remove-button" on:click={() => handleDelete(agent)}>
+										<Icon name="Trash2" size={24} />
 									</button>
 									<button class="mini-button" on:click={() => showEdit(agent)}>
-										<Icon name="Settings" size={16} />
+										<Icon name="Settings" size={24} />
 									</button>
 									<button class="mini-button" on:click={() => showGenerator(agent)}>
-										<Icon name="RefreshCcw" size={16} />
+										<Icon name="RefreshCcw" size={24} />
 									</button>
 								</div>
 							</div>
@@ -821,7 +800,14 @@
 					</div>
 
 					<div class="agent-header-wrapper">
-						<div class="avatar-upload" on:click={triggerAvatarUpload}>
+						<div
+							class="avatar-upload"
+							on:click={triggerAvatarUpload}
+							on:keydown={(e) =>
+								e.key === 'Enter' || e.key === ' ' ? triggerAvatarUpload() : null}
+							role="button"
+							tabindex="0"
+						>
 							<div class="avatar-preview">
 								{#if avatarFile}
 									<img src={URL.createObjectURL(avatarFile)} alt="Avatar preview" />
@@ -903,7 +889,7 @@
 					<!-- Provider Tabs -->
 					<!-- Replace the existing MODEL section in your form with this updated version -->
 					<div class="form-group models">
-						<label>MODEL</label>
+						<span>MODEL</span>
 
 						<!-- Provider Tabs -->
 						<div class="provider-tabs">
@@ -1033,7 +1019,7 @@
 							</div>
 						{/if} -->
 					<div class="form-group">
-						<label>ACTIONS</label>
+						<span>ACTIONS</span>
 						<div class="action-grid">
 							{#each availableActions as action (action.id)}
 								<button
@@ -1051,7 +1037,7 @@
 					</div>
 
 					<div class="form-group">
-						<label>ROLE *</label>
+						<span>ROLE *</span>
 						<div class="role-selection">
 							{#each roles as role}
 								<label class="role-option">
@@ -1064,7 +1050,7 @@
 					</div>
 
 					<div class="form-group">
-						<label>TAGS</label>
+						<span>TAGS</span>
 						<div class="tag-input">
 							<input
 								type="text"
@@ -1164,7 +1150,6 @@
 {/if}
 
 <style lang="scss">
-	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 	}
@@ -1209,7 +1194,6 @@
 				& .mini-button {
 					transition: all 0.3s ease;
 					&:hover {
-						transform: scale(0.9);
 						background: var(--tertiary-color);
 						border-radius: 1rem;
 					}
@@ -1250,7 +1234,6 @@
 		overflow: hidden;
 		top: 0;
 
-		// background: var(--bg-gradient-r);
 		overflow-y: hidden;
 
 		/* width: auto; */
@@ -1293,7 +1276,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-		// padding: 0.5rem;
+
 		z-index: 1000;
 		margin: 0.5rem 0;
 	}
@@ -1311,8 +1294,7 @@
 		}
 		& label {
 			position: relative;
-			// margin-bottom: 0.5rem;
-			// transform: translateY(-0.75rem);
+
 			color: var(--placeholder-color);
 		}
 	}
@@ -1323,9 +1305,12 @@
 		border-radius: 1rem;
 		margin-bottom: 1rem;
 		padding: 0.5rem;
-		height: 3.75rem;
+		height: 4.5rem;
 		overflow: hidden;
 		transition: all 0.2s ease-in-out;
+		& span {
+			padding: 0.5rem;
+		}
 		&:hover {
 			height: auto;
 			padding: 1rem;
@@ -1560,8 +1545,7 @@
 		height: auto;
 		width: calc(100% - 2rem);
 		margin-left: 1rem;
-		// width: calc(100% - 2rem);
-		// width: calc(100% - 2rem);
+
 		gap: 0.5rem;
 		padding: 0.5rem;
 		/* border-radius: 12px; */
@@ -1659,11 +1643,13 @@
 	.container-row {
 		display: flex;
 		flex-direction: row;
-		justify-content: space-between;
+		justify-content: center;
 		/* margin-right: 50px; */
-		align-items: flex-start;
-		margin-right: 0.5rem;
+		align-items: center;
+		margin-right: 1rem;
 		width: auto;
+		height: 100%;
+		transition: all 0.3s ease;
 	}
 
 	.item {
@@ -1746,10 +1732,10 @@
 			}
 		}
 	}
-	.delete-button,
+	.remove-button,
 	.mini-button {
 		background-color: transparent;
-		color: rgb(202, 202, 202);
+		color: var(--placeholder-color);
 		padding: 0;
 		border: none;
 		border-radius: 0px;
@@ -1767,12 +1753,15 @@
 		color: var(--primary-color);
 		width: auto;
 	}
-	.delete-button:hover {
-		color: #ff0000;
+	.remove-button:hover {
+		color: red;
+		border-radius: 50%;
 	}
 
 	.mini-button:hover {
-		color: #3a08ba;
+		color: var(--tertiary-color);
+		background-color: var(--bg-color);
+		border-radius: 50%;
 	}
 
 	.update-status {
@@ -1780,7 +1769,7 @@
 		bottom: 20px;
 		right: 20px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		padding: 10px 20px;
 		border-radius: 4px;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -1895,10 +1884,13 @@
 	.data-counts,
 	.action-buttons {
 		display: flex;
-		gap: 0.5rem;
-		height: 50%;
+		flex: 1;
+		gap: 0.75rem;
+		height: 100%;
 		width: auto;
-		justify-content: flex-end;
+		justify-content: center;
+		align-items: center;
+		transition: all 0.3s ease;
 	}
 
 	.action-buttons {
@@ -2133,12 +2125,11 @@
 		position: relative;
 		justify-content: center;
 		width: calc(100% - 2rem);
-		gap: 0.5rem;
+		gap: 1rem;
 		left: 0;
 		bottom: 0;
 		margin-top: 1rem;
 		padding: 0.5rem 1rem;
-		margin: 0;
 		align-items: center;
 		/* width: 100%; */
 	}

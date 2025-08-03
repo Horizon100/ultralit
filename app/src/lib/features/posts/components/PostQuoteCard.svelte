@@ -174,7 +174,6 @@
 			<PostCard
 				post={quotedPost}
 				showActions={false}
-				isPreview={true}
 				on:interact={handleInteraction}
 				on:comment={handleComment}
 				on:quote={handleQuote}

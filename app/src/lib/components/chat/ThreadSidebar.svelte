@@ -280,13 +280,14 @@
 		margin-left: 0;
 		margin-right: 0;
 		margin-top: 0;
+		margin-bottom: 1.5rem;
 		top: 0;
 		bottom: 0;
 		left: 0;
 		width: 100%;
 		height: 100%;
 		// backdrop-filter: blur(20px);
-		border-radius: 10px;
+		border-radius: 0.5rem;
 		overflow-y: hidden;
 		overflow-x: hidden;
 		scrollbar-width: thin;
@@ -312,14 +313,15 @@
 			y: auto;
 		}
 		touch-action: pan-y;
-
+		background: var(--primary-color);
 		position: relative;
-		top: 0rem;
+		top: 1px;
 		left: 0;
+
+		padding: 1rem;
 		margin-bottom: 0;
 		margin-left: 0;
-		height: 100%;
-		width: 250px;
+		width: 350px;
 		scrollbar: {
 			width: 1px;
 			color: var(--bg-color) transparent;
@@ -490,8 +492,8 @@
 	}
 	.thread-filtered-results {
 		margin-top: 0;
-		margin-bottom: 1rem;
-		border-top-right-radius: 1rem;
+		margin-bottom: 0;
+		border-radius: 1rem;
 		position: relative;
 		// scrollbar-width: thin;
 		scroll-behavior: smooth;
@@ -669,8 +671,11 @@
 		&.selected {
 			background: var(--bg-color);
 			border-radius: 2rem;
-			margin: 0 1rem;
+			margin: 0;
 			width: calc(100% - 2rem);
+			& .card-title {
+				color: var(--tertiary-color);
+			}
 		}
 	}
 
@@ -703,8 +708,8 @@
 		width: auto;
 		// padding: 0.75rem 1rem;
 		// border-top: 1px solid var(--line-color);
-		background: var(--bg-gradient-right);
 		// border-bottom: 2px solid var(--secondary-color);
+		background-color: var(--primary-color);
 		cursor: pointer;
 		// box-shadow: -0 2px 20px 1px rgba(255, 255, 255, 0.1);
 		color: var(--text-color);
@@ -719,6 +724,8 @@
 		flex-direction: row;
 		left: 0;
 		padding: 0.5rem;
+		border-radius: 2rem;
+		margin-bottom: 0.5rem;
 
 		& input {
 			width: auto;

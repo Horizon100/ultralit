@@ -82,8 +82,8 @@
 		analytics.enableDebug(true);
 	}
 	// Component props
-	export let onStyleClick: (() => void) | undefined = undefined;
-	export let isOpen = false;
+	// export let onStyleClick: (() => void) | undefined = undefined;
+	// export let isOpen = false;
 	export let isSearchFocused = false;
 	export let onClose: () => void;
 
@@ -127,7 +127,6 @@
 	$: userIdentifier = user ? getUserIdentifier(user) : null;
 	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
 	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
-
 
 	// Event handling
 	const dispatch = createEventDispatcher<{
@@ -194,7 +193,7 @@
 	function handleStyleClick() {
 		showStyles = !showStyles;
 	}
-	function handleOutsideClick(event: MouseEvent): void {
+	function handleOutsideClick(event: MouseEvent | KeyboardEvent): void {
 		if (event.target === event.currentTarget) {
 			onClose();
 		}
@@ -245,7 +244,7 @@
 		showAuthModal = false;
 	}
 
-	function handleOverlayClick(event: MouseEvent) {
+	function handleOverlayClick(event: MouseEvent | KeyboardEvent) {
 		if (event.target === event.currentTarget) {
 			showAuthModal = false;
 			showProfile = false;
@@ -516,10 +515,17 @@
 
 <svelte:window bind:innerWidth />
 
-<div class="app-container 
-{$currentTheme}"
-						on:click={handleOutsideClick}
-
+<div
+    class="app-container {$currentTheme}"
+    role="button"
+    tabindex="0"
+    on:click={handleOutsideClick}
+    on:keydown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleOutsideClick(e);
+        }
+    }}
 >
 	<!-- Debug info (remove this in production) -->
 	<!-- <div style="position: fixed; top: 10px; left: 300px; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-size: 12px; z-index: 9999; max-width: 300px;">
@@ -669,13 +675,7 @@
 		class:welcome-page={$page.url.pathname === '/welcome'}
 		transition:slide={{ duration: 150, axis: 'x' }}
 	>
-
-		<div
-			class="navigation-buttons"
-			class:hidden={isNarrowScreen}
-			class:active={$showInput}
-
-		>
+		<div class="navigation-buttons" class:hidden={isNarrowScreen} class:active={$showInput}>
 			{#if $currentUser}
 				<!-- Home Route Navigation -->
 				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
@@ -1087,21 +1087,34 @@
 		</div>
 	{/if}
 
-	{#if showAuthModal}
-		<div class="auth-overlay" on:click={handleOverlayClick} transition:fade={{ duration: 300 }}>
-			<div class="auth-content" transition:fly={{ y: 300, duration: 300 }}>
-				<button
-					on:click={() => (showAuthModal = false)}
-					class="close-button"
-					in:fly={{ y: 50, duration: 500, delay: 400 }}
-					out:fly={{ y: 50, duration: 500, delay: 400 }}
-				>
-					<Icon name="X" />
-				</button>
-				<Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
-			</div>
-		</div>
-	{/if}
+{#if showAuthModal}
+    <div 
+        class="auth-overlay" 
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="auth-modal-title"
+        on:click={handleOverlayClick}
+        on:keydown={(e) => {
+            if (e.key === 'Escape') {
+                showAuthModal = false;
+            }
+        }}
+        transition:fade={{ duration: 300 }}
+    >
+        <div class="auth-content" transition:fly={{ y: 300, duration: 300 }}>
+            <button
+                on:click={() => (showAuthModal = false)}
+                class="close-button"
+                aria-label="Close authentication modal"
+                in:fly={{ y: 50, duration: 500, delay: 400 }}
+                out:fly={{ y: 50, duration: 500, delay: 400 }}
+            >
+                <Icon name="X" />
+            </button>
+            <Auth on:success={handleAuthSuccess} on:logout={handleLogout} />
+        </div>
+    </div>
+{/if}
 
 	{#if showLanguageNotification}
 		<div class="language-overlay" transition:fade={{ duration: 300 }}>
@@ -1115,15 +1128,25 @@
 	{/if}
 
 	{#if showStyles}
-		<div class="style-overlay" transition:fly={{ x: -200, duration: 300 }}>
-			<!-- <button class="close-button" transition:fly={{ x: -200, duration: 300}} on:click={() => showStyles = false}>
-        <X size={24} />
-    </button> -->
-			<div
-				class="style-content"
-				on:click={handleOverlayClick}
-				transition:fly={{ x: -20, duration: 300 }}
-			>
+   <div class="style-overlay" transition:fly={{ x: -200, duration: 300 }}>
+        <div
+            class="style-content"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="style-switcher-title"
+            tabindex="0"
+            on:click={handleOverlayClick}
+            on:keydown={(e) => {
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    showStyles = false;
+                } else if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleOverlayClick(e);
+                }
+            }}
+            transition:fly={{ x: -20, duration: 300 }}
+        >
 				<StyleSwitcher on:close={handleStyleClose} on:styleChange={handleStyleChange} />
 			</div>
 		</div>
@@ -1157,10 +1180,10 @@
 		class:guest={!$currentUser}
 		class:profile={showProfile}
 		class:nav={isNavExpanded}
-			on:click={() => {
-		isNavExpanded = false;
-		showProfile = false;
-	}}
+		on:click={() => {
+			isNavExpanded = false;
+			showProfile = false;
+		}}
 	>
 		<slot />
 	</main>
@@ -1174,29 +1197,33 @@
 			on:mouseleave={() => {
 				handlePageMenuLeave();
 			}}
-					on:click|stopPropagation
-
+			on:click|stopPropagation
 			in:fly={{ x: -100, duration: 300, delay: 100 }}
 			out:fly={{ x: -100, duration: 300, delay: 100 }}
 		>
-			<div class="navigator-wrap"> 
-				<div 
-				class="navigator-menu"
-				class:expanded={isNavExpanded}
-				class:profile={showProfile}
-				>
-			<div
-				class="logo-container"
-				on:click|stopPropagation={() => {
-					// Set a flag before navigating to root
-					sessionStorage.setItem('directNavigation', 'true');
-					navigateTo('/welcome');
-				}}
-				style="cursor: pointer;"
-			>
-				<img src={horizon100} alt="Horizon100" class="logo" />
-				<h2>vRAZUM</h2>
-				<!-- <a
+			<div class="navigator-wrap">
+				<div class="navigator-menu" class:expanded={isNavExpanded} class:profile={showProfile}>
+					<div
+						class="logo-container"
+						role="button"
+						tabindex="0"
+						on:click|stopPropagation={() => {
+							sessionStorage.setItem('directNavigation', 'true');
+							navigateTo('/welcome');
+						}}
+						on:keydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								sessionStorage.setItem('directNavigation', 'true');
+								navigateTo('/welcome');
+							}
+						}}
+						style="cursor: pointer;"
+					>
+						<img src={horizon100} alt="Horizon100" class="logo" />
+						<h2>vRAZUM</h2>
+						<p>{__APP_VERSION__}</p> 
+						<!-- <a
 				href="https://github.com/Horizon100/ultralit"
 				target="_blank"
 				rel="noopener noreferrer"
@@ -1208,268 +1235,302 @@
 				
 				{/if}
 			</a> -->
-			</div>
-			{#if $currentUser?.role === 'admin' || $currentUser?.role === 'tester'}
-				<button
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={$showDebug}
-					class:reveal-active={$showDebug}
-					use:swipeGesture={{
-						threshold: 50,
-						enableVisualFeedback: true,
-						onSwipeLeft: () => {
-							console.log('🟢 Right button swiped left - showing right sidenav');
-							if (innerWidth <= 450) {
-								sidenavStore.hideLeft();
-								sidenavStore.hideInput();
-							}
-							if (!$showDebug) {
-								sidenavStore.toggleRight();
-							}
-							isNavExpanded = false;
-						},
-						onSwipeRight: () => {
-							console.log('🟢 Right button swiped right - hiding right sidenav');
-							if ($showDebug) {
-								sidenavStore.hideRight();
-							}
-							isNavExpanded = false;
-						}
-					}}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							// Mobile: close others first
-							sidenavStore.hideLeft();
-							sidenavStore.hideInput();
-						}
-						sidenavStore.toggleDebug();
-						isNavExpanded = false;
-					}}
-				>
-					{#if $showSettings}
-						<Icon name="AlertCircle" />
-					{:else}
-						<Icon name="AlertCircle" />
+					</div>
+					{#if $currentUser?.role === 'admin' || $currentUser?.role === 'tester'}
+						<button
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={$showDebug}
+							class:reveal-active={$showDebug}
+							use:swipeGesture={{
+								threshold: 50,
+								enableVisualFeedback: true,
+								onSwipeLeft: () => {
+									console.log('🟢 Right button swiped left - showing right sidenav');
+									if (innerWidth <= 450) {
+										sidenavStore.hideLeft();
+										sidenavStore.hideInput();
+									}
+									if (!$showDebug) {
+										sidenavStore.toggleRight();
+									}
+									isNavExpanded = false;
+								},
+								onSwipeRight: () => {
+									console.log('🟢 Right button swiped right - hiding right sidenav');
+									if ($showDebug) {
+										sidenavStore.hideRight();
+									}
+									isNavExpanded = false;
+								}
+							}}
+							on:click={(event) => {
+								event.preventDefault();
+								if (innerWidth <= 450) {
+									// Mobile: close others first
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								sidenavStore.toggleDebug();
+								isNavExpanded = false;
+							}}
+							    on:keydown={(e) => {
+								if (e.key === 'Enter' || e.key === ' ') {
+									e.preventDefault();
+									if (innerWidth <= 450) {
+										sidenavStore.hideLeft();
+										sidenavStore.hideInput();
+									}
+									sidenavStore.toggleDebug();
+									isNavExpanded = false;
+								}
+							}}
+						>
+							{#if $showSettings}
+								<Icon name="AlertCircle" />
+							{:else}
+								<Icon name="AlertCircle" />
+							{/if}
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('nav.debug')}</span>
+							{/if}
+						</button>
 					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.debug')}</span>
-					{/if}
-				</button>
-			{/if}
-			{#if currentPath === '/home'}
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={$showSidenav}
-					class:inactive={!$showSidenav}
-					class:reveal-active={$showSidenav}
-					use:swipeGesture={{
-						threshold: 50,
-						enableVisualFeedback: true,
-						onSwipeRight: () => {
-							console.log('🟢 Left button swiped right - showing sidenav');
-							if (innerWidth <= 450) {
-								sidenavStore.hideInput();
-								sidenavStore.hideRight();
-								sidenavStore.hideSearch();
-							}
-							if (!$showSidenav) {
+					{#if currentPath === '/home'}
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={$showSidenav}
+							class:inactive={!$showSidenav}
+							class:reveal-active={$showSidenav}
+							use:swipeGesture={{
+								threshold: 50,
+								enableVisualFeedback: true,
+								onSwipeRight: () => {
+									console.log('🟢 Left button swiped right - showing sidenav');
+									if (innerWidth <= 450) {
+										sidenavStore.hideInput();
+										sidenavStore.hideRight();
+										sidenavStore.hideSearch();
+									}
+									if (!$showSidenav) {
+										sidenavStore.toggleLeft();
+									}
+									isNavExpanded = false;
+								},
+								onSwipeLeft: () => {
+									console.log('🟢 Left button swiped left - hiding sidenav');
+									if ($showSidenav) {
+										sidenavStore.hideLeft();
+									}
+									isNavExpanded = false;
+								}
+							}}
+							on:click={(event) => {
+								event.preventDefault();
+								if (innerWidth <= 450) {
+									// Mobile: close others first
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
 								sidenavStore.toggleLeft();
-							}
-							isNavExpanded = false;
-						},
-						onSwipeLeft: () => {
-							console.log('🟢 Left button swiped left - hiding sidenav');
-							if ($showSidenav) {
-								sidenavStore.hideLeft();
-							}
-							isNavExpanded = false;
-						}
-					}}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							// Mobile: close others first
-							sidenavStore.hideInput();
-							sidenavStore.hideRight();
-						}
-						sidenavStore.toggleLeft();
-						isNavExpanded = false;
-					}}
-				>
-				<span class="inline">
-
-					{#if $showSidenav}
-						<span class="icon filter" title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
-							<Icon name="ChevronLeft" />
-						</span>
-					{:else}
-						<span class="icon filter" title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
-							<Icon name="Filter" />
-						</span>
-					{/if}
-					{#if isNavExpanded}
-					{#if $showSidenav}
-
-						<span class="nav-text">
-							{$t('generic.hide')} {$t('generic.filters')}
-						</span>
-					{:else}
-						<span class="nav-text">
-							{$t('generic.show')} {$t('generic.filters')}
-						</span>
-					{/if}
-					{/if}
-														</span>
-
-				</a>
-			{:else}
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/home'}
-					title={String($t('nav.posts'))}
-					on:click={() => {
-						navigateTo('/home');
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}}
-				>
-					<Icon name="Compass" /> <span class="nav-text">{$t('nav.chat')}</span>
-					{#if isNavExpanded}{/if}
-				</a>
-			{/if}
-
-			{#if currentPath === '/lean'}
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={$showSidenav}
-					class:reveal-active={$showSidenav}
-					use:swipeGesture={{
-						threshold: 50,
-						enableVisualFeedback: true,
-						onSwipeRight: () => {
-							console.log('🟢 Left button swiped right - showing sidenav');
-							if (innerWidth <= 450) {
-								sidenavStore.hideInput();
-								sidenavStore.hideRight();
-							}
-							if (!$showSidenav) {
+								isNavExpanded = false;
+							}}
+							   on:keydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								if (innerWidth <= 450) {
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
 								sidenavStore.toggleLeft();
+								isNavExpanded = false;
 							}
-							isNavExpanded = false;
-						},
-						onSwipeLeft: () => {
-							console.log('🟢 Left button swiped left - hiding sidenav');
-							if ($showSidenav) {
-								sidenavStore.hideLeft();
-							}
-							isNavExpanded = false;
-						}
-					}}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							// Mobile: close others first
-							sidenavStore.hideInput();
-							sidenavStore.hideRight();
-						}
-						sidenavStore.toggleLeft();
-						isNavExpanded = false;
-					}}
-				>
-					{#if $showSidenav}
-						<div title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
-							<Icon name="ListX" />
-						</div>
-					{:else}
-						<div title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
-							<Icon name="ListFilter" />
-						</div>
-					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('nav.sidebar')}</span>
-					{/if}
-				</a>
-			{:else}
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/lean'}
-					title={String($t('nav.tasks'))}
-					on:click={() => {
-						navigateTo('/lean');
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}}
-				>
-				<span class="inline">
-
-					<Icon name="Command" />
-					<span class="nav-text">{$t('nav.tools')}</span>
-					{#if isNavExpanded}{/if}
+						}}
+						>
+							<span class="inline">
+								{#if $showSidenav}
+									<span
+										class="icon filter"
+										title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}
+									>
+										<Icon name="ChevronLeft" />
 									</span>
-
-				</a>
-			{/if}
-			{#if currentPath === '/chat'}
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={$showOverlay}
-					class:reveal-active={$showOverlay}
-					use:swipeGesture={{
-						threshold: 50,
-						enableVisualFeedback: true,
-						onSwipeLeft: () => {
-							console.log('🟢 Right button swiped left - showing right sidenav');
-							if (innerWidth <= 450) {
-								sidenavStore.hideLeft();
-								sidenavStore.hideInput();
-							}
-							if (!$showOverlay) {
-								sidenavStore.toggleOverlay();
-							}
-							isNavExpanded = false;
-						},
-						onSwipeRight: () => {
-							console.log('🟢 Right button swiped right - hiding right sidenav');
-							if ($showOverlay) {
-								sidenavStore.hideOverlay();
-							}
-							isNavExpanded = false;
-						}
-					}}
-					on:click={(event) => {
-						event.preventDefault();
-						if (innerWidth <= 450) {
-							// Mobile: close others first
-							sidenavStore.hideLeft();
-							sidenavStore.hideInput();
-						}
-						sidenavStore.toggleOverlay();
-						isNavExpanded = false;
-					}}
-				>
-					{#if $showOverlay}
-						<div title={`${String($t('generic.hide'))} ${String($t('nav.threads'))}`}>
-							<Icon name="MessageCircleOff" />
-						</div>
+								{:else}
+									<span
+										class="icon filter"
+										title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}
+									>
+										<Icon name="Filter" />
+									</span>
+								{/if}
+								{#if isNavExpanded}
+									{#if $showSidenav}
+										<span class="nav-text">
+											{$t('generic.hide')}
+											{$t('generic.filters')}
+										</span>
+									{:else}
+										<span class="nav-text">
+											{$t('generic.show')}
+											{$t('generic.filters')}
+										</span>
+									{/if}
+								{/if}
+							</span>
+						</a>
 					{:else}
-						<div title={`${String($t('generic.show'))} ${String($t('nav.threads'))}`}>
-							<Icon name="MessageCircleMore" />
-						</div>
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={currentPath === '/home'}
+							title={String($t('nav.posts'))}
+							on:click={() => {
+								navigateTo('/home');
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}}
+							   on:keydown={(e) => {
+							if (e.key === 'Enter' || e.key === ' ') {
+								e.preventDefault();
+								navigateTo('/home');
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}
+						}}
+						>
+							<Icon name="Compass" /> <span class="nav-text">{$t('nav.chat')}</span>
+							{#if isNavExpanded}{/if}
+						</a>
 					{/if}
-					{#if isNavExpanded}
-						<span class="nav-text">{$t('chat.threads')}</span>
+
+					{#if currentPath === '/lean'}
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={$showSidenav}
+							class:reveal-active={$showSidenav}
+							use:swipeGesture={{
+								threshold: 50,
+								enableVisualFeedback: true,
+								onSwipeRight: () => {
+									console.log('🟢 Left button swiped right - showing sidenav');
+									if (innerWidth <= 450) {
+										sidenavStore.hideInput();
+										sidenavStore.hideRight();
+									}
+									if (!$showSidenav) {
+										sidenavStore.toggleLeft();
+									}
+									isNavExpanded = false;
+								},
+								onSwipeLeft: () => {
+									console.log('🟢 Left button swiped left - hiding sidenav');
+									if ($showSidenav) {
+										sidenavStore.hideLeft();
+									}
+									isNavExpanded = false;
+								}
+							}}
+							on:click={(event) => {
+								event.preventDefault();
+								if (innerWidth <= 450) {
+									// Mobile: close others first
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
+								sidenavStore.toggleLeft();
+								isNavExpanded = false;
+							}}
+						>
+							{#if $showSidenav}
+								<div title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
+									<Icon name="ListX" />
+								</div>
+							{:else}
+								<div title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
+									<Icon name="ListFilter" />
+								</div>
+							{/if}
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('nav.sidebar')}</span>
+							{/if}
+						</a>
+					{:else}
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={currentPath === '/lean'}
+							title={String($t('nav.tasks'))}
+							on:click={() => {
+								navigateTo('/lean');
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}}
+						>
+							<span class="inline">
+								<Icon name="Command" />
+								<span class="nav-text">{$t('nav.tools')}</span>
+								{#if isNavExpanded}{/if}
+							</span>
+						</a>
 					{/if}
-				</a>
-				<!-- {#if $showOverlay}
+					{#if currentPath === '/chat'}
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={$showOverlay}
+							class:reveal-active={$showOverlay}
+							use:swipeGesture={{
+								threshold: 50,
+								enableVisualFeedback: true,
+								onSwipeLeft: () => {
+									console.log('🟢 Right button swiped left - showing right sidenav');
+									if (innerWidth <= 450) {
+										sidenavStore.hideLeft();
+										sidenavStore.hideInput();
+									}
+									if (!$showOverlay) {
+										sidenavStore.toggleOverlay();
+									}
+									isNavExpanded = false;
+								},
+								onSwipeRight: () => {
+									console.log('🟢 Right button swiped right - hiding right sidenav');
+									if ($showOverlay) {
+										sidenavStore.hideOverlay();
+									}
+									isNavExpanded = false;
+								}
+							}}
+							on:click={(event) => {
+								event.preventDefault();
+								if (innerWidth <= 450) {
+									// Mobile: close others first
+									sidenavStore.hideLeft();
+									sidenavStore.hideInput();
+								}
+								sidenavStore.toggleOverlay();
+								isNavExpanded = false;
+							}}
+						>
+							{#if $showOverlay}
+								<div title={`${String($t('generic.hide'))} ${String($t('nav.threads'))}`}>
+									<Icon name="MessageCircleOff" />
+								</div>
+							{:else}
+								<div title={`${String($t('generic.show'))} ${String($t('nav.threads'))}`}>
+									<Icon name="MessageCircleMore" />
+								</div>
+							{/if}
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('chat.threads')}</span>
+							{/if}
+						</a>
+						<!-- {#if $showOverlay}
 					<button
 						class="shortcut nav-button drawer"
 						class:expanded={isNavExpanded}
@@ -1492,28 +1553,27 @@
 						{/if}
 					</button>
 				{/if} -->
-			{:else}
-				<a
-					class="shortcut"
-					class:expanded={isNavExpanded}
-					class:active={currentPath === '/chat'}
-					title={String($t('nav.chat'))}
-					on:click={() => {
-						navigateTo('/chat');
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}}
-				>
-								<span class="inline">
-
-					<Icon name="MessageSquare" />
-					<span class="nav-text">{$t('nav.chat')}</span>
-					{#if isNavExpanded}{/if}
-								</span>
-				</a>
-			{/if}
-			<!-- <a
+					{:else}
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={currentPath === '/chat'}
+							title={String($t('nav.chat'))}
+							on:click={() => {
+								navigateTo('/chat');
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}}
+						>
+							<span class="inline">
+								<Icon name="MessageSquare" />
+								<span class="nav-text">{$t('nav.chat')}</span>
+								{#if isNavExpanded}{/if}
+							</span>
+						</a>
+					{/if}
+					<!-- <a
 				class="shortcut"
 				class:expanded={isNavExpanded}
 				class:active={currentPath === '/game'}
@@ -1559,103 +1619,102 @@
 				{/if}
 			</a> -->
 
-			<button
-				class="shortcut"
-				class:expanded={isNavExpanded}
-				use:swipeGesture={{
-					threshold: 50,
-					enableVisualFeedback: true,
-					onSwipeDown: () => {
-						console.log('🟢 User button swiped down - showing profile');
-						if (!showProfile) {
+					<button
+						class="shortcut"
+						class:expanded={isNavExpanded}
+						use:swipeGesture={{
+							threshold: 50,
+							enableVisualFeedback: true,
+							onSwipeDown: () => {
+								console.log('🟢 User button swiped down - showing profile');
+								if (!showProfile) {
+									toggleAuthOrProfile();
+								}
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							},
+							onSwipeUp: () => {
+								console.log('🟢 User button swiped up - hiding profile');
+								if (showProfile) {
+									showProfile = false;
+								}
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}
+						}}
+						on:click={() => {
 							toggleAuthOrProfile();
-						}
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					},
-					onSwipeUp: () => {
-						console.log('🟢 User button swiped up - hiding profile');
-						if (showProfile) {
-							showProfile = false;
-						}
-						if (isNavExpanded) {
-							isNavExpanded = false;
-						}
-					}
-				}}
-				on:click={() => {
-					toggleAuthOrProfile();
-					// Only close the nav if it's expanded
-					if (isNavExpanded) {
-						isNavExpanded = false;
-					}
-				}}
-			>
-				<div class="user-wrapper">
-					<div class="user-shortcuts">
-						<img
-							src={finalAvatarUrl || '/api/placeholder/120/120'}
-							alt="{user?.name || user?.username || 'User'}'s avatar"
-							class="user-avatar"
-						/>
-						<!-- <span class="nav-text">{username} </span> -->
-						<div class="tracker" title={String($t('profile.timeTracker'))}>
-							<TimeTracker />
-						</div>
-						<!-- <div class="project" on:click|stopPropagation>
+							if (isNavExpanded) {
+								isNavExpanded = false;
+							}
+						}}
+					>
+						<div class="user-wrapper">
+							<div class="user-shortcuts">
+								<div class="settings" title={String($t('generic.settings'))}>
+								<Icon name="Settings" size={20} />
+								</div>
+								<!-- <img
+									src={finalAvatarUrl || '/api/placeholder/120/120'}
+									alt="{user?.name || user?.username || 'User'}'s avatar"
+									class="user-avatar"
+								/> -->
+								<!-- <span class="nav-text">{username} </span> -->
+								<div class="tracker" title={String($t('profile.timeTracker'))}>
+									<TimeTracker />
+								</div>
+								<!-- <div class="project" on:click|stopPropagation>
 							<ProjectDropdown />
 						</div> -->
-													<span class="icon">
+								<span class="icon">
+									<a
+										href="/{$currentUser?.username}"
+										class="author-link"
+										title={String($t('profile.yourPosts'))}
+										on:click|stopPropagation={() => {}}
+									>
+										<Icon name="Presentation" size={16} />
+									</a>
+								</span>
 
-						<a
-							href="/{$currentUser?.username}"
-							class="author-link"
-							title={String($t('profile.yourPosts'))}
-							on:click|stopPropagation={() => {}}
+								<span
+									class="icon logout"
+									title={String($t('profile.logout'))}
+									on:click|stopPropagation={() => {
+										logout();
+										// Only close the nav if it's expanded
+										if (isNavExpanded) {
+											isNavExpanded = false;
+										}
+									}}
+								>
+									<Icon name="LogOutIcon" size={16} />
+								</span>
+							</div>
+						</div>
+					</button>
+					<div class="shortcut">
+						<button
+							class="nav-button drawer"
+							class:nav-open={isNavExpanded}
+							on:click={() => {
+								toggleNav();
+								if (showProfile || showAuthModal) {
+									showProfile = false;
+									showAuthModal = false;
+								}
+							}}
 						>
-								<Icon name="Presentation" size={16} />
-						</a>
-													</span>
-
-							<span
-								class="icon logout"
-								title={String($t('profile.logout'))}
-								on:click|stopPropagation={() => {
-									logout();
-									// Only close the nav if it's expanded
-									if (isNavExpanded) {
-										isNavExpanded = false;
-									}
-								}}
-							>
-								<Icon name="LogOutIcon" size={16} />
-							</span>
-
+							{#if isNavExpanded}
+								<Icon name="PanelLeftClose" />
+								<span class="nav-text">{$t('generic.hide')}</span>
+							{:else}
+								<Icon name="PanelLeftOpen" />
+							{/if}
+						</button>
 					</div>
-				</div>
-			</button>
-			<div class="shortcut">
-				<button
-					class="nav-button drawer"
-					class:nav-open={isNavExpanded}
-					on:click={() => {
-						toggleNav();
-						if (showProfile || showAuthModal) {
-							showProfile = false;
-							showAuthModal = false;
-						}
-					}}
-				>
-					{#if isNavExpanded}
-						<Icon name="PanelLeftClose" />
-						<span class='nav-text'>{$t('generic.hide')}</span>
-					{:else}
-						<Icon name="PanelLeftOpen" />
-					{/if}
-				</button>
-
-			</div>
 				</div>
 				{#if showProfile}
 					<div
@@ -1707,9 +1766,9 @@
 		font-family: var(--font-family);
 		background-color: var(--bg-color);
 	}
-:root {
-  background-color: var(--bg-color);
-}
+	:root {
+		background-color: var(--bg-color);
+	}
 	.middle-buttons {
 		display: flex;
 		flex-direction: column;
@@ -1731,7 +1790,6 @@
 		justify-content: center;
 		height: 100%;
 		width: calc(100% - 1rem);
-
 	}
 
 	.navigator-flex {
@@ -1754,52 +1812,47 @@
 			background-color: var(--bg-color);
 			color: var(--placeholder-color);
 			&:hover {
-				background-color: red; 
-			};
+				background-color: red;
+			}
 		}
-				&.expanded {
+		&.expanded {
 			width: 300px !important;
 			align-items: flex-end;
 			justify-content: center;
-							& .tracker,
-				.icon.logout,
-				.author-link,
-				.icon
-				{
-					height: 2rem;
-					justify-content: center;
-					align-items: center;
-					border-radius: 50%;
-
-				}
-		& .user-shortcuts {
-			display: flex;
-			align-items: center;
-
-			width: 100%;
-			gap: 0.5rem;
-			border-radius: 2rem;
-			transition: all 0.2s ease;
-			height: 2rem;
-			&:hover {
-				transform: none !important;
-				padding: 0;
-				width: 100%;
-				background: var(--primary-color);
-				border: none;
-				
+			& .tracker,
+			.icon.logout,
+			.author-link,
+			.icon {
+				height: 2rem;
+				justify-content: center;
+				align-items: center;
+				border-radius: 50%;
 			}
-		}
+			& .user-shortcuts {
+				display: flex;
+				align-items: center;
+
+				width: 100%;
+				gap: 0.5rem;
+				border-radius: 2rem;
+				transition: all 0.2s ease;
+				height: 2rem;
+				&:hover {
+					transform: none !important;
+					padding: 0;
+					width: 100%;
+					background: var(--primary-color);
+					border: none;
+				}
+			}
 			& .navigator-menu {
 				width: 100% !important;
-
 			}
-						& .nav-text,
+			& .nav-text,
 			.icon,
 			.logout,
 			.author-link,
-			.tracker
-			{
+			.tracker {
 				display: flex !important;
 			}
 			& .user-wrapper {
@@ -1808,23 +1861,23 @@
 				background: var(--primary-color);
 				border-radius: 2rem;
 				height: 3rem;
-
 			}
 			& .user-shortcuts {
 				width: 100% !important;
 				justify-content: space-between;
 				align-items: center;
 				background-color: var(--primary-color);
-					&:hover {
-						transform: translateX(0) !important;
-						padding-right: 0;
-						border: 1px solid transparent;
-										background-color: var(--primary-color);
+				&:hover {
+					transform: translateX(0) !important;
+					padding-right: 0;
+					border: 1px solid transparent;
+					background-color: var(--primary-color);
 
-				padding: 0.5rem;
-					}
+					padding: 0.5rem;
 				}
-			& button.shortcut, a.shortcut {
+			}
+			& button.shortcut,
+			a.shortcut {
 				padding: 1.5rem;
 				margin: 0;
 				background: var(--primary-color);
@@ -1834,14 +1887,11 @@
 				width: 100% !important;
 				height: 3rem;
 
-
-
 				& .tracker,
-				.icon, 
+				.icon,
 				.nav-text,
 				.logout,
-				.author-link
-				{
+				.author-link {
 					display: flex;
 				}
 				& .tracker,
@@ -1849,12 +1899,11 @@
 				.author-link {
 					width: 2rem !important;
 					height: 2rem;
-					background: var(--bg-color)
+					background: var(--bg-color);
 				}
 				& .icon.logout {
 					&:hover {
-					background-color: red;
-
+						background-color: red;
 					}
 				}
 				& .logo-container {
@@ -1892,24 +1941,21 @@
 		// z-index: 1;
 		// border-right: 1px solid var(--secondary-color);
 
-
-				&.expanded {
-					padding: 0;
+		&.expanded {
+			padding: 0;
 			width: 100%;
 			align-items: center;
 			justify-content: flex-end;
-							& .tracker,
-				.icon.logout,
-				.author-link,
-				.icon
-				{
-					height: 2rem;
-					justify-content: center;
-					align-items: center;
-					border-radius: 50%;
-
-				}
+			& .tracker,
+			.icon.logout,
+			.author-link,
+			.icon {
+				height: 2rem;
+				justify-content: center;
+				align-items: center;
+				border-radius: 50%;
 			}
+		}
 		& a.shortcut {
 			padding: 0;
 			margin: 0;
@@ -1948,8 +1994,9 @@
 			margin: 0;
 			background: transparent;
 			border: 1px solid transparent;
-			width: 2rem !important; 
+			width: 2rem !important;
 			height: 2rem !important;
+			color: var(--placeholder-color);
 			& .user-avatar {
 				width: 2rem !important;
 				height: 2rem !important;
@@ -1960,8 +2007,7 @@
 			.icon,
 			.logout,
 			.author-link,
-			.tracker
-			{
+			.tracker {
 				display: none;
 			}
 
@@ -1979,19 +2025,21 @@
 					width: 2rem !important;
 					border-radius: 2rem;
 				}
-				& .author-link {
+				& .author-link, .settings {
 					display: flex;
+					justify-content: center;
+					align-items: center;
 					width: 2rem !important;
 					height: 2rem;
 					padding: 0;
 					border: none;
+					border-radius: 50%;
 					color: var(--placeholder-color);
 					background: var(--bg-color);
 					&:hover {
 						color: var(--tertiary-color);
 					}
 				}
-
 
 				& .tracker {
 					display: flex;
@@ -2003,15 +2051,14 @@
 						color: var(--tertiary-color);
 					}
 				}
-				
+
 				& .logout {
 					border-radius: 50%;
 					& .icon {
-					&:hover {
-						background-color: red !important;
+						&:hover {
+							background-color: red !important;
+						}
 					}
-					}
-
 				}
 			}
 		}
@@ -2087,7 +2134,6 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-
 		}
 	}
 
@@ -2219,7 +2265,7 @@
 	.profile-content {
 		position: relative;
 		width: 100%;
-		height:100%;
+		height: 100%;
 		max-width: 1000px;
 		top: 0;
 		margin-bottom: auto;
@@ -2443,16 +2489,20 @@
 			font-style: normal;
 			display: none;
 		}
-		& a {
+		& a, p {
 			display: none;
 		}
 		&:hover {
-			background-color: var(--primary-color);
-			& h2 {
+			width: auto !important;
+			margin-left: 0.5rem;
+			justify-content: flex-start;
+			background: var(--primary-color);
+			border-radius: 2rem;
+			padding: 0 1rem;
+			z-index: 9999;
+			& h2, a, p {
 				display: flex;
-			}
-			& a {
-				display: flex;
+				background-color: transparent;
 			}
 		}
 	}
@@ -2530,7 +2580,7 @@
 		position: absolute;
 		bottom: 3.5rem;
 		left: 1.5rem;
-		width: 100%;
+		width: calc(100% - 3rem);
 		margin: 0 auto;
 		background: transparent;
 	}
@@ -3453,10 +3503,10 @@
 				padding-inline-start: 1rem;
 				&.expanded {
 					max-width: 350px;
-					& a, button {
+					& a,
+					button {
 						border: blue 1px solid;
 					}
-					
 				}
 			}
 			& a {
@@ -3468,9 +3518,7 @@
 				}
 			}
 			.author-link,
-			.logout
-			
-			{
+			.logout {
 				display: flex;
 			}
 			h2 {
@@ -3761,9 +3809,8 @@
 			width: auto !important;
 		}
 		&.nav-open {
-
 			width: 300px !important;
-			border-radius: 2rem ;
+			border-radius: 2rem;
 			height: 3rem !important;
 			&.thread-toggle {
 				&:hover {
@@ -3887,7 +3934,8 @@
 			}
 		}
 		main {
-			&.nav, .profile {
+			&.nav,
+			.profile {
 				transform: translateX(90%);
 			}
 			&.profile {
@@ -3921,7 +3969,6 @@
 		}
 	}
 	@media (max-width: 1000px) {
-
 		.header-center {
 			gap: 1rem;
 		}
@@ -3944,13 +3991,9 @@
 		// 	}
 		// }
 		.navigator-menu {
-
-
 			&.expanded {
 				width: 200px !important;
 				& button.shortcut {
-
-
 					& .nav-text {
 						display: flex;
 					}
@@ -4063,7 +4106,6 @@
 		h1 {
 			display: none;
 		}
-
 
 		.nav-button {
 			background: transparent !important;
@@ -4279,9 +4321,9 @@
 			z-index: 1100;
 			border-radius: 0;
 			transition: all 0.3s ease-in;
-					&.expanded {
-display: none;
-					}
+			&.expanded {
+				display: none;
+			}
 			&:hover {
 				& .nav-button.info.user,
 				& .nav-button.drawer {
@@ -4316,7 +4358,6 @@ display: none;
 			margin: 0;
 			gap: 8px;
 		}
-
 
 		.nav-button.info:hover {
 			transform: none;
@@ -4414,23 +4455,21 @@ display: none;
 		}
 	}
 	@media (max-width: 450px) {
+		.header-navigation {
+			display: flex;
+			gap: 0.5rem;
+			transition: all 0.3s ease;
 
-	.header-navigation {
-		display: flex;
-		gap: 0.5rem;
-		transition: all 0.3s ease;
-
-		width: 100%;
-		margin-left: 1rem;
-		margin-right: 1rem;
-	}
-
-	.header-logo {
-
-		& h2 {
-			display: none;
+			width: 100%;
+			margin-left: 1rem;
+			margin-right: 1rem;
 		}
-	}
+
+		.header-logo {
+			& h2 {
+				display: none;
+			}
+		}
 		.logo-container {
 			display: none;
 		}
@@ -4556,7 +4595,6 @@ display: none;
 		// 		}
 		// 	}
 		// }
-
 
 		.nav-button.info {
 			top: 0;

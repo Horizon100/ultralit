@@ -7,9 +7,10 @@
 	import type {
 		PostWithInteractions,
 		CommentWithInteractions,
-		PostAttachment
+		PostAttachment,
+		AttachmentTagInfo
 	} from '$lib/types/types.posts';
-	import type { Tag, AIAgent } from '$lib/types/types'; // Add this import
+	import type { Tag, AIAgent } from '$lib/types/types';
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import { currentUser } from '$lib/pocketbase';
 	import PostReplyModal from '$lib/features/posts/components/PostReplyModal.svelte';
@@ -17,54 +18,34 @@
 	import { postStore } from '$lib/stores/postStore';
 	import { flip } from 'svelte/animate';
 	import { t } from '$lib/stores/translationStore';
-	import { getExpandedUserAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import { formatFileSize } from '$lib/utils/fileHandlers';
 	import { slide, fly, fade } from 'svelte/transition';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
-	import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
-	import LocalModelSelector from '$lib/features/ai/components/models/LocalModelSelector.svelte';
 	import { analytics } from '$lib/stores/analyticsStore';
 	import { getAgentAvatarUrl } from '$lib/features/agents/utils/agentAvatarUtils';
-	import {
-		initAudioState,
-		registerAudioElement,
-		getAudioStatesStore,
-		togglePlayPause,
-		handleAudioLoaded,
-		handleTimeUpdate,
-		handleAudioEnded,
-		handleProgressChange,
-		handleVolumeChange,
-		toggleMute,
-		formatTime,
-		cleanupAudioPlayer,
-		pauseOtherAudioPlayers
-	} from '$lib/utils/mediaHandlers';
+	import { getAudioStatesStore, cleanupAudioPlayer } from '$lib/utils/mediaHandlers';
 	import AudioPlayer from '$lib/components/media/AudioPlayer.svelte';
 	import VideoPlayer from '$lib/components/media/VideoPlayer.svelte';
 	import { swipeGesture } from '$lib/utils/swipeGesture';
 	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { toast } from '$lib/utils/toastUtils';
-	import { agentStore } from '$lib/stores/agentStore'; // Add this import
-	import LocalAIAnalysisModal from '$lib/features/ai/components/analysis/LocalAIAnalysisModal.svelte';
+	import { agentStore } from '$lib/stores/agentStore';
 	import LocalAIAnalysisButton from '$lib/features/ai/components/analysis/LocalAIAnalysisButton.svelte';
 
 	import PDFThumbnail from '$lib/features/pdf/components/PDFThumbnail.svelte';
 	import PDFReader from '$lib/features/pdf/components/PDFReader.svelte';
 	import { marked } from 'marked';
-	import DOMPurify from 'dompurify';
 
 	export let post: PostWithInteractions | CommentWithInteractions;
 	export let showActions: boolean = true;
 	export let isRepost: boolean = false;
-	export let isPreview: boolean = false;
 	export let isOwnRepost: boolean = false;
 	export let isComment: boolean = false;
-	export let isQuote: boolean = false;
 
 	export let hideHeaderOnScroll: boolean = false;
 	export let selectedLocalModel: string = 'qwen2.5:0.5b';
+	export const isQuote: boolean = false;
 
 	$: htmlContent = marked(post.content);
 
@@ -76,7 +57,7 @@
 	let debugCount = 0;
 	let showPDFReader = false;
 	let currentPDFUrl = '';
-	// Tags expansion state
+
 	let tagsExpanded = false;
 	let tagDetails: Tag[] = [];
 	let loadingTags = false;
@@ -128,23 +109,7 @@
 			}
 		}
 	}
-	// $: postAgents = postAgentIds
-	// 	.map((agentId) => activeAgents.find((agent) => agent.id === agentId))
-	// 	.filter((agent): agent is AIAgent => agent !== undefined);
 
-	// $: totalAgentIds = postAgentIds.length;
-	// $: agentCount = postAgents.length;
-	// $: displayedAgents = postAgents.slice(0, 5); // Sh
-	// $: agentsTitle =
-	// 	totalAgentIds === 0
-	// 		? 'No agents assigned'
-	// 		: agentCount === 0
-	// 			? `${totalAgentIds} agents (none active)`
-	// 			: agentCount === totalAgentIds
-	// 				? agentCount === 1
-	// 					? '1 active agent'
-	// 					: `${agentCount} active agents`
-	// 				: `${agentCount} of ${totalAgentIds} agents active`;
 	$: postAssignedAgentIds = post.assignedAgents || [];
 	$: postAssignedAgentObjects = postAssignedAgentIds
 		.map((agentId) => activeAgents.find((agent) => agent.id === agentId))
@@ -182,7 +147,7 @@
 	}
 	function handleAIAnalysis(event: CustomEvent) {
 		console.log('AI Analysis complete:', event.detail);
-		// Optional: Show toast notification
+
 		toast.success(`Analysis complete using ${selectedLocalModel}`);
 	}
 	function toggleLabels() {
@@ -192,19 +157,27 @@
 	$: if (isAgentReply && post.agent && !agentData) {
 		loadAgentData(post.agent);
 	}
-
+	function handleImageError(e: Event, agentName: string) {
+		const target = e.target as HTMLImageElement;
+		if (target) {
+			console.warn('Failed to load avatar for', agentName, ':', target.src);
+			target.style.display = 'none';
+			const fallback = target.nextElementSibling as HTMLElement;
+			if (fallback) {
+				fallback.style.display = 'flex';
+			}
+		}
+	}
 	let agentData: AIAgent | null = null;
 
 	async function loadAgentData(agentId: string) {
 		try {
-			// Check if agent is already in the store first
 			const storeAgent = $agentStore.agents.find((a) => a.id === agentId);
 			if (storeAgent) {
 				agentData = storeAgent;
 				return;
 			}
 
-			// If not in store, fetch from API
 			const response = await fetch(`/api/agents/${agentId}`, {
 				credentials: 'include'
 			});
@@ -221,11 +194,10 @@
 		interact: { postId: string; action: 'upvote' | 'repost' | 'read' | 'share' };
 		comment: { postId: string };
 		quote: { content: string; attachments: File[]; quotedPostId: string };
-		tagClick: { tag: Tag; postId: string }; // Add tag click event
+		tagClick: { tag: Tag; postId: string };
 	}>();
 	const audioStatesStore = getAudioStatesStore();
 
-	// Computed values for tags
 	$: tagCount = post.tagCount || 0;
 	$: hasTagIds = post.tags && post.tags.length > 0;
 
@@ -242,7 +214,7 @@
 	function closePDFReader() {
 		showPDFReader = false;
 		currentPDFUrl = '';
-		// Ensure body scroll is restored (backup)
+
 		document.body.style.overflow = '';
 	}
 
@@ -262,19 +234,15 @@
 		const hours = Math.floor(diff / 3600000);
 		const days = Math.floor(diff / 86400000);
 
-		// If less than an hour, show minutes
 		if (minutes < 60) return `${minutes}m`;
 
-		// If less than a day, show hours
 		if (hours < 24) return `${hours}h`;
 
-		// If more than a day, show date format
 		const day = date.getDate();
-		const month = date.getMonth(); // 0-11
+		const month = date.getMonth();
 		const year = date.getFullYear();
 		const currentYear = now.getFullYear();
 
-		// Month names array for translation lookup
 		const monthKeys = [
 			'january',
 			'february',
@@ -292,12 +260,10 @@
 
 		const monthName = $t(`months.${monthKeys[month]}`) as string;
 
-		// If same year, show: "15. March"
 		if (year === currentYear) {
 			return `${day} ${monthName}`;
 		}
 
-		// If different year, show: "15. March 2023"
 		return `${day}. ${monthName} ${year}`;
 	}
 	async function loadAgentsOnDemand() {
@@ -308,12 +274,12 @@
 
 		try {
 			console.log('🤖 Loading agents on demand...');
-			agentsLoaded = true; // Set this first to prevent multiple calls
+			agentsLoaded = true;
 			await agentStore.loadAgents();
 			console.log('🤖 Agents loaded successfully');
 		} catch (error) {
 			console.error('🤖 Failed to load agents:', error);
-			agentsLoaded = false; // Reset so user can retry
+			agentsLoaded = false;
 		}
 	}
 	async function toggleAgentAssignment(agentId: string) {
@@ -327,14 +293,12 @@
 				console.log(`🤖 ${isCurrentlyAssigned ? 'Unassigning' : 'Assigning'} agent: ${agent.name}`);
 			}
 
-			// Track the agent interaction
 			analytics.trackAgentInteraction(
 				isCurrentlyAssigned ? 'unassign' : 'assign',
 				agentId,
 				post.id
 			);
 
-			// Update assignedAgents field
 			let newAssignedAgentIds: string[];
 			if (isCurrentlyAssigned) {
 				newAssignedAgentIds = postAssignedAgentIds.filter((id) => id !== agentId);
@@ -342,13 +306,12 @@
 				newAssignedAgentIds = [...postAssignedAgentIds, agentId];
 			}
 
-			// Update post with new agent assignments
 			const response = await fetch(`/api/posts/${post.id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
 				credentials: 'include',
 				body: JSON.stringify({
-					assignedAgents: newAssignedAgentIds // Use assignedAgents field
+					assignedAgents: newAssignedAgentIds
 				})
 			});
 
@@ -356,15 +319,12 @@
 				throw new Error('Failed to update agent assignment');
 			}
 
-			// Update local post state
 			post.assignedAgents = newAssignedAgentIds;
 
-			// Show success message
 			const isAssigned = newAssignedAgentIds.includes(agentId);
 			if (isAssigned) {
 				toast.success(`${$t('agents.title')} ${agent?.name} ${$t('status.assigned')}`);
 
-				// Trigger auto-reply for new assignment
 				if (!isCurrentlyAssigned) {
 					try {
 						await triggerAutoReplyForSpecificComment(post.id, agentId);
@@ -376,7 +336,6 @@
 				toast.success(`${$t('agents.title')} ${agent?.name} ${$t('status.unassigned')}`);
 			}
 
-			// Trigger post update for reactivity
 			post = { ...post, assignedAgents: newAssignedAgentIds };
 		} catch (error) {
 			console.error('🤖 Error updating agent assignment:', error);
@@ -393,7 +352,6 @@
 		try {
 			console.log('🤖 Triggering batch auto-reply for all assigned agents...');
 
-			// Track the batch auto-reply event
 			analytics.trackEvent('batch_auto_reply_triggered', {
 				post_id: post.id,
 				agent_count: postAssignedAgentIds.length,
@@ -425,19 +383,20 @@
 					success_rate: successCount / totalCount
 				});
 
-				// NEW: Redirect to post if we're on home page and replies were successful
 				if (successCount > 0 && shouldRedirectToPost()) {
 					redirectToPost();
 				}
 			}
-		} catch (error) {
+		} catch (error: unknown) {
 			console.error('🤖 Error triggering batch auto-reply:', error);
 			toast.error('Failed to trigger agent auto-reply');
+
+			const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
 
 			analytics.trackEvent('auto_reply_error', {
 				post_id: post.id,
 				agent_count: postAssignedAgentIds.length,
-				error: error.message
+				error: errorMessage
 			});
 		}
 	}
@@ -469,14 +428,11 @@
 					const agentName = agent?.name || 'Agent';
 					toast.success(`${agentName} replied to comment`);
 
-					// NEW: Redirect to post if we're on home page
 					if (shouldRedirectToPost()) {
-						// Add a delay to let user see the success message
 						setTimeout(() => {
 							redirectToPost();
 						}, 1500);
 					} else {
-						// If already on post page, just refresh to show new reply
 						setTimeout(() => {
 							window.location.reload();
 						}, 1000);
@@ -493,18 +449,15 @@
 		}
 	}
 
-	// NEW: Helper function to determine if we should redirect
 	function shouldRedirectToPost(): boolean {
 		const currentRoute = $page.route.id;
 		const currentPath = $page.url.pathname;
 
-		// Check if we're on home page or similar listing pages
 		const isHomePage = currentRoute === '/' || currentPath === '/';
 		const isDiscoverPage = currentPath.includes('/discover');
 		const isFeedPage = currentPath.includes('/feed');
 		const isTagPage = currentPath.includes('/tags/');
 
-		// Don't redirect if we're already on the specific post page
 		const isAlreadyOnPostPage = currentPath.includes(`/${post.author_username}/posts/${post.id}`);
 
 		console.log('🔍 Redirect check:', {
@@ -522,19 +475,16 @@
 		return (isHomePage || isDiscoverPage || isFeedPage || isTagPage) && !isAlreadyOnPostPage;
 	}
 
-	// NEW: Helper function to redirect to the post
 	function redirectToPost() {
 		const postUrl = `/${post.author_username}/posts/${post.id}`;
 		console.log('🔗 Redirecting to post:', postUrl);
 
-		// Use goto for client-side navigation
 		goto(postUrl, {
-			replaceState: false, // Add to browser history
-			noScroll: false // Allow normal scroll behavior
+			replaceState: false,
+			noScroll: false
 		});
 	}
 
-	// Update the checkForNewCommentsAndTriggerReplies function
 	async function checkForNewCommentsAndTriggerReplies() {
 		console.log('🤖 Checking for new comments that need auto-replies...');
 
@@ -555,7 +505,7 @@
 				if (userComments.length > 0 && postAssignedAgents.length > 0) {
 					console.log(
 						'🤖 Triggering auto-replies for comments:',
-						userComments.map((c) => c.id)
+						userComments.map((c: CommentWithInteractions) => c.id)
 					);
 
 					let repliesTriggered = 0;
@@ -567,11 +517,10 @@
 						}
 					}
 
-					// NEW: If replies were triggered and we're on home page, redirect after all are done
 					if (repliesTriggered > 0 && shouldRedirectToPost()) {
 						setTimeout(() => {
 							redirectToPost();
-						}, 2000); // Give time for all replies to process
+						}, 2000);
 					}
 				}
 			}
@@ -589,16 +538,13 @@
 	}
 
 	function handleShare() {
-		// Open the share modal instead of directly sharing
 		showShareModal = true;
 	}
-	// Updated handleTags function for inline expansion
 	async function handleTags() {
 		if (totalTagCount === 0) return;
 
 		tagsExpanded = !tagsExpanded;
 
-		// Fetch details when expanding for the first time
 		if (tagsExpanded && (!tagsLoaded || !attachmentTagsLoaded)) {
 			await Promise.all([
 				hasAttachmentTags && !attachmentTagsLoaded ? fetchAttachmentTags() : Promise.resolve()
@@ -613,13 +559,12 @@
 
 		try {
 			const attachmentsWithTags = await Promise.all(
-				post.attachments.map(async (attachment) => {
+				post.attachments.map(async (attachment): Promise<AttachmentTagInfo | null> => {
 					if (!attachment.tags || attachment.tags.length === 0) {
 						return null;
 					}
 
 					try {
-						// Fetch the attachment details including tags
 						const response = await fetch(
 							`/api/posts/${post.id}/attachment?attachmentId=${attachment.id}`,
 							{ credentials: 'include' }
@@ -630,10 +575,9 @@
 								`Failed to fetch attachment ${attachment.id} tags:`,
 								response.statusText
 							);
-							// Fallback to using the tags we already have
 							return {
 								attachmentId: attachment.id,
-								tags: attachment.tags,
+								tags: attachment.tags || [],
 								analysis: attachment.analysis,
 								fileName: attachment.original_name
 							};
@@ -649,17 +593,16 @@
 								fileName: attachment.original_name
 							};
 						} else {
-							// Fallback
 							return {
 								attachmentId: attachment.id,
-								tags: attachment.tags,
+								tags: attachment.tags || [],
 								analysis: attachment.analysis,
 								fileName: attachment.original_name
 							};
 						}
 					} catch (error) {
 						console.error(`Error fetching attachment ${attachment.id} tags:`, error);
-						// Fallback to existing data
+
 						return {
 							attachmentId: attachment.id,
 							tags: attachment.tags || [],
@@ -670,7 +613,9 @@
 				})
 			);
 
-			attachmentTags = attachmentsWithTags.filter(Boolean);
+			attachmentTags = attachmentsWithTags.filter(
+				(item): item is AttachmentTagInfo => item !== null
+			);
 			attachmentTagsLoaded = true;
 			console.log('🏷️ Loaded attachment tags:', attachmentTags);
 		} catch (error) {
@@ -683,97 +628,15 @@
 	function handleAttachmentTagClick(tag: string, attachmentId: string, event: MouseEvent) {
 		event.stopPropagation();
 		console.log('🏷️ Clicked attachment tag:', tag, 'from attachment:', attachmentId);
-		// You can implement navigation to search by attachment tag here
-		// For example: goto(`/search?attachment_tag=${encodeURIComponent(tag)}`);
 	}
-	// Fetch tag details
-
-	// async function fetchTagDetails() {
-	// 	if (!hasTagIds || tagsLoaded || loadingTags) return;
-
-	// 	loadingTags = true;
-
-	// 	const result = await clientTryCatch(
-	// 		(async () => {
-	// 			console.log('Fetching tag details for post:', post.id, post.tags);
-
-	// 			// Ensure post.tags is an array
-	// 			const tagIds = Array.isArray(post.tags) ? post.tags : [];
-
-	// 			if (tagIds.length === 0) {
-	// 				console.warn('No tag IDs found');
-	// 				return [];
-	// 			}
-
-	// 			// Fetch details for each tag ID
-	// 			const tagPromises = tagIds.map(async (tagId) => {
-	// 				const tagResult = await clientTryCatch(
-	// 					(async () => {
-	// 						const response = await fetch(`/api/tags/${tagId}`, {
-	// 							credentials: 'include'
-	// 						});
-
-	// 						if (!response.ok) {
-	// 							throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-	// 						}
-
-	// 						const responseData = await response.json();
-
-	// 						/*
-	// 						 * Your API might return { success: true, data: tag } or just the tag directly
-	// 						 * Handle both cases
-	// 						 */
-	// 						if (responseData.success && responseData.data) {
-	// 							return responseData.data;
-	// 						} else if (responseData.id) {
-	// 							// Direct tag object
-	// 							return responseData;
-	// 						} else {
-	// 							throw new Error('Invalid response format');
-	// 						}
-	// 					})(),
-	// 					`Fetching tag ${tagId}`
-	// 				);
-
-	// 				if (isFailure(tagResult)) {
-	// 					console.error(`Error fetching tag ${tagId}:`, tagResult.error);
-	// 					return null;
-	// 				}
-
-	// 				return tagResult.data;
-	// 			});
-
-	// 			const results = await Promise.all(tagPromises);
-	// 			const validTags = results.filter(Boolean); // Remove null results
-	// 			tagDetails = validTags;
-	// 			tagsLoaded = true;
-
-	// 			console.log('Fetched tag details:', tagDetails);
-	// 			return validTags;
-	// 		})(),
-	// 		`Fetching tag details for post ${post.id}`
-	// 	);
-
-	// 	if (isFailure(result)) {
-	// 		console.error('Error fetching tag details:', result.error);
-	// 		// Set empty array on error so UI doesn't stay in loading state
-	// 		tagDetails = [];
-	// 	}
-
-	// 	// Always reset loading state
-	// 	loadingTags = false;
-	// }
-	// Handle clicking on individual tags
 	function handleTagClick(tag: Tag, event: MouseEvent) {
 		event.stopPropagation();
 		dispatch('tagClick', { tag, postId: post.id });
 	}
 
-	// Generate a color for tags that don't have one
 	function getTagColor(tag: Tag): string {
 		if (tag.color) return tag.color;
 
-		// Generate a color based on tag name
 		const colors = [
 			'#3b82f6',
 			'#ef4444',
@@ -790,26 +653,21 @@
 
 	async function handleCopyLink() {
 		try {
-			// Pass the username to sharePost for proper URL construction
 			const result = await postStore.sharePost(post.id, post.author_username);
 
 			if (result.copied) {
-				// Success - link copied successfully with normal methods
 				toast.success(result.message || 'Link copied to clipboard!');
 			} else {
-				// Normal copy failed - try aggressive copy method
 				console.log('🚀 Normal copy failed, trying aggressive copy...');
 				const aggressiveSuccess = await tryAggressiveCopy(result.url);
 
 				if (aggressiveSuccess) {
-					// Aggressive copy worked
 					if ('shareCount' in result && result.shareCount !== undefined) {
 						toast.success('Post shared and link copied to clipboard!');
 					} else {
 						toast.success('Link copied to clipboard!');
 					}
 				} else {
-					// All copy methods failed
 					if ('shareCount' in result && result.shareCount !== undefined) {
 						toast.success('Post shared successfully!');
 						toast.warning('Could not copy link automatically', 3000);
@@ -823,15 +681,12 @@
 			toast.error('Sharing failed');
 		}
 
-		// Always close the modal
 		showShareModal = false;
 	}
 
-	// Simplified aggressive copy method (remove the modal parts)
 	async function tryAggressiveCopy(text: string): Promise<boolean> {
 		console.log('🚀 Trying aggressive copy methods...');
 
-		// Method 1: Try clipboard API again (might work in different context)
 		try {
 			await navigator.clipboard.writeText(text);
 			console.log('✅ Clipboard API worked in aggressive context');
@@ -840,7 +695,6 @@
 			console.log('❌ Clipboard API still blocked');
 		}
 
-		// Method 2: Use a hidden input with different timing and focus
 		try {
 			const input = document.createElement('input');
 			input.type = 'text';
@@ -849,15 +703,12 @@
 
 			document.body.appendChild(input);
 
-			// Give it time to be added to DOM
 			await new Promise((resolve) => setTimeout(resolve, 50));
 
-			// Try to give it focus and select
 			input.focus();
 			input.select();
 			input.setSelectionRange(0, text.length);
 
-			// Small delay before copy attempt
 			await new Promise((resolve) => setTimeout(resolve, 10));
 
 			const success = document.execCommand('copy');
@@ -873,7 +724,6 @@
 			console.log('❌ Aggressive copy method failed with error:', e);
 		}
 
-		// Method 3: Try with textarea instead of input
 		try {
 			const textarea = document.createElement('textarea');
 			textarea.value = text;
@@ -945,15 +795,6 @@
 			}
 		: null;
 
-	// $: {
-	//     console.log('🔍 Post Data Debug:', {
-	//         post,
-	//         user: post.user,
-	//         author_username: post.author_username,
-	//         author_name: post.author_name,
-	//         expand_user: post.expand?.user
-	//     });
-	// }
 	$: {
 		console.log('🔍 FULL POST DEBUG:', {
 			postId: post.id,
@@ -964,7 +805,7 @@
 			expand: post.expand,
 			expand_user: post.expand?.user,
 			isGuest: !$currentUser,
-			fullPost: post // This will show the entire post object
+			fullPost: post
 		});
 	}
 
@@ -983,10 +824,6 @@
 		console.log('🤖 Agents expanded for first time, loading...');
 		loadAgentsOnDemand();
 	}
-	//     onMount(async () => {
-	//     console.log('🤖 Loading agents...');
-	//     // await agentStore.loadAgents();
-	// });
 
 	$: isUsernameRoute = $page.route.id === '/[username]';
 
@@ -1127,10 +964,10 @@
 	{/if}
 
 	<!-- {#if showActions}
-			<button class="post-options">
-				<Icon name="MoreHorizontal" size={16} />
-			</button>
-		{/if} -->
+		<button class="post-options">
+			<Icon name="MoreHorizontal" size={16} />
+		</button>
+	{/if} -->
 
 	{#if !isComment}
 		<div class="post-content">
@@ -1160,6 +997,7 @@
 							<div class="spinner"></div>
 						</div>
 					{:then content}
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 						{@html marked(content)}
 					{:catch}
 						<div>Error loading content</div>
@@ -1184,7 +1022,18 @@
 									/>
 								</a>
 							{:else if attachment.file_type === 'video'}
-								<div class="attachment-video" on:click|stopPropagation>
+								<div
+									class="attachment-video"
+									role="button"
+									tabindex="0"
+									on:click|stopPropagation
+									on:keydown={(e) => {
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault();
+											e.stopPropagation();
+										}
+									}}
+								>
 									<VideoPlayer
 										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
 										mimeType={attachment.mime_type}
@@ -1207,7 +1056,18 @@
 									/>
 								</div>
 							{:else if attachment.file_type === 'audio'}
-								<div class="attachment-audio" on:click|stopPropagation>
+								<div
+									class="attachment-audio"
+									role="button"
+									tabindex="0"
+									on:click|stopPropagation
+									on:keydown={(e) => {
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault();
+											e.stopPropagation();
+										}
+									}}
+								>
 									<AudioPlayer
 										attachmentId={attachment.id}
 										audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
@@ -1269,6 +1129,7 @@
 						<div class="spinner"></div>
 					</div>
 				{:then content}
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					{@html marked(content)}
 				{:catch}
 					<div>Error loading content</div>
@@ -1289,7 +1150,18 @@
 									/>
 								</a>
 							{:else if attachment.file_type === 'video'}
-								<div class="attachment-video" on:click|stopPropagation>
+								<div
+									class="attachment-video"
+									role="button"
+									tabindex="0"
+									on:click|stopPropagation
+									on:keydown={(e) => {
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault();
+											e.stopPropagation();
+										}
+									}}
+								>
 									<VideoPlayer
 										src="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
 										mimeType={attachment.mime_type}
@@ -1302,7 +1174,18 @@
 									/>
 								</div>
 							{:else if attachment.file_type === 'audio'}
-								<div class="attachment-audio" on:click|stopPropagation>
+								<div
+									class="attachment-audio"
+									role="button"
+									tabindex="0"
+									on:click|stopPropagation
+									on:keydown={(e) => {
+										if (e.key === 'Enter' || e.key === ' ') {
+											e.preventDefault();
+											e.stopPropagation();
+										}
+									}}
+								>
 									<AudioPlayer
 										attachmentId={attachment.id}
 										audioSrc="{$pocketbaseUrl}/api/files/7xg05m7gr933ygt/{attachment.id}/{attachment.file_path}"
@@ -1405,7 +1288,7 @@
 					{:else}
 						<!-- Fallback: show tags directly from post.attachments if async loading failed -->
 						<div class="attachment-tags-list">
-							{#each post.attachments as attachment (attachment.id)}
+							{#each post.attachments || [] as attachment (attachment.id)}
 								{#if attachment.tags && attachment.tags.length > 0}
 									<div class="attachment-tag-group">
 										<div class="attachment-info">
@@ -1475,14 +1358,7 @@
 											src={getAvatarUrl(agent)}
 											alt={agent.name}
 											class="avatar-image"
-											on:error={(e) => {
-												console.warn('Failed to load avatar for', agent.name, ':', e.target.src);
-												e.target.style.display = 'none';
-												const fallback = e.target.nextElementSibling;
-												if (fallback) {
-													fallback.style.display = 'flex';
-												}
-											}}
+											on:error={(e) => handleImageError(e, agent.name)}
 										/>
 										<!-- Fallback shown when image fails to load -->
 										<div class="avatar-fallback" style="display: none;">
@@ -1625,8 +1501,9 @@
 					<Icon name="Brain" size={12} />
 					{#if showAIAnalysisModal}
 						{$t('agents.analysis')}
-					{:else}{/if}
-					<!-- <span>AI tools</span> -->
+					{:else}
+						<span>AI tools</span>
+					{/if}
 				</button>
 			</div>
 			<div class="action-wrapper">
@@ -1685,7 +1562,7 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	// @use 'src/lib/styles/themes.scss' as *;
+
 	* {
 		font-family: var(--font-family);
 	}
@@ -1791,7 +1668,7 @@
 		border-radius: 1rem 1rem 0 0;
 
 		box-shadow: rgba(255, 255, 255, 0.05) 0 -100px 200px 20px;
-		// border-bottom: 1px solid var(--line-color);
+
 		padding: 0;
 		padding-top: 1rem;
 		transition: all 0.2s ease;
@@ -1939,8 +1816,8 @@
 		display: block;
 		transition: all 0.2s ease;
 		border-radius: 8px;
-		padding: 4px;
-		margin: -4px;
+		padding: 0 1rem;
+
 		&:hover {
 			color: var(--tertiary-color);
 		}
@@ -1958,14 +1835,6 @@
 		text-align: left;
 	}
 
-	.post-content p {
-		margin: 0;
-		margin-left: 1rem;
-		line-height: 1.5;
-		font-size: 1rem;
-		text-align: left;
-	}
-
 	.post-attachments {
 		margin-top: 1rem;
 		display: flex;
@@ -1980,7 +1849,6 @@
 		height: 100%;
 		max-height: 400px;
 		border-radius: 8px;
-		// border: 1px solid var(--line-color);
 	}
 
 	.attachment-file {
@@ -2072,9 +1940,6 @@
 	.action-button.upvote.active {
 		background: none;
 	}
-	.action-button.agents.expanded {
-		// border-left: 1px solid var(--line-color);
-	}
 
 	.action-button.active,
 	.action-button.expanded {
@@ -2100,7 +1965,7 @@
 	.action-button.ai.active {
 		color: var(--tertiary-color);
 		background: var(--primary-color);
-		// border-radius: 0 0 1rem 1rem;
+
 		border: none;
 		border-left: 1px solid var(--line-color);
 
@@ -2119,12 +1984,6 @@
 
 	.action-button.repost.active {
 		color: #00c853;
-	}
-
-	.read-status {
-		margin-left: auto;
-		color: var(--placeholder-color);
-		font-size: 0.85rem;
 	}
 
 	.read-count {
@@ -2229,7 +2088,7 @@
 		border-radius: 1rem 1rem 0 0;
 		width: auto;
 		margin-top: 1rem;
-		// background: var(--bg-gradient-r);
+
 		color: var(--text-color);
 		transition: all 0.2s ease;
 		&:hover {
@@ -2246,7 +2105,7 @@
 			gap: 0.5rem;
 			border-radius: 2rem;
 			justify-content: flex-start;
-			// background: var(--bg-gradient-right);
+
 			width: calc(100% - 2rem);
 		}
 		& .agent-avatar.assigned {
@@ -2368,30 +2227,29 @@
 		justify-content: center;
 		align-items: center;
 		width: 100%;
-		// padding: 0.25rem;
 	}
-	.agents-header {
-		width: calc(100% - 1rem);
-		display: flex;
-		position: relative;
-		align-items: center;
-		justify-content: flex-end;
-		gap: 1rem;
-	}
+	// .agents-header {
+	// 	width: calc(100% - 1rem);
+	// 	display: flex;
+	// 	position: relative;
+	// 	align-items: center;
+	// 	justify-content: flex-end;
+	// 	gap: 1rem;
+	// }
 
-	.agents-title {
-		padding: 0.5rem;
-		font-size: 0.8rem;
-		color: var(--placeholder-color);
-	}
-	span.inactive {
-		color: var(--placeholder-color);
-		font-size: 0.8rem;
-	}
-	span.active {
-		color: var(--tertiary-color);
-		font-size: 0.8rem;
-	}
+	// .agents-title {
+	// 	padding: 0.5rem;
+	// 	font-size: 0.8rem;
+	// 	color: var(--placeholder-color);
+	// }
+	// span.inactive {
+	// 	color: var(--placeholder-color);
+	// 	font-size: 0.8rem;
+	// }
+	// span.active {
+	// 	color: var(--tertiary-color);
+	// 	font-size: 0.8rem;
+	// }
 	.agents-summary {
 		display: flex;
 		position: relative;

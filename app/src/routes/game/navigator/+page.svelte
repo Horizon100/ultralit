@@ -275,7 +275,23 @@
 			}
 		}
 	}
+	function handleMapKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			// Create a synthetic mouse event or handle keyboard interaction differently
+			// For example, you could trigger a click at the center of the map
+			const mapRect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+			const syntheticEvent = {
+				clientX: mapRect.left + mapRect.width / 2,
+				clientY: mapRect.top + mapRect.height / 2,
+				preventDefault: () => {},
+				target: e.currentTarget,
+				currentTarget: e.currentTarget
+			} as MouseEvent;
 
+			onMapClick(syntheticEvent);
+		}
+	}
 	onMount(async () => {
 		if (browser) {
 			setupKeyboardControls();
@@ -325,6 +341,10 @@
 		<div
 			class="map-grid"
 			on:click={onMapClick}
+			on:keydown={handleMapKeydown}
+			role="button"
+			tabindex="0"
+			aria-label="Interactive game map - click or press Enter to interact"
 			style="--map-width: {MAP_WIDTH}; --map-height: {MAP_HEIGHT}; --grid-size: {GRID_SIZE}px;"
 		>
 			{#each Array(MAP_HEIGHT).fill(0) as _, rowIndex}
@@ -344,7 +364,12 @@
 			{/each}
 
 			{#each buildings as container}
-				<MapView {container} gridSize={GRID_SIZE} {data} bind:isInsideBuilding />
+				<MapView
+					{container}
+					gridSize={{ width: GRID_SIZE, height: GRID_SIZE }}
+					{data}
+					bind:isInsideBuilding
+				/>
 			{/each}
 
 			{#each otherHeroes as hero}

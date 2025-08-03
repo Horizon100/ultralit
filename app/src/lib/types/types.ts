@@ -359,7 +359,7 @@ export interface PartialAIAgent {
 	actions?: string[];
 	capabilities?: string[];
 	tasks?: string[];
-	status?: 'active' | 'inactive' | 'maintenance' | 'paused';
+	status?: 'active' | 'inactive' | 'maintenance' | 'paused' | 'analyzing';
 	messages?: string[];
 	tags?: string[];
 	performance?: number;
@@ -407,7 +407,7 @@ export interface AIAgent extends RecordModel {
 	role: RoleType;
 	capabilities: string[];
 	tasks: string[];
-	status: 'active' | 'inactive' | 'maintenance' | 'paused';
+	status: 'active' | 'inactive' | 'maintenance' | 'paused' | 'analyzing';
 	messages: string[];
 	tags: string[];
 	performance: number;

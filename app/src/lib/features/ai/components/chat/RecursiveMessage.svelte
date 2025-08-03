@@ -43,7 +43,7 @@
 	export let depth: number = 0;
 
 	export let latestMessageId: string | null;
-	export let toggleReplies: (messageId: string) => void;
+	// export let toggleReplies: (messageId: string) => void;
 	export let hiddenReplies: Set<string>;
 	export let aiModel: AIModel;
 	export let promptType: string | null = null;
@@ -57,10 +57,10 @@
 	export let isDualResponse = false;
 	export let dualResponsePair = false;
 	export let isPrimaryDualResponse = false;
-	export let onSelectResponse: ((messageId: string) => void) | null = null;
+	// export let onSelectResponse: ((messageId: string) => void) | null = null;
 	export let onScrollToMessage: ((direction: 'next' | 'prev') => void) | null = null;
 	export let currentMessageIndex = 0;
-	export let totalMessages = 0;
+	// export let totalMessages = 0;
 	export let onGetVisibleMessages: (() => Element[]) | null = null;
 	export let onGetCurrentIndex: (() => number) | null = null;
 
@@ -542,7 +542,7 @@
 		cleaned = cleaned.trim();
 		return cleaned;
 	}
-	function handleMessageClick(event: MouseEvent) {
+	function handleMessageClick(event: MouseEvent | KeyboardEvent) {
 		if (
 			event.target instanceof HTMLElement &&
 			(event.target.tagName === 'BUTTON' ||
@@ -756,7 +756,7 @@
 	async function processContent() {
 		if (!message?.content || isProcessingContent) return;
 
-		console.log('🔍 MESSAGE PROCESSING - Starting for message:', message.id);
+		// console.log('🔍 MESSAGE PROCESSING - Starting for message:', message.id);
 		isProcessingContent = true;
 
 		let contentToProcess: string = '';
@@ -775,16 +775,16 @@
 				message.id
 			);
 
-			console.log(
-				'🔍 MESSAGE PROCESSING - Final processed content length:',
-				processedContent.length
-			);
+			// console.log(
+			// 	'🔍 MESSAGE PROCESSING - Final processed content length:',
+			// 	processedContent.length
+			// );
 
 			// Force re-initialization of code blocks after content is processed
 			setTimeout(() => {
 				const messageElement = document.querySelector(`[data-message-id="${message.id}"]`);
 				if (messageElement) {
-					console.log('🔍 MESSAGE PROCESSING - Re-enhancing code blocks for message:', message.id);
+					// console.log('🔍 MESSAGE PROCESSING - Re-enhancing code blocks for message:', message.id);
 					enhanceCodeBlocks(messageElement as HTMLElement);
 				}
 			}, 100);
@@ -793,7 +793,7 @@
 			processedContent = contentToProcess || 'Error loading message content';
 		} finally {
 			isProcessingContent = false;
-			console.log('🔍 MESSAGE PROCESSING - Completed for message:', message.id);
+			// console.log('🔍 MESSAGE PROCESSING - Completed for message:', message.id);
 		}
 	}
 	$: if (message?.id && message.id !== lastProcessedMessageId) {
@@ -840,9 +840,20 @@
 	class:dual-response-alt={isDualResponse && dualResponsePair}
 	data-message-id={message.id}
 	data-thread-id={message.thread || ''}
+	role="button"
+	tabindex="0"
+	aria-label="Message from {message.role === 'user' ? name : provider}. {childReplies.length > 0
+		? 'Click to view thread details.'
+		: ''}"
 	in:fly={{ y: 20, duration: 300 }}
 	out:fade={{ duration: 200 }}
 	on:click={handleMessageClick}
+	on:keydown={(e) => {
+		if (e.key === 'Enter' || e.key === ' ') {
+			e.preventDefault();
+			handleMessageClick(e);
+		}
+	}}
 >
 	<div class="message-header">
 		{#if message.role === 'user'}
@@ -864,8 +875,13 @@
 			<div class="user-header ai">
 				<div
 					class="avatar-container"
+					role="button"
+					tabindex="0"
+					aria-label="Show provider information"
 					on:mouseenter={() => (providerHovered = true)}
 					on:mouseleave={() => (providerHovered = false)}
+					on:focus={() => (providerHovered = true)}
+					on:blur={() => (providerHovered = false)}
 				>
 					<img src={providerIconSrc} alt="{provider} icon" class="provider-icon" />
 				</div>
@@ -878,8 +894,13 @@
 			</div>
 			<span
 				class="prompt-type"
+				role="button"
+				tabindex="0"
+				aria-label="Show prompt type information"
 				on:mouseenter={() => (createHovered = true)}
 				on:mouseleave={() => (createHovered = false)}
+				on:focus={() => (createHovered = true)}
+				on:blur={() => (createHovered = false)}
 			>
 				{promptLabel}
 				{#if createHovered}
@@ -1208,8 +1229,8 @@
 		display: flex;
 		align-items: stretch;
 		padding-left: 1rem !important;
-		padding-bottom: 1rem !important;
-		flex-grow: 1;
+		padding-bottom: 0 !important;
+		// flex-grow: 1;
 		padding: 0;
 		border-radius: 1rem;
 		font-size: 1.25rem;
@@ -1687,9 +1708,10 @@
 			// border-bottom: 1px solid var(--line-color);
 			// margin-right: 3.5rem;
 			margin-left: 0;
+			margin-bottom: 0.5rem;
 			// border-top: 2px solid var(--line-color);
 			max-height: auto;
-			height: auto !important;
+			height: 100% !important;
 			width: 100%;
 			min-width: 200px;
 			font-weight: 500;

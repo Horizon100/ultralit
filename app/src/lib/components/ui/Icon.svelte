@@ -5,7 +5,7 @@
 	export let size: number = 24;
 	export let color: string = 'currentColor';
 	export let strokeWidth: number = 2;
-	export let className: string = '';
+	// export let className: string = '';
 
 	// Icon map for all your used Lucide icons
 	const iconMap: Record<string, () => Promise<{ default: string }>> = {

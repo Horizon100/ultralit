@@ -84,7 +84,15 @@
 <svelte:window on:keydown={handleKeydown} />
 
 {#if isOpen && post}
-	<div class="modal-backdrop" on:click={handleBackdropClick} transition:fade={{ duration: 200 }}>
+	<div
+		class="modal-backdrop"
+		on:click={handleBackdropClick}
+		on:keydown={(e) => e.key === 'Escape' && handleClose()}
+		role="button"
+		aria-label="Close modal"
+		tabindex="0"
+		transition:fade={{ duration: 200 }}
+	>
 		<div class="modal-content" transition:scale={{ duration: 200, start: 0.95 }}>
 			<div class="modal-header">
 				<h2>Reply to Post</h2>
@@ -101,12 +109,7 @@
 
 				<!-- Reply Composer -->
 				<div class="reply-section">
-					<PostComposer
-						placeholder="Post your reply..."
-						buttonText="Reply"
-						parentId={post.id}
-						on:submit={handleCommentSubmit}
-					/>
+					<PostComposer isComment={true} parentId={post.id} on:submit={handleCommentSubmit} />
 				</div>
 			</div>
 		</div>

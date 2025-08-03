@@ -47,7 +47,6 @@
 	let textareaElement: HTMLTextAreaElement | null = null;
 	// let localIsFocused = false;
 	let isButtonAreaHovered = false;
-	let blurTimeout: number | undefined;
 	let isTextareaFocused = false;
 
 	// Event dispatcher
@@ -70,11 +69,13 @@
 		}, 10) as unknown as number;
 	}
 	let isFocused = false;
-
-	let focusDebounceTimer: number | undefined;
 	let isProcessingFocus = false;
 
-	function onTextareaFocus(event: FocusEvent) {
+	let focusDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+	let blurTimeout: ReturnType<typeof setTimeout> | null = null;
+
+	function onTextareaFocus() {
+		// Removed unused event parameter
 		if (isProcessingFocus) return; // Prevent multiple rapid focus events
 
 		isProcessingFocus = true;
@@ -88,11 +89,12 @@
 
 			setTimeout(() => {
 				isProcessingFocus = false;
-			}, 100);
-		}, 50) as unknown as number;
+			}, 300);
+		}, 300); // No more type casting needed
 	}
 
-	function onTextareaBlur(event: FocusEvent) {
+	function onTextareaBlur() {
+		// Removed unused event parameter
 		if (isProcessingFocus) return;
 
 		if (blurTimeout) clearTimeout(blurTimeout);
@@ -102,9 +104,8 @@
 				isFocused = false;
 				dispatch('textareaBlur');
 			}
-		}, 150) as unknown as number; // Increased delay
+		}, 300); // No more type casting needed
 	}
-
 	let inputTimeout: number | undefined;
 	let resizeTimeout: number | undefined;
 	const DEBOUNCE_DELAY = 300;
@@ -338,7 +339,7 @@
 					isButtonAreaHovered = true;
 					if (blurTimeout) {
 						clearTimeout(blurTimeout);
-						blurTimeout = undefined;
+						blurTimeout = null;
 					}
 				}}
 				on:mouseleave={() => {
@@ -503,7 +504,7 @@
 					isButtonAreaHovered = true;
 					if (blurTimeout) {
 						clearTimeout(blurTimeout);
-						blurTimeout = undefined;
+						blurTimeout = null;
 					}
 				}}
 				on:mouseleave={() => {
@@ -763,7 +764,7 @@
 	}
 	.drawer-visible .input-container {
 		bottom: 3rem;
-		position: absolute;
+		// position: absolute;
 	}
 	/* =============================================================================
    INPUT CONTAINER STYLES
@@ -775,6 +776,7 @@
 		align-items: center;
 		justify-content: center;
 		max-width: 1200px;
+		border: 1px solid var(--line-color);
 		width: 100%;
 		height: auto;
 		bottom: 3rem;
@@ -806,7 +808,7 @@
 
 	.drawer-visible .input-container {
 		bottom: 3rem;
-		position: absolute;
+		// position: absolute;
 	}
 
 	/* =============================================================================
@@ -818,7 +820,7 @@
 		flex-direction: column;
 		justify-content: flex-end;
 		align-items: center;
-		position: absolute;
+		position: relative;
 		width: calc(100% - 1rem);
 		height: auto;
 		bottom: 0.5rem;
@@ -853,7 +855,7 @@
 			font-size: 1.5rem;
 			width: calc(100% - 2rem);
 			border-radius: 2rem;
-			transition: height 0.1s ease;
+			transition: all 0.3s ease;
 			max-height: 100px;
 			&:focus {
 				overflow-y: auto;

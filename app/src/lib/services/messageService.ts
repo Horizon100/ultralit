@@ -218,27 +218,27 @@ export class MessageService {
 		attachment?: File | null,
 		selectedModelLabel: string = ''
 	): Promise<Messages> {
-		// Add thinking message
 		const thinkingMessage = this.createMessage('thinking', '', undefined, undefined, userId);
 		chatStore.setThinkingMessageId(thinkingMessage.id);
 		this.addMessage(thinkingMessage);
 
 		try {
-			// Prepare messages for AI
 			const store = get(chatStore);
 			const messagesToSend = store.messages
 				.filter(({ role, content }) => role && content && role !== 'thinking')
 				.map(({ role, content }) => ({
 					role,
 					content: content.toString(),
-					model: 'api_type' in aiModel ? aiModel.api_type : aiModel.id,
+					model:
+						'api_type' in aiModel
+							? aiModel.api_type || aiModel.id || 'unknown'
+							: aiModel.id || 'unknown',
 					provider: aiModel.provider
 				}));
 
 			let aiResponse: string;
 			let actualModel = aiModel;
 
-			// Handle local models directly
 			if (aiModel.provider === 'local') {
 				console.log('🤖 Using local AI model directly');
 				aiResponse = await this.fetchLocalAIResponse(

@@ -1,6 +1,7 @@
 import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
 import PocketBase from 'pocketbase';
+import { get } from 'svelte/store';
 
 // Create a writable store for the pocketbase URL that can be set safely
 export const pocketbaseUrlStore = writable('http://localhost:8090');
@@ -28,40 +29,31 @@ if (browser) {
 		});
 }
 
-// Helper function for TypeScript files to get PocketBase instance
 export function getPocketBaseFromStore(): PocketBase {
 	if (!browser) {
-		// Server-side: use the same env var as your layout server
-		const url = process.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+		const url = process.env.POCKETBASE_URL || 'http://localhost:8090';
 		return new PocketBase(url);
 	}
 
-	// Client-side: get from store
-	let pb: PocketBase;
-	const unsubscribe = pocketbase.subscribe(($pb) => {
-		pb = $pb;
-	});
-	unsubscribe();
-	return pb!;
+	const pb = get(pocketbase);
+	if (!pb) {
+		throw new Error('PocketBase instance not available in store');
+	}
+	return pb;
 }
 
-// Helper function for TypeScript files to get just the URL
 export function getPocketbaseUrlFromStore(): string {
 	if (!browser) {
-		// Server-side: use the same env var as your layout server
-		return process.env.VITE_POCKETBASE_URL || 'http://localhost:8090';
+		return process.env.POCKETBASE_URL || 'http://localhost:8090';
 	}
 
-	// Client-side: get from store
-	let url: string;
-	const unsubscribe = pocketbaseUrl.subscribe(($url) => {
-		url = $url;
-	});
-	unsubscribe();
-	return url!;
+	const url = get(pocketbaseUrl);
+	if (!url) {
+		throw new Error('PocketBase URL not available in store');
+	}
+	return url;
 }
 
-// Function to safely set the PocketBase URL (client-side only)
 export function setPocketbaseUrl(url: string) {
 	if (browser) {
 		pocketbaseUrlStore.set(url);

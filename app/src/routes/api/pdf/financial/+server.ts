@@ -6,6 +6,22 @@ import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import crypto from 'crypto';
 
+// Define interfaces for better type safety
+interface ExtractedAmount {
+	value: number;
+	formatted: string;
+	position: number;
+}
+
+interface FinancialAnalysis {
+	documentType: string;
+	amounts: ExtractedAmount[];
+	dates: string[];
+	entities: string[];
+	totalAmount: number | null;
+	extractedAt: string;
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const contentType = request.headers.get('content-type');
@@ -39,7 +55,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 };
 
-async function analyzeFinancialDocument(filePath: string): Promise<any> {
+async function analyzeFinancialDocument(filePath: string): Promise<FinancialAnalysis> {
 	const text = await extractFullText(filePath);
 	const amounts = extractAmounts(text);
 	const dates = extractDates(text);
@@ -55,6 +71,7 @@ async function analyzeFinancialDocument(filePath: string): Promise<any> {
 		extractedAt: new Date().toISOString()
 	};
 }
+
 async function extractFullText(filePath: string): Promise<string> {
 	return new Promise((resolve, reject) => {
 		const pdftotext = spawn('pdftotext', [filePath, '-']);
@@ -73,7 +90,8 @@ async function extractFullText(filePath: string): Promise<string> {
 		});
 	});
 }
-function extractAmounts(text: string): any[] {
+
+function extractAmounts(text: string): ExtractedAmount[] {
 	const patterns = [
 		/\$\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g,
 		/€\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/g,
@@ -82,7 +100,7 @@ function extractAmounts(text: string): any[] {
 		/(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\s*EUR/g
 	];
 
-	const amounts = [];
+	const amounts: ExtractedAmount[] = [];
 
 	patterns.forEach((pattern) => {
 		let match;
@@ -107,7 +125,7 @@ function extractDates(text: string): string[] {
 		/\d{4}-\d{1,2}-\d{1,2}/g
 	];
 
-	const dates = new Set();
+	const dates = new Set<string>();
 
 	datePatterns.forEach((pattern) => {
 		const matches = text.match(pattern);
@@ -122,7 +140,7 @@ function extractDates(text: string): string[] {
 function extractBusinessEntities(text: string): string[] {
 	const businessKeywords = ['LLC', 'Inc', 'Corp', 'Ltd', 'Company', 'Services', 'Solutions'];
 	const lines = text.split('\n');
-	const entities = new Set();
+	const entities = new Set<string>();
 
 	lines.forEach((line) => {
 		if (businessKeywords.some((keyword) => line.includes(keyword))) {
@@ -148,7 +166,7 @@ function classifyFinancialDocument(text: string): string {
 	return 'financial_document';
 }
 
-function findTotalAmount(amounts: any[], text: string): number | null {
+function findTotalAmount(amounts: ExtractedAmount[], text: string): number | null {
 	const totalKeywords = ['total', 'amount due', 'balance', 'sum'];
 	const textLower = text.toLowerCase();
 

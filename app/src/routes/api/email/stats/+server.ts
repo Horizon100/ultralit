@@ -15,16 +15,14 @@ export const GET: RequestHandler = async ({ url }) => {
 		const userId = url.searchParams.get('userId');
 
 		if (!userId) {
-			return json<EmailApiResponse>(
+			return json(
 				{
 					success: false,
 					error: 'User ID is required'
-				},
+				} satisfies EmailApiResponse,
 				{ status: 400 }
 			);
 		}
-
-		// Get email statistics
 		const [totalMessages, unreadMessages, todayMessages] = await Promise.all([
 			pb
 				.collection('email_messages')
@@ -51,7 +49,6 @@ export const GET: RequestHandler = async ({ url }) => {
 				.then((r) => r.totalItems)
 		]);
 
-		// Get top senders
 		const messages = await pb.collection('email_messages').getFullList({
 			filter: `accountId.userId = "${userId}"`,
 			fields: 'from'
@@ -77,23 +74,23 @@ export const GET: RequestHandler = async ({ url }) => {
 			totalMessages,
 			unreadMessages,
 			todayMessages,
-			weekMessages: 0, // You can calculate this
-			monthMessages: 0, // You can calculate this
-			avgResponseTime: 0, // You can calculate this
+			weekMessages: 0,
+			monthMessages: 0,
+			avgResponseTime: 0,
 			topSenders
 		};
 
-		return json<EmailApiResponse>({
+		return json({
 			success: true,
 			data: stats
-		});
+		} satisfies EmailApiResponse);
 	} catch (error) {
 		console.error('Failed to get email stats:', error);
-		return json<EmailApiResponse>(
+		return json(
 			{
 				success: false,
 				error: 'Failed to get email stats'
-			},
+			} satisfies EmailApiResponse,
 			{ status: 500 }
 		);
 	}

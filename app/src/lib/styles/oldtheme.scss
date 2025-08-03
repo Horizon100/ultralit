@@ -716,7 +716,8 @@ pre.code-block:hover .copy-code-button {
 	}
 }
 
-.auth-overlay, .legal-overlay {
+.auth-overlay,
+.legal-overlay {
 	position: fixed;
 	top: 0;
 	left: 0;
@@ -729,7 +730,8 @@ pre.code-block:hover .copy-code-button {
 	z-index: 1000;
 }
 
-.auth-content, .legal-content {
+.auth-content,
+.legal-content {
 	background: var(--primary-color);
 	padding: 0;
 	border-radius: 1rem;

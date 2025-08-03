@@ -5,8 +5,8 @@ import type { RequestHandler } from '@sveltejs/kit';
 import { GmailService } from '$lib/features/email/utils/gmailService';
 import { getEmailAuthConfig, getEmailSyncConfig } from '$lib/server/email-config';
 import { pb } from '$lib/server/pocketbase';
+import type { EmailAccount } from '$lib/types/types.email';
 
-// POST /api/email/sync - Sync specific account
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const { accountId } = await request.json();
@@ -21,7 +21,6 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
-		// Get account details
 		const account = await pb.collection('email_accounts').getOne(accountId);
 
 		if (!account) {
@@ -34,13 +33,11 @@ export const POST: RequestHandler = async ({ request }) => {
 			);
 		}
 
-		// Update sync status to syncing
 		await pb.collection('email_accounts').update(accountId, {
 			syncStatus: 'syncing',
 			syncError: null
 		});
 
-		// Trigger sync in background
 		syncAccountInBackground(accountId);
 
 		return json({
@@ -64,10 +61,20 @@ async function syncAccountInBackground(accountId: string) {
 		console.log('🔄 Starting background sync for account:', accountId);
 
 		const accountData = await pb.collection('email_accounts').getOne(accountId);
-		const account = {
-			...accountData,
+
+		const account: EmailAccount = {
+			id: accountData.id,
+			userId: accountData.userId,
+			email: accountData.email,
+			provider: accountData.provider,
+			accessToken: accountData.accessToken,
+			refreshToken: accountData.refreshToken,
 			tokenExpiry: new Date(accountData.tokenExpiry),
+			isActive: accountData.isActive,
 			lastSyncAt: accountData.lastSyncAt ? new Date(accountData.lastSyncAt) : new Date(),
+			syncStatus: accountData.syncStatus,
+			syncError: accountData.syncError,
+			displayName: accountData.displayName,
 			created: new Date(accountData.created),
 			updated: new Date(accountData.updated)
 		};
@@ -92,8 +99,7 @@ async function syncAccountInBackground(accountId: string) {
 					.catch(() => null);
 
 				if (!existing) {
-					// Truncate text fields to fit database constraints
-					const truncateText = (text, maxLength = 4900) => {
+					const truncateText = (text: string | null | undefined, maxLength = 4900): string => {
 						if (!text) return '';
 						if (text.length <= maxLength) return text;
 						return text.substring(0, maxLength) + '\n\n[...truncated]';
@@ -111,7 +117,6 @@ async function syncAccountInBackground(accountId: string) {
 						bcc: JSON.stringify(message.bcc || []),
 						replyTo: JSON.stringify(message.replyTo || []),
 						date: message.date,
-						// Apply strict character limits
 						bodyText: truncateText(message.bodyText, 4900),
 						bodyHtml: truncateText(message.bodyHtml, 4900),
 						snippet: message.snippet ? message.snippet.substring(0, 500) : '',
@@ -136,17 +141,23 @@ async function syncAccountInBackground(accountId: string) {
 				} else {
 					await sleep(150);
 				}
-			} catch (saveError) {
+			} catch (saveError: unknown) {
 				errorCount++;
+
+				const errorMessage = saveError instanceof Error ? saveError.message : 'Unknown error';
+				const errorStatus =
+					saveError && typeof saveError === 'object' && 'status' in saveError
+						? (saveError as { status: number }).status
+						: null;
+
 				console.error(`❌ Failed to save message: ${message.subject}`, {
-					error: saveError.message,
-					status: saveError.status
+					error: errorMessage,
+					status: errorStatus
 				});
 
-				// Don't retry on validation errors - just skip
-				if (saveError.status === 400) {
+				if (errorStatus === 400) {
 					console.log('⚠️ Validation error - skipping this message permanently');
-				} else if (saveError.status === 429) {
+				} else if (errorStatus === 429) {
 					console.log('⏸️ Rate limited: waiting 3 seconds...');
 					await sleep(3000);
 				}
@@ -170,7 +181,6 @@ async function syncAccountInBackground(accountId: string) {
 	}
 }
 
-// Only ONE sleep function - remove any duplicates
 function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }

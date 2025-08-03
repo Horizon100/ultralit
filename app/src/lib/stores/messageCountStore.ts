@@ -11,7 +11,7 @@ if (browser) {
 	pb = new PocketBase(get(pocketbaseUrl));
 } else {
 	// Server-side fallback - use environment variable or default
-	pb = new PocketBase(process.env.VITE_POCKETBASE_URL || 'http://localhost:8090');
+	pb = new PocketBase(process.env.POCKETBASE_URL || 'http://localhost:8090');
 }
 
 interface MessageCounts {

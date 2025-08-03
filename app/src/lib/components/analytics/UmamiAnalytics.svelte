@@ -15,8 +15,23 @@
 		const hasScriptUrl = env.PUBLIC_UMAMI_SCRIPT_URL && env.PUBLIC_UMAMI_SCRIPT_URL !== '';
 		const hasWebsiteId = env.PUBLIC_UMAMI_WEBSITE_ID && env.PUBLIC_UMAMI_WEBSITE_ID !== '';
 
+		console.log('🔍 Umami Analytics config:', { 
+			isEnabled, 
+			hasScriptUrl, 
+			hasWebsiteId,
+			scriptUrl: env.PUBLIC_UMAMI_SCRIPT_URL,
+			websiteId: env.PUBLIC_UMAMI_WEBSITE_ID 
+		});
+
 		if (!isEnabled || !hasScriptUrl || !hasWebsiteId) {
 			console.log('🔍 Umami Analytics: Disabled or missing configuration');
+			return;
+		}
+
+		// Additional check - don't load if script URL contains localhost:3001 and it's not available
+		if (env.PUBLIC_UMAMI_SCRIPT_URL?.includes('localhost:3001')) {
+			console.log('🔍 Umami Analytics: Localhost script detected, checking availability...');
+			// Skip loading for Docker environment where Umami isn't running
 			return;
 		}
 

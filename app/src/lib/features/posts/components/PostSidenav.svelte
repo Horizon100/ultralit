@@ -10,7 +10,8 @@
 		attachmentFilterStore,
 		selectedAttachmentFilter,
 		attachmentFilterOptions,
-		type AttachmentFilterType
+		type AttachmentFilterType,
+		type AttachmentFilterCounts
 	} from '$lib/stores/attachmentFilterStore';
 	import { filterStatus } from '$lib/stores/combinedFilterStore';
 	import { t } from '$lib/stores/translationStore';
@@ -90,11 +91,17 @@
 		attachmentFilterStore.resetFilter();
 	}
 
-	// Get filter counts for attachment types
 	$: attachmentFilterCounts =
-		$postStore.posts.length > 0 ? attachmentFilterStore.getFilterCounts($postStore.posts) : {};
-
-	// Debug reactive statement
+		$postStore.posts.length > 0
+			? attachmentFilterStore.getFilterCounts($postStore.posts)
+			: ({
+					all: 0,
+					'posts-only': 0,
+					'with-images': 0,
+					'with-documents': 0,
+					'with-videos': 0,
+					'with-audio': 0
+				} as AttachmentFilterCounts);
 	$: {
 		console.log('🏷️ Filter state:', {
 			tagCountsList: tagCountsList.length,

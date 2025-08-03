@@ -2,69 +2,33 @@
 	import Icon from '$lib/components/ui/Icon.svelte';
 	import { onMount } from 'svelte';
 	import { fade, fly } from 'svelte/transition';
-	import { currentUser } from '$lib/pocketbase';
 	import type { AIModel, InternalChatMessage } from '$lib/types/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
-	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
-	import { showOverlay } from '$lib/stores/sidenavStore';
 	import { defaultModel } from '$lib/features/ai/utils/models';
 
-	let user = $currentUser;
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
-	let defaultMessage: InternalChatMessage;
+	// let defaultMessage: InternalChatMessage;
 
-	// Declare variables first
-	export let userId: string = '';
+	$: user = $page.data.user;
+	$: userId = user?.id || '';
+
 	export let aiModel = defaultModel;
-	export let threadId: string | null = null;
-	export let messageId: string | null = null;
-	export let initialMessage: InternalChatMessage | null = null;
+	// export let threadId: string | null = null;
+	// export let messageId: string | null = null;
+	// export let initialMessage: InternalChatMessage | null = null;
 
 	onMount(async () => {
 		try {
 			isLoading = true;
 
-			if (!$currentUser) {
+			if (!user) {
 				goto('/');
 				return;
 			}
-
-			// Set these once - don't make reactive
-			userId = $currentUser.id;
-			user = $currentUser;
-
-			// Initialize defaultMessage once here
-			defaultMessage = {
-				id: '',
-				text: '',
-				content: '',
-				user: userId,
-				role: 'user' as const,
-				created: new Date().toISOString(),
-				updated: new Date().toISOString(),
-				collectionId: '',
-				collectionName: 'messages',
-				parent_msg: null,
-				provider: 'openai' as const,
-				prompt_type: null,
-				prompt_input: null,
-				model: aiModel.id,
-				thread: threadId || undefined,
-				isTyping: false,
-				isHighlighted: false,
-				reactions: {
-					upvote: 0,
-					downvote: 0,
-					bookmark: [],
-					highlight: [],
-					question: 0
-				}
-			} as InternalChatMessage;
-
 			pageReady = true;
 		} catch (e) {
 			error = 'Failed to load chat. Please try again.';
@@ -93,7 +57,7 @@
 		</div>
 	{:else if user}
 		<div class="chat" in:fly={{ y: 200, duration: 400 }} out:fade={{ duration: 300 }}>
-			<AIChat message={defaultMessage} {threadId} initialMessageId={messageId} {aiModel} {userId} />
+			<AIChat seedPrompt="" {aiModel} {userId} attachment={null} promptType="NORMAL" />
 		</div>
 	{/if}
 {/if}
@@ -237,9 +201,8 @@
 		position: relative;
 		justify-content: center;
 		width: 100%;
-		margin-left: 3.5rem;
-		margin-top: 1rem !important;
-		margin-bottom: 1rem !important;
+
+		background: transparent;
 	}
 
 	.user-container {

@@ -23,7 +23,7 @@
 	on:keydown|self={(e) => {
 		if (e.key === 'Enter' || e.key === ' ') close();
 	}}
->	
+>
 	<div class="legal-content">
 		<div class="legal-wrapper">
 			<h2>{$t('privacy.title')}</h2>
@@ -38,6 +38,7 @@
 		</div>
 	</div>
 </div>
+
 <style lang="scss">
 	// @use 'src/lib/styles/themes.scss' as *;
 	* {

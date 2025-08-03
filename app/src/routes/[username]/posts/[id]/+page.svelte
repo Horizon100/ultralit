@@ -657,11 +657,9 @@
 			console.log(`📊 Parent ${parentId} has ${count} children`);
 		});
 	}
-
-	// Enhanced comment breakdown
 	$: if (post && comments) {
-		const directReplies = comments.filter((c) => c.parent === post.id);
-		const nestedReplies = comments.filter((c) => c.parent && c.parent !== post.id);
+		const directReplies = comments.filter((c) => c.parent === post?.id);
+		const nestedReplies = comments.filter((c) => c.parent && c.parent !== post?.id);
 
 		console.log('📊 Comment breakdown:');
 		console.log('  Total comments:', comments.length);
@@ -677,15 +675,8 @@
 		);
 	}
 
-	function getChildrenCount(commentId: string): number {
-		const count = childrenCountMap[commentId] || 0;
-		console.log(`📊 Children count for comment ${commentId}:`, count);
-		return count;
-	}
-	$: console.log('📊 Children count map:', childrenCountMap);
-
 	$: if (post && comments && Array.isArray(comments)) {
-		const directReplies = comments.filter((c) => c.parent === post.id);
+		const directReplies = comments.filter((c) => c.parent === post?.id);
 		const oldCount = post.commentCount;
 		post.commentCount = directReplies.length;
 		console.log('📊 Main post comment count updated:', {
@@ -694,6 +685,13 @@
 			directRepliesIds: directReplies.map((c) => c.id)
 		});
 	}
+	function getChildrenCount(commentId: string): number {
+		const count = childrenCountMap[commentId] || 0;
+		console.log(`📊 Children count for comment ${commentId}:`, count);
+		return count;
+	}
+	$: console.log('📊 Children count map:', childrenCountMap);
+
 	async function handleCommentSubmit(
 		event: CustomEvent<{ content: string; attachments: File[]; parentId?: string }>
 	) {
@@ -1018,7 +1016,6 @@
 						<PostCard
 							{post}
 							showActions={true}
-							isPreview={false}
 							on:interact={handlePostInteraction}
 							on:comment={handleComment}
 							on:quote={handleQuote}

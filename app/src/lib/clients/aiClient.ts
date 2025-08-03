@@ -237,7 +237,7 @@ export async function fetchAIResponse(
 
 	// Final validation for non-local providers
 	const finalApiKey = apiKey.getKey(modelToUse.provider);
-	if (!finalApiKey && modelToUse.provider !== 'local') {
+	if (!finalApiKey && (modelToUse.provider as AIProviderType) !== 'local') {
 		throw new Error(
 			`No API key found for provider: ${modelToUse.provider}. Please add an API key for this provider.`
 		);

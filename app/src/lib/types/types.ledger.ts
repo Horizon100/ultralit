@@ -175,6 +175,73 @@ export interface BudgetCategory {
 	userId: string;
 }
 
+export interface ProfitLossData {
+	revenue: {
+		total: number;
+		categories: Array<{ name: string; amount: number }>;
+	};
+	expenses: {
+		total: number;
+		categories: Array<{ name: string; amount: number }>;
+	};
+	netIncome: number;
+	period: string;
+}
+
+export interface BalanceSheetData {
+	assets: {
+		current: Array<{ name: string; amount: number }>;
+		fixed: Array<{ name: string; amount: number }>;
+		total: number;
+	};
+	liabilities: {
+		current: Array<{ name: string; amount: number }>;
+		longTerm: Array<{ name: string; amount: number }>;
+		total: number;
+	};
+	equity: {
+		total: number;
+		items: Array<{ name: string; amount: number }>;
+	};
+}
+
+export interface CashFlowData {
+	operating: {
+		cashIn: number;
+		cashOut: number;
+		net: number;
+		activities: Array<{ description: string; amount: number }>;
+	};
+	investing: {
+		cashIn: number;
+		cashOut: number;
+		net: number;
+		activities: Array<{ description: string; amount: number }>;
+	};
+	financing: {
+		cashIn: number;
+		cashOut: number;
+		net: number;
+		activities: Array<{ description: string; amount: number }>;
+	};
+	netCashFlow: number;
+}
+
+export interface BudgetVsActualData {
+	categories: Array<{
+		name: string;
+		budgeted: number;
+		actual: number;
+		variance: number;
+		variancePercentage: number;
+	}>;
+	totalBudgeted: number;
+	totalActual: number;
+	totalVariance: number;
+}
+
+type FinancialReportData = ProfitLossData | BalanceSheetData | CashFlowData | BudgetVsActualData;
+
 export interface FinancialReport {
 	id: string;
 	name: string;
@@ -182,7 +249,7 @@ export interface FinancialReport {
 	period: 'monthly' | 'quarterly' | 'yearly' | 'custom';
 	startDate: string;
 	endDate: string;
-	data: any;
+	data: FinancialReportData;
 	generatedAt: string;
 	userId: string;
 }
@@ -321,12 +388,24 @@ export interface InvoiceItemFormData {
 	categoryId?: string;
 }
 
+export type BankTransaction = {
+	date: string;
+	description: string;
+	amount: number;
+	type: 'debit' | 'credit';
+	balance?: number;
+};
+
 // AI Analysis Types
 export interface AIAnalysisResult {
 	id: string;
 	type: 'statement_parsing' | 'expense_categorization' | 'fraud_detection' | 'budget_insights';
 	confidence: number;
-	results: any;
+	results:
+		| StatementParsingResult
+		| ExpenseCategorizationResult[]
+		| FraudDetectionResult[]
+		| BudgetInsight[];
 	processedAt: string;
 	userId: string;
 }

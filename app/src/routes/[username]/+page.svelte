@@ -49,7 +49,7 @@
 	import { getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
 	import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 
-	export let data;
+	// export let data;
 
 	let activeTab: 'posts' | 'media' | 'likes' = 'posts';
 	let wallpaperError = false;
@@ -1015,7 +1015,8 @@
 					{$t('generic.back')}
 				</button>
 			</div>
-		{:else if !user}{:else if user}
+			<!-- {:else if !user} -->
+		{:else if user}
 			{#if isScrolled || $showInput || $showOverlay}
 				<div
 					class="profile-sticky-header"
@@ -1068,7 +1069,7 @@
 										<Icon name="MessageCircleMore" size={16} />
 										<!-- {$t('chat.message')} -->
 									</button>
-								{:else}{/if}
+								{/if}
 							{:else}
 								<!-- <button class="btn btn-primary" on:click={() => goto('/login')}>
 									<Icon name="UserIcon" size={16} />
@@ -1187,8 +1188,9 @@
 							on:mouseenter={() => isCurrentUser && (showWallpaperUpload = true)}
 							on:mouseleave={() => isCurrentUser && (showWallpaperUpload = false)}
 							on:click={() => isCurrentUser && fileInput?.click()}
-							role={isCurrentUser ? 'button' : undefined}
-							tabindex={isCurrentUser ? 0 : undefined}
+							role={isCurrentUser ? 'button' : 'img'}
+							{...isCurrentUser ? { tabindex: 0 } : {}}
+							aria-label={isCurrentUser ? 'Click to upload wallpaper' : 'Profile wallpaper'}
 							on:keydown={(e) =>
 								isCurrentUser && (e.key === 'Enter' || e.key === ' ') && fileInput?.click()}
 						>
@@ -1265,7 +1267,6 @@
 											class="description-input"
 											rows="3"
 											maxlength="160"
-											autofocus
 										></textarea>
 										<div class="description-actions">
 											<button class="btn btn-sm btn-primary" on:click={saveDescription}>
@@ -1291,7 +1292,8 @@
 											}
 										}}
 										role={isCurrentUser ? 'button' : undefined}
-										tabindex={isCurrentUser ? 0 : undefined}
+										{...isCurrentUser ? { tabindex: 0 } : {}}
+										aria-label={isCurrentUser ? 'Click to edit description' : 'User description'}
 										on:keydown={(e) => {
 											if (isCurrentUser && (e.key === 'Enter' || e.key === ' ')) {
 												descriptionValue = user?.description || '';
@@ -1555,7 +1557,6 @@
 											<PostCard
 												{post}
 												isRepost={post.isRepost || false}
-												isPreview={true}
 												on:upvote={handlePostInteraction}
 												on:downvote={handlePostInteraction}
 												on:repost={handlePostInteraction}
@@ -1712,13 +1713,6 @@
 		align-items: center;
 		justify-content: space-between;
 		background: var(--secondary-color);
-	}
-
-	.overlay-header h3 {
-		margin: 0;
-		font-size: 18px;
-		font-weight: 600;
-		color: var(--text-color);
 	}
 
 	.close-button {
@@ -2402,10 +2396,6 @@
 
 		.overlay-header {
 			padding: 0.75rem 1rem;
-		}
-
-		.overlay-header h3 {
-			font-size: 16px;
 		}
 
 		.stat-number {

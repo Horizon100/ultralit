@@ -61,7 +61,8 @@ export const POST: RequestHandler = async ({ request }) => {
 		return json(result);
 	} catch (error) {
 		console.error('SvelteKit API error:', error);
-		return json({ error: 'Internal server error', details: error.message }, { status: 500 });
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+		return json({ error: 'Internal server error', details: errorMessage }, { status: 500 });
 	}
 };
 
@@ -77,6 +78,7 @@ export const GET: RequestHandler = async () => {
 		return json({ status: 'available', service: health });
 	} catch (error) {
 		console.error('CV service health check failed:', error);
-		return json({ status: 'unavailable', error: error.message }, { status: 503 });
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+		return json({ status: 'unavailable', error: errorMessage }, { status: 503 });
 	}
 };

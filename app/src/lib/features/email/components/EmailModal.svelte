@@ -41,6 +41,7 @@
 
 	let searchQuery = '';
 	let showFilters = false;
+	let analysisError = '';
 
 	const dispatch = createEventDispatcher();
 
@@ -369,8 +370,9 @@ Priorities: low, medium, high`;
 						category: 'unknown'
 					};
 				}
-
-				// FIXED: Force Svelte reactivity by reassigning the entire object
+				if (!selectedMessage) {
+					throw new Error('No message selected for analysis');
+				}
 				if (selectedMessage) {
 					const aiAnalysis = {
 						id: Date.now().toString(),
@@ -382,7 +384,11 @@ Priorities: low, medium, high`;
 						priority: analysisResult.priority || 'medium',
 						category: analysisResult.category || 'unknown',
 						analyzedAt: new Date().toISOString(),
-						model: 'qwen2.5:0.5b'
+						model: 'qwen2.5:0.5b',
+						sentiment: analysisResult.sentiment || 'neutral',
+						tags: analysisResult.tags || [],
+						confidenceScore: analysisResult.confidenceScore || 0.8,
+						processedAt: new Date()
 					};
 
 					// Trigger Svelte reactivity by reassigning the entire selectedMessage
@@ -412,20 +418,20 @@ Priorities: low, medium, high`;
 		try {
 			isAnalyzing = true;
 			await analyzeEmailWithAI(selectedMessage);
-		} catch (error) {
-			console.error('AI analysis failed:', error);
-			error = 'Failed to analyze email with AI';
+		} catch (err) {
+			console.error('AI analysis failed:', err);
+			analysisError = 'Failed to analyze email with AI';
 		} finally {
 			isAnalyzing = false;
 		}
 	}
 
-	function getFromDisplay(from: any) {
-		if (!from || !Array.isArray(from) || from.length === 0) {
-			return 'Unknown Sender';
-		}
-		return from.map((f: any) => (f.name ? f.name.replace(/^"|"$/g, '') : '') || f.email).join(', ');
-	}
+	// function getFromDisplay(from: any) {
+	// 	if (!from || !Array.isArray(from) || from.length === 0) {
+	// 		return 'Unknown Sender';
+	// 	}
+	// 	return from.map((f: any) => (f.name ? f.name.replace(/^"|"$/g, '') : '') || f.email).join(', ');
+	// }
 	$: if (selectedMessage && !selectedMessage.aiAnalysis) {
 		handleAiAnalysis();
 	}
@@ -436,7 +442,7 @@ Priorities: low, medium, high`;
 		try {
 			aiAnalysisLoading = true;
 			aiAnalysisResult = await analyzeEmailWithAI(selectedMessage);
-		} catch (error) {
+		} catch (err) {
 			console.error('AI analysis failed:', error);
 			aiAnalysisResult = null;
 		} finally {
@@ -446,7 +452,18 @@ Priorities: low, medium, high`;
 </script>
 
 <div class="modal-overlay">
-	<div class="modal-content" on:click|stopPropagation>
+	<div
+		class="modal-content"
+		role="button"
+		tabindex="0"
+		on:click|stopPropagation
+		on:keydown={(e) => {
+			if (e.key === 'Enter' || e.key === ' ') {
+				e.preventDefault();
+				e.stopPropagation();
+			}
+		}}
+	>
 		<div class="modal-body">
 			<!-- Navigation -->
 			<nav class="modal-nav">
@@ -645,9 +662,13 @@ Priorities: low, medium, high`;
 						{:else}
 							<div class="messages-list">
 								{#each messages as message}
-									<div
+									<button
+										type="button"
 										class="message-card {!message.isRead ? 'unread' : ''}"
 										on:click={() => loadMessageDetail(message.id)}
+										aria-label="Open email from {(message.from.name
+											? message.from.name.replace(/^"|"$/g, '')
+											: '') || message.from.email}: {message.subject}"
 									>
 										<div class="message-header">
 											<div class="message-from">
@@ -675,7 +696,7 @@ Priorities: low, medium, high`;
 												<span class="ai-indicator">🤖</span>
 											{/if}
 										</div>
-									</div>
+									</button>
 								{/each}
 							</div>
 						{/if}
@@ -825,6 +846,7 @@ Priorities: low, medium, high`;
 										<div class="html-content">
 											<h4>HTML Version:</h4>
 											<div class="email-body">
+												<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 												{@html sanitizeEmailHtml(emailContent.htmlContent)}
 											</div>
 										</div>
@@ -832,6 +854,7 @@ Priorities: low, medium, high`;
 										<div class="formatted-text-content">
 											<h4>Text Version (with formatted links):</h4>
 											<div class="formatted-text">
+												<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 												{@html emailContent.formattedText}
 											</div>
 										</div>
@@ -839,6 +862,7 @@ Priorities: low, medium, high`;
 								{:else if contentType === 'text'}
 									<div class="formatted-text-content">
 										<div class="formatted-text">
+											<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 											{@html emailContent.formattedText}
 										</div>
 									</div>
@@ -882,7 +906,7 @@ Priorities: low, medium, high`;
 		align-items: center;
 		justify-content: center;
 		width: 100%;
-		margin: 0 2rem;
+		margin: 0;
 		z-index: 1000;
 		background: transparent;
 	}
@@ -900,12 +924,14 @@ Priorities: low, medium, high`;
 		overflow: hidden;
 		display: flex;
 		flex-direction: column;
-		width: 100%;
-		max-width: calc(100% - 4rem);
+		justify-content: center;
+		align-items: flex-end;
+		width: calc(100% - 2rem);
+		// max-width: calc(100% - 4rem);
 	}
 
 	.modal-nav {
-		padding: 1rem 1.5rem;
+		// padding: 1rem 1.5rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -970,25 +996,6 @@ Priorities: low, medium, high`;
 		font-family: var(--font-family);
 	}
 
-	.loading {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 1rem;
-		padding: 2rem;
-		color: var(--text-color);
-		font-family: var(--font-family);
-
-		.spinner {
-			width: 24px;
-			height: 24px;
-			border: 2px solid var(--line-color);
-			border-top: 2px solid var(--tertiary-color);
-			border-radius: 50%;
-			animation: spin 1s linear infinite;
-		}
-	}
-
 	@keyframes spin {
 		0% {
 			transform: rotate(0deg);
@@ -1001,7 +1008,7 @@ Priorities: low, medium, high`;
 	.content-area {
 		flex: 1;
 		display: flex;
-		width: 100%;
+		width: calc(100% - 4rem);
 		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
@@ -1421,11 +1428,15 @@ Priorities: low, medium, high`;
 			font-size: 0.8rem;
 		}
 	}
-
+	.message-detail-view {
+		background-color: red;
+		width: auto;
+	}
 	.message-detail {
-		margin: 0 auto;
+		margin: 0;
+		width: 450px;
 
-		.message-info {
+		& .message-info {
 			padding: 0.5rem;
 
 			.info-row {
@@ -1518,7 +1529,7 @@ Priorities: low, medium, high`;
 			.content-options {
 				display: flex;
 				flex-direction: column;
-				width: 100%;
+				width: 380px;
 			}
 
 			.html-content,
@@ -1668,8 +1679,7 @@ Priorities: low, medium, high`;
 			}
 		}
 	}
-	.email-body {
-	}
+
 	.email-body :global(div[style*='display:auto']) {
 		display: none !important;
 	}
@@ -1724,8 +1734,8 @@ Priorities: low, medium, high`;
 		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		width: 100%;
 		gap: 1rem;
+		width: 350px;
 	}
 
 	.analyze-btn,

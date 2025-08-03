@@ -14,7 +14,7 @@
 	import RightSideMenu from '$lib/components/navigation/RightSideMenu.svelte';
 	import { writable } from 'svelte/store';
 	import Assets from '$lib/features/canvas/components/Assets.svelte';
-	import type { Shape, AIAgent } from '$lib/types/types'; // Import Shape from your types file
+	import type { Shape, AIAgent } from '$lib/types/types';
 	import { createAgent } from '$lib/clients/agentClient';
 	import { agentStore } from '$lib/stores/agentStore';
 	import Connector from '$lib/features/canvas/components/Connector.svelte';
@@ -39,7 +39,7 @@
 	let svgElement: SVGSVGElement;
 	let viewBox = '0 0 2000 857';
 	let containerDiv: HTMLDivElement;
-	let shapes: Shape[] = []; // Update this to use the Shape type
+	let shapes: Shape[] = [];
 	let connectors: Array<{
 		id: string;
 		startId: string;
@@ -57,10 +57,8 @@
 	 * export let endPoint: string;
 	 */
 	export let selectedShape: Shape | AIAgent | null = null;
-	export let shape: Shape;
+	// export let shape: Shape;
 	export let scale: number;
-
-	// export let userId: string;
 
 	$: canvasWidth = width - $leftSideMenuWidth - $rightSideMenuWidth;
 	$: canvasOffsetX = $leftSideMenuWidth;
@@ -74,14 +72,12 @@
 		connectingStart = { shapeId, point };
 	}
 
-	// Import
 	let fileInput: HTMLInputElement;
 	let showImportDocs = false;
 	let importX = 0;
 	let importY = 0;
 	let uploadedFiles: Array<{ file: File; x: number; y: number }> = [];
 
-	// Zoom
 	let zoomLevel = tweened(100, {
 		duration: 300,
 		easing: cubicOut
@@ -116,7 +112,6 @@
 	$: scale = $zoomLevel / 100;
 	$: viewBox = `${$offsetX} ${$offsetY} ${width / scale} ${height / scale}`;
 
-	// Side menus
 	let showLeftSideMenu = false;
 	let showRightSideMenu = false;
 
@@ -184,7 +179,6 @@
 		}
 	}
 
-	// Zoom functions
 	function zoomIn() {
 		if ($zoomLevel < 1000) {
 			zoomLevel.set($zoomLevel + 10);
@@ -224,7 +218,6 @@
 		offsetY.set(newOffsetY);
 	}
 
-	// Pan functions
 	let isPanning = false;
 	let startX: number;
 	let startY: number;
@@ -264,7 +257,6 @@
 		svgElement.style.cursor = 'default';
 	}
 
-	// Grid
 	function updateGrid() {
 		const gridSize = 25;
 		const lines = [];
@@ -295,7 +287,6 @@
 		}));
 	}
 
-	// Shape handling
 	async function handleAddShape(event: CustomEvent<{ shape: Shape; x: number; y: number }>) {
 		const result = await clientTryCatch(
 			(async () => {
@@ -482,7 +473,6 @@
 							createAgentInDatabase(x, y);
 						}
 
-						// Select the new shape and open left side menu
 						selectedShapeId = newShape.id;
 						openLeftSideMenu(newShape);
 					}
@@ -552,7 +542,6 @@
 		console.log('Shape added to shapes array:', newShape);
 		newShape.opacity.set(1);
 
-		// Add the style to the document head
 		if (shape.component?.style) {
 			const styleElement = document.createElement('style');
 			styleElement.textContent = shape.component.style;
@@ -584,8 +573,6 @@
 		window.addEventListener('mousemove', mousemove);
 		window.addEventListener('mouseup', mouseup);
 	}
-
-	// Import handling
 
 	function handlePaste(event: ClipboardEvent) {
 		event.preventDefault();
@@ -626,11 +613,55 @@
 	function handleImportCancel() {
 		showImportDocs = false;
 	}
+	function handleCanvasKeydown(event: KeyboardEvent) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			handleCanvasClick(event as any);
+		}
+	}
+	function handleShapeKeydown(event: KeyboardEvent, shape: any) {
+		if (event.key === 'Enter' || event.key === ' ') {
+			event.preventDefault();
+			event.stopPropagation();
+			handleShapeClick(shape);
+		} else if (selectedShapeId === shape.id) {
+			const moveDistance = event.shiftKey ? 10 : 1; // Hold Shift for larger movements
+			let moved = false;
+
+			switch (event.key) {
+				case 'ArrowUp':
+					shape.y = (shape.y ?? 0) - moveDistance;
+					moved = true;
+					break;
+				case 'ArrowDown':
+					shape.y = (shape.y ?? 0) + moveDistance;
+					moved = true;
+					break;
+				case 'ArrowLeft':
+					shape.x = (shape.x ?? 0) - moveDistance;
+					moved = true;
+					break;
+				case 'ArrowRight':
+					shape.x = (shape.x ?? 0) + moveDistance;
+					moved = true;
+					break;
+				case 'Delete':
+				case 'Backspace':
+					event.preventDefault();
+					break;
+			}
+
+			if (moved) {
+				event.preventDefault();
+				shapes = shapes;
+			}
+		}
+	}
+	let unsubscribe: (() => void) | undefined;
 
 	onMount(async () => {
 		if (!browser) return;
 
-		// Check authentication first
 		const {
 			success,
 			error: err,
@@ -654,32 +685,50 @@
 		} else {
 			console.log('SVG element is properly defined');
 		}
-		const unsubscribe = agentStore.subscribe(
-			(value: { agents: AIAgent[]; updateStatus: string }) => {
-				agents = Array.isArray(value.agents) ? value.agents : [];
-			}
-		);
 
-		return () => {
+		unsubscribe = agentStore.subscribe((value: { agents: AIAgent[]; updateStatus: string }) => {
+			agents = Array.isArray(value.agents) ? value.agents : [];
+		});
+	});
+
+	onDestroy(() => {
+		if (unsubscribe) {
 			unsubscribe();
-		};
+		}
+
+		window.removeEventListener('resize', updateDimensions);
 	});
 </script>
 
 <ConfigWrapper />
+
+<!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
+
 <div
 	bind:this={containerDiv}
 	class="layout-container"
 	on:click={handleCanvasClick}
+	on:keydown={handleCanvasKeydown}
 	on:drop={handleDrop}
 	on:paste={handlePaste}
 	on:dragover|preventDefault
 	role="application"
 >
 	<CursorEffect />
-
-	<div class="left-edge" on:mouseenter={handleLeftEdgeHover} role="button" tabindex="0"></div>
-	<div class="right-edge" on:mouseenter={handleRightEdgeHover}></div>
+	<button
+		class="left-edge"
+		on:mouseenter={handleLeftEdgeHover}
+		on:click={handleLeftEdgeHover}
+		type="button"
+		aria-label="Show left menu"
+	></button>
+	<button
+		class="right-edge"
+		on:mouseenter={handleRightEdgeHover}
+		on:click={handleRightEdgeHover}
+		type="button"
+		aria-label="Show right menu"
+	></button>
 
 	<LeftSideMenu
 		width={$leftSideMenuWidth}
@@ -737,16 +786,20 @@
 					id={shape.id}
 					class="shape-container {selectedShapeId === shape.id ? 'selected' : ''}"
 					style="
-                        position: absolute;
-                        left: calc({(shape.x ?? 0) * scale +
+						position: absolute;
+						left: calc({(shape.x ?? 0) * scale +
 						$offsetX}px + {$leftSideMenuWidth}px - {$rightSideMenuWidth}px);
-                        top: calc({(shape.y ?? 0) * scale + $offsetY}px);
-                        width: {(shape.width || 120) * scale}px;
-                        height: {(shape.height || 120) * scale}px;
-                        transform-origin: top left;
-                        "
+						top: calc({(shape.y ?? 0) * scale + $offsetY}px);
+						width: {(shape.width || 120) * scale}px;
+						height: {(shape.height || 120) * scale}px;
+						transform-origin: top left;
+					"
+					role="button"
+					tabindex="0"
+					aria-label="Shape {shape.id}"
 					on:mousedown={(e) => dragShape(e, shape.id)}
 					on:click|stopPropagation={() => handleShapeClick(shape)}
+					on:keydown={(e) => handleShapeKeydown(e, shape)}
 					on:mouseenter={() => (showConnectionPoints = true)}
 					on:mouseleave={() => (showConnectionPoints = false)}
 				>
@@ -759,18 +812,22 @@
 						<button
 							class="connection-point top"
 							on:mousedown={() => startConnection('top', shape.id)}
+							aria-label="Connect from top"
 						></button>
 						<button
 							class="connection-point right"
 							on:mousedown={() => startConnection('right', shape.id)}
+							aria-label="Connect from right"
 						></button>
 						<button
 							class="connection-point bottom"
 							on:mousedown={() => startConnection('bottom', shape.id)}
+							aria-label="Connect from bottom"
 						></button>
 						<button
 							class="connection-point left"
 							on:mousedown={() => startConnection('left', shape.id)}
+							aria-label="Connect from left"
 						></button>
 					{/if}
 				</div>
@@ -829,7 +886,6 @@
 </div>
 
 <style lang="scss">
-	// @use 'src/lib/styles/themes.scss' as *;
 	* {
 		font-family: var(--font-family);
 		transition: all 0.3s ease;

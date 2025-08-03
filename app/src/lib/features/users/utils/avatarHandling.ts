@@ -1,8 +1,8 @@
 // lib/features/users/utils/avatarHandling.ts
 import { get } from 'svelte/store';
-import { pocketbaseUrl } from '$lib/stores/pocketbase'; // Updated import
+import { pocketbaseUrl } from '$lib/stores/pocketbase';
 import type { User, AIAgent } from '$lib/types/types';
-import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils'; // Adjust path as needed
+import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 
 export interface AvatarUser {
 	id: string;
@@ -15,9 +15,8 @@ export interface AvatarUser {
 }
 
 const avatarUrlCache = new Map<string, string>();
-
-export function getAvatarUrl(user: AvatarUser | null): string {
-    if (!user?.avatar) return null;
+export function getAvatarUrl(user: AvatarUser | null): string | null {
+	if (!user?.avatar) return '';
 
 	const cacheKey = `${user.id}-${user.avatar}`;
 	const cachedUrl = avatarUrlCache.get(cacheKey);
@@ -47,14 +46,11 @@ export function getAvatarUrl(user: AvatarUser | null): string {
 	return avatarUrl;
 }
 
-// New function that includes identicon fallback
 export function getAvatarUrlWithFallback(user: AvatarUser | null, size: number = 64): string {
 	if (!user) return '';
 
-	// Try to get uploaded avatar first
 	const uploadedAvatar = getAvatarUrl(user);
 
-	// If no uploaded avatar, generate identicon
 	if (!uploadedAvatar) {
 		return generateUserIdenticon(getUserIdentifier(user), size);
 	}
@@ -75,17 +71,13 @@ export function getExpandedUserAvatarUrl(
 		return '';
 	}
 
-	// If avatar is already a full URL, use it
 	if (expandedUser.avatar.startsWith('http')) {
 		return expandedUser.avatar;
 	}
 
-	// Get current pocketbase URL from store
 	const currentPocketbaseUrl = get(pocketbaseUrl);
-	// Build the avatar URL from PocketBase
 	let avatarUrl = `${currentPocketbaseUrl}/api/files/_pb_users_auth_/${expandedUser.id}/${expandedUser.avatar}`;
 
-	// Add timestamp for cache busting if provided
 	if (timestamp) {
 		avatarUrl = `${avatarUrl}?t=${timestamp}`;
 	}
@@ -93,7 +85,6 @@ export function getExpandedUserAvatarUrl(
 	return avatarUrl;
 }
 
-// New function for expanded user with identicon fallback
 export function getExpandedUserAvatarUrlWithFallback(
 	expandedUser: {
 		id: string;
@@ -105,10 +96,8 @@ export function getExpandedUserAvatarUrlWithFallback(
 	timestamp?: number,
 	size: number = 64
 ): string {
-	// Try to get uploaded avatar first
 	const uploadedAvatar = getExpandedUserAvatarUrl(expandedUser, timestamp);
 
-	// If no uploaded avatar, generate identicon
 	if (!uploadedAvatar) {
 		return generateUserIdenticon(getUserIdentifier(expandedUser), size);
 	}
@@ -123,7 +112,6 @@ export function getAgentAvatarUrl(agent: AIAgent): string {
 
 	const cacheKey = `${agent.id}-${agent.avatar}`;
 
-	// Return cached URL if available
 	if (agentAvatarUrlCache.has(cacheKey)) {
 		const cachedUrl = agentAvatarUrlCache.get(cacheKey);
 		return cachedUrl || '';
@@ -140,17 +128,13 @@ export function getAgentAvatarUrl(agent: AIAgent): string {
 
 	let avatarUrl = '';
 
-	// If avatar is already a full URL, use it
 	if (typeof avatar === 'string' && avatar.startsWith('http')) {
 		avatarUrl = avatar;
 	} else if (typeof avatar === 'string') {
-		// Get current pocketbase URL from store
 		const currentPocketbaseUrl = get(pocketbaseUrl);
-		// Build the avatar URL from PocketBase
 		avatarUrl = `${currentPocketbaseUrl}/api/files/${collectionId}/${agentId}/${avatar}`;
 	}
 
-	// Cache the result
 	agentAvatarUrlCache.set(cacheKey, avatarUrl);
 
 	return avatarUrl;

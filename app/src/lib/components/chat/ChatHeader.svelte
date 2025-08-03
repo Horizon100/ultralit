@@ -16,10 +16,10 @@
 
 	export let currentThread: Threads | null = null;
 	export let userId: string;
-	export let user: User | null = null;
+	// export let user: User | null = null;
 	export let isUpdatingThreadName = false;
-	export let isEditingThreadName = false;
-	export let editedThreadName = '';
+	// export let isEditingThreadName = false;
+	// export let editedThreadName = '';
 	export let isMinimized = false;
 	export let promptSuggestions: string[] = [];
 	$: currentUserName = $currentUser?.name || $currentUser?.username || 'You';
@@ -63,7 +63,7 @@
 						<div class="spinner"></div>
 					</div>
 				{:else}
-					<span on:click={startEditingThreadName}>
+					<button on:click={startEditingThreadName}>
 						<div class="icon" in:fade>
 							<!-- Optional icon -->
 						</div>
@@ -72,7 +72,7 @@
 								{currentThread?.name || '(untitled)'}
 							</h3>
 						{/key}
-					</span>
+					</button>
 				{/if}
 			{:else}
 				<!-- Read-only thread name for non-owners -->
@@ -145,16 +145,15 @@
 	}
 	.slot-wrapper {
 		width: 100%;
-		max-width: 1200px;
-		margin: 1rem 0;
+		margin: 0;
 		z-index: 9999;
 	}
 	.container-row {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
+		max-width: 1200px;
 		height: 100%;
-		margin-bottom: 11rem !important;
 		position: relative;
 		justify-content: space-between;
 		align-items: center;
@@ -197,7 +196,7 @@
 			transition: all 0.3s ease;
 			& p {
 				font-size: 1.25rem;
-				text-align: right;
+				text-align: center;
 				width: 100%;
 				margin: 0;
 				padding: 0.5rem 0;
@@ -209,7 +208,7 @@
 				font-size: 2rem !important;
 				display: flex;
 				width: auto;
-				justify-content: flex-end !important;
+				justify-content: center !important;
 				align-items: center !important;
 				padding: 0 !important;
 				width: 100%;
@@ -229,8 +228,9 @@
 			display: flex;
 			flex-direction: row;
 			width: 100%;
+
 			flex-wrap: wrap;
-			justify-content: flex-end;
+			justify-content: center;
 			align-items: center;
 			margin-top: 1rem;
 			gap: 0.5rem;
@@ -290,7 +290,7 @@
 	}
 
 	.chat-header {
-		height: 3rem;
+		height: auto;
 		margin-left: 0;
 		// margin-bottom: 160px;
 		position: relative;
@@ -319,10 +319,18 @@
 			rgba(255, 255, 255, 0.05) 40%
 		);
 		backdrop-filter: blur(2px) !important;
+		& button {
+			background: none;
+			border: none;
+			color: var(--text-color);
+			cursor: pointer;
+			padding: 0;
+			transition: background-color 0.2s;
+		}
 		& h3 {
 			margin: 0;
 			margin-top: auto;
-			font-size: 1rem !important;
+			font-size: 1.2rem !important;
 			text-align: left;
 			font-weight: 600;
 			&.active {
@@ -403,11 +411,9 @@
 		border-radius: var(--radius-m);
 		// background: var(--primary-color);
 		transition: all 0.3s ease;
-		margin-left: 1rem;
-		margin-right: 1rem;
 
 		margin-top: 0;
-		height: calc(100vh - 20rem);
+		height: 100%;
 		user-select: none;
 		scrollbar-width: thin;
 		scrollbar-color: var(--secondary-color) transparent;
@@ -475,9 +481,10 @@
 		transition: all 0.3s ease;
 		position: relative;
 		width: calc(100% - 2rem) !important;
-		max-width: 1200px;
+		max-width: 1600px;
 		margin-top: 1rem;
 		padding: 1rem;
+		height: 100% !important;
 		// animation: pulsateShadow 1.5s infinite alternate;
 		border-radius: 2rem;
 		flex: 1;

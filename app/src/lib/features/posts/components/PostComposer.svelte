@@ -27,8 +27,6 @@
 	import { extractPdfKeywords } from '$lib/utils/pdfKeywordExtractor';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
 
-	export let placeholder: string = $t('posts.textareaPlaceholder') as string;
-	export let buttonText: string = $t('posts.postButton') as string;
 	export let initialContent: string = '';
 	export let disabled: boolean = false;
 	export let parentId: string | undefined = undefined;
@@ -46,6 +44,10 @@
 	export let attachmentImageDescriptionModel: string = 'moondream:latest';
 	export let attachmentMaxTags: number = 8;
 	export let attachmentTaggingTemperature: number = 0.3;
+	export let placeholder: string = '';
+	export let buttonText: string = '';
+	export let isQuote: boolean = false;
+	export let isComment: boolean = false;
 
 	let content = initialContent;
 	let attachments: File[] = [];
@@ -66,9 +68,28 @@
 		postCreated: { postId: string; post: PostWithInteractions };
 		taggingComplete: { postId: string; success: boolean };
 	}>();
+
 	let textareaElement: HTMLTextAreaElement;
 
-	// Reactive check for tag generation eligibility
+	$: defaultPlaceholder = isQuote
+		? ($t('posts.quotePlaceholder') as string)
+		: isComment
+			? ($t('posts.commentPlaceholder') as string)
+			: parentId
+				? ($t('posts.replyPlaceholder') as string)
+				: ($t('posts.postPlaceholder') as string);
+
+	$: defaultButtonText = isQuote
+		? ($t('posts.quoteButton') as string)
+		: isComment
+			? ($t('posts.commentButton') as string)
+			: parentId
+				? ($t('posts.replyButton') as string)
+				: ($t('posts.postButton') as string);
+
+	$: finalPlaceholder = placeholder || defaultPlaceholder;
+	$: finalButtonText = buttonText || defaultButtonText;
+
 	$: {
 		if (enableAutoTagging && content) {
 			willGenerateTags = shouldGenerateTags(content);
@@ -129,13 +150,11 @@
 			return;
 		}
 
-		// Check if this is a comment (has parentId) - if so, dispatch event instead of direct API call
 		if (parentId) {
 			console.log('📤 This is a comment - dispatching submit event to parent');
 
 			let processedAttachments = attachments;
 
-			// Show conversion progress for videos
 			if (attachments.some((f) => f.type.startsWith('video/'))) {
 				console.log('Converting videos...');
 				processedAttachments = await processVideoAttachments(attachments);
@@ -154,14 +173,12 @@
 				dispatch('submit', submitData);
 				console.log('✅ POST COMPOSER: Submit event dispatched successfully');
 
-				// Reset form after dispatching
 				content = '';
 				attachments = [];
 				willGenerateTags = false;
 				attachmentsWithTaggingSupport = [];
 				if (fileInput) fileInput.value = '';
 
-				// Reset textarea height
 				if (textareaElement) {
 					textareaElement.style.height = 'auto';
 				}
@@ -173,7 +190,6 @@
 			return;
 		}
 
-		// Original logic for top-level posts (no parentId)
 		console.log('📝 This is a top-level post - using direct API call');
 
 		isSubmitting = true;
@@ -182,37 +198,32 @@
 			enableAttachmentTagging &&
 			attachmentsWithTaggingSupport.some((a) => a.supportsText || a.supportsImage);
 
-		// Check if we have PDF files for tagging
 		const hasPdfFiles = attachments.some((file) => file.type === 'application/pdf');
 		const shouldTagPdf = hasPdfFiles && enableAttachmentTagging;
 
 		console.log('📄 PDF tagging check:', { hasPdfFiles, shouldTagPdf });
 
-		const contentToTag = content.trim(); // Store content before reset
+		const contentToTag = content.trim();
 
 		try {
 			let processedAttachments = attachments;
 
-			// Show conversion progress for videos
 			if (attachments.some((f) => f.type.startsWith('video/'))) {
 				console.log('Converting videos...');
 				processedAttachments = await processVideoAttachments(attachments);
 				console.log('Video conversion complete');
 			}
 
-			// FIXED: Create FormData and make direct fetch with explicit cookie handling
 			console.log('🔧 Creating FormData for direct API call...');
 
 			const formData = new FormData();
 			formData.append('content', contentToTag);
 			formData.append('user', $currentUser.id);
 
-			// Add parent ID if this is a comment
 			if (parentId) {
 				formData.append('parent', parentId);
 			}
 
-			// Add attachments if any
 			if (processedAttachments.length > 0) {
 				processedAttachments.forEach((file, index) => {
 					formData.append(`attachment_${index}`, file);
@@ -221,11 +232,10 @@
 
 			console.log('📡 Making direct fetch request to /api/posts...');
 
-			// Make the request with explicit cookie handling
 			const response = await fetch('/api/posts', {
 				method: 'POST',
 				body: formData,
-				credentials: 'include', // Ensure cookies are sent
+				credentials: 'include',
 				headers: {
 					// Don't set Content-Type - let browser set it for FormData
 					// 'Accept': 'application/json'
@@ -259,21 +269,17 @@
 			const postId = newPost.id;
 			console.log('✅ Post created successfully with ID:', postId);
 
-			// Update the post store manually since we bypassed it
 			postStore.update((state) => ({
 				...state,
 				posts: [newPost, ...state.posts]
 			}));
 
-			// Dispatch post creation event
 			dispatch('postCreated', { postId, post: newPost });
 
-			// Handle post content tagging
 			if (shouldTag && postId && $currentUser?.id) {
 				console.log('🏷️ Starting local auto-tagging for post:', postId);
 
 				try {
-					// Build tagging options for local AI
 					const taggingOptions: LocalTaggingOptions = {
 						model: taggingModel,
 						maxTags: maxTags,
@@ -285,10 +291,8 @@
 
 					console.log('🏷️ Tagging options:', taggingOptions);
 
-					// Store attachments for tagging before they get reset
 					const attachmentsToTag = [...attachments];
 
-					// Call the local async tagging function with attachments
 					processPostTaggingAsync(
 						contentToTag,
 						postId,
@@ -297,7 +301,6 @@
 						taggingOptions
 					);
 
-					// Dispatch tagging started event
 					dispatch('taggingComplete', { postId, success: true });
 					console.log('🏷️ Local auto-tagging initiated successfully for post:', postId);
 				} catch (taggingError) {
@@ -308,7 +311,6 @@
 				console.error('❌ Cannot start auto-tagging: no post ID received');
 			}
 
-			// Handle attachment tagging (including PDF files)
 			if (
 				(shouldTagAttachments || shouldTagPdf) &&
 				newPost.attachments &&
@@ -321,7 +323,6 @@
 				);
 
 				try {
-					// Build attachment tagging options
 					const attachmentTaggingOptions: AttachmentTaggingOptions = {
 						model: attachmentTaggingModel,
 						maxTags: attachmentMaxTags,
@@ -334,29 +335,27 @@
 
 					console.log('🏷️ Attachment tagging options:', attachmentTaggingOptions);
 
-					// Prepare attachment data for tagging
 					const attachmentsForTagging = newPost.attachments.map(
 						(attachment: any, index: number) => ({
 							id: attachment.id,
 							postId: postId,
-							attachment: attachments[index] // Use the original File object for PDF processing
+							attachment: attachments[index]
 						})
 					);
 
-					// Log PDF files being processed
 					const pdfAttachments = attachmentsForTagging.filter(
-						({ attachment }) => attachment instanceof File && attachment.type === 'application/pdf'
+						({ attachment }: { attachment: File }) =>
+							attachment instanceof File && attachment.type === 'application/pdf'
 					);
 					if (pdfAttachments.length > 0) {
 						console.log(
 							'📄 Found',
 							pdfAttachments.length,
 							'PDF files for tagging:',
-							pdfAttachments.map((a) => a.attachment.name)
+							pdfAttachments.map((a: { attachment: File }) => a.attachment.name)
 						);
 					}
 
-					// Start async attachment tagging
 					processAttachmentTaggingAsync(attachmentsForTagging, attachmentTaggingOptions);
 
 					console.log(
@@ -369,14 +368,12 @@
 				}
 			}
 
-			// Reset form
 			content = '';
 			attachments = [];
 			willGenerateTags = false;
 			attachmentsWithTaggingSupport = [];
 			if (fileInput) fileInput.value = '';
 
-			// Reset textarea height
 			if (textareaElement) {
 				textareaElement.style.height = 'auto';
 			}
@@ -426,7 +423,7 @@
 		<textarea
 			bind:this={textareaElement}
 			class="composer-textarea"
-			placeholder="What's happening?"
+			placeholder={finalPlaceholder}
 			bind:value={content}
 			on:input={handleInput}
 			on:paste={() => {
@@ -539,13 +536,14 @@
 			</div>
 		{/if}
 		<button
+			type="submit"
 			class="post-button"
 			class:active={content.trim() && !isSubmitting}
 			on:click={handleSubmit}
 			disabled={!content.trim() || isSubmitting || disabled}
 		>
 			<Icon name="Send" size={16} />
-			{isSubmitting ? $t('posts.posting') : ''}
+			{isSubmitting ? { finalButtonText } : ''}
 		</button>
 	</div>
 </div>
@@ -555,12 +553,11 @@
 	$breakpoint-md: 1000px;
 	$breakpoint-lg: 992px;
 	$breakpoint-xl: 1200px;
-	// @use 'src/lib/styles/themes.scss' as *;
+
 	* {
 		font-family: var(--font-family);
 	}
 	.post-composer {
-		// background: var(--primary-color);
 		background: transparent !important;
 		border-radius: 2rem !important;
 		padding: 1rem;
@@ -571,15 +568,6 @@
 		display: flex;
 		gap: 12px;
 		margin-bottom: 12px;
-	}
-
-	.composer-avatar {
-		width: 2.5rem;
-		height: 2.5rem;
-		border-radius: 50%;
-		object-fit: cover;
-		border: 1px solid var(--line-color);
-		flex-shrink: 0;
 	}
 
 	.composer-textarea {
@@ -618,9 +606,9 @@
 	}
 
 	/* Only show scrollbar when content exceeds max-height */
-	.composer-textarea.scrollable {
-		overflow-y: auto;
-	}
+	// .composer-textarea.scrollable {
+	// 	overflow-y: auto;
+	// }
 
 	.composer-textarea::-webkit-scrollbar {
 		width: 0.5rem;
@@ -878,15 +866,7 @@
 
 			height: auto;
 		}
-		.composer-avatar {
-			width: 2rem;
-			height: 2rem;
-			border-radius: 50%;
-			object-fit: cover;
-			border: 1px solid var(--line-color);
-			flex-shrink: 0;
-			display: none;
-		}
+
 		.composer-textarea {
 			background: transparent;
 			border: none;

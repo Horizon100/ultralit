@@ -20,6 +20,25 @@ export interface PDFDocument {
 	title?: string;
 }
 
+interface TextItem {
+	str: string;
+	dir: string;
+	width: number;
+	height: number;
+	transform: number[];
+	fontName: string;
+	hasEOL: boolean;
+}
+
+function isTextItem(item: unknown): item is TextItem {
+	return (
+		item !== null &&
+		typeof item === 'object' &&
+		'str' in item &&
+		typeof (item as TextItem).str === 'string'
+	);
+}
+
 /**
  * Generate thumbnail for PDF first page
  */
@@ -38,7 +57,6 @@ export async function generatePDFThumbnail(
 
 		const pdf = await pdfjsLib.getDocument({
 			url: pdfUrl,
-			// Add CORS handling if needed
 			cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
 			cMapPacked: true
 		}).promise;
@@ -49,7 +67,11 @@ export async function generatePDFThumbnail(
 		const scaledViewport = page.getViewport({ scale });
 
 		const canvas = document.createElement('canvas');
-		const context = canvas.getContext('2d')!;
+		const context = canvas.getContext('2d');
+
+		if (!context) {
+			throw new Error('Could not get canvas 2D context');
+		}
 
 		canvas.width = scaledViewport.width;
 		canvas.height = scaledViewport.height;
@@ -75,7 +97,6 @@ export async function generatePDFThumbnail(
  */
 export async function loadPDFDocument(pdfUrl: string): Promise<PDFDocument> {
 	try {
-		// Validate URL
 		if (!pdfUrl || typeof pdfUrl !== 'string') {
 			throw new Error('Invalid PDF URL provided');
 		}
@@ -89,10 +110,18 @@ export async function loadPDFDocument(pdfUrl: string): Promise<PDFDocument> {
 		}).promise;
 		const metadata = await pdf.getMetadata();
 
+		let title = 'PDF Document';
+		if (metadata.info && typeof metadata.info === 'object' && 'Title' in metadata.info) {
+			const titleValue = (metadata.info as Record<string, unknown>).Title;
+			if (typeof titleValue === 'string' && titleValue.trim()) {
+				title = titleValue;
+			}
+		}
+
 		return {
 			pdf,
 			numPages: pdf.numPages,
-			title: metadata.info?.Title || 'PDF Document'
+			title
 		};
 	} catch (error) {
 		console.error('Error loading PDF document:', error);
@@ -107,7 +136,11 @@ export async function extractTextFromPage(pdf: PDFDocumentProxy, pageNum: number
 	try {
 		const page = await pdf.getPage(pageNum);
 		const textContent = await page.getTextContent();
-		return textContent.items.map((item: any) => item.str).join(' ');
+
+		return textContent.items
+			.filter(isTextItem)
+			.map((item) => item.str)
+			.join(' ');
 	} catch (error) {
 		console.error('Error extracting text from page:', error);
 		throw error;

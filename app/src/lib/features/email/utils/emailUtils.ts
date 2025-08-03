@@ -203,12 +203,19 @@ export class EmailService {
 			}
 		}
 
-		// Convert HTML to text if only HTML is available
 		if (!bodyText && bodyHtml) {
 			bodyText = htmlToText(bodyHtml, {
 				wordwrap: 130,
-				ignoreHref: true,
-				ignoreImage: true
+				selectors: [
+					{
+						selector: 'a',
+						options: { ignoreHref: true }
+					},
+					{
+						selector: 'img',
+						format: 'skip'
+					}
+				]
 			});
 		}
 

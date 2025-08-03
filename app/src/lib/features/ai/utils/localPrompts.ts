@@ -7,6 +7,8 @@ export interface PromptConfig {
 	custom: string;
 	image_description: string;
 	image_tags: string;
+	image_generation: string;
+	image_llava: string;
 }
 
 export interface PDFPromptConfig {
@@ -46,7 +48,9 @@ export const prompts: PromptConfig = {
 	tags: generateTagsPrompt(5),
 	custom: '',
 	image_description: 'Describe what you see in this image in detail:',
-	image_tags: generateTagsPrompt(8)
+	image_tags: generateTagsPrompt(8),
+	image_generation: 'Generate a detailed image based on this description:',
+	image_llava: 'Generate a detailed image based on this description:'
 };
 
 /**
@@ -63,10 +67,12 @@ export const pdfPrompts: PDFPromptConfig = {
 /**
  * Get a specific prompt by key
  */
-export const getPrompt = (key: keyof PromptConfig): string => {
-	return prompts[key];
+export const getPrompt = (key: keyof PromptConfig | keyof PDFPromptConfig): string => {
+	if (key.startsWith('pdf_')) {
+		return pdfPrompts[key as keyof PDFPromptConfig];
+	}
+	return prompts[key as keyof PromptConfig];
 };
-
 /**
  * Get a specific PDF prompt by key
  */

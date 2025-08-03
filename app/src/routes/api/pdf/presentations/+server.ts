@@ -5,6 +5,12 @@ import { spawn } from 'child_process';
 import { writeFile, unlink } from 'fs/promises';
 import { join } from 'path';
 import crypto from 'crypto';
+import type {
+	PresentationAnalysisResult,
+	SlideData,
+	SlideStructure,
+	PDFMetadata
+} from '$lib/types/types.pdf';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -39,7 +45,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	}
 };
 
-async function analyzePresentationPDF(filePath: string): Promise<any> {
+async function analyzePresentationPDF(filePath: string): Promise<PresentationAnalysisResult> {
 	const metadata = await getPDFInfo(filePath);
 	const slides = await extractSlides(filePath, parseInt(metadata.Pages) || 1);
 	const structure = analyzeSlideStructure(slides);
@@ -53,7 +59,7 @@ async function analyzePresentationPDF(filePath: string): Promise<any> {
 	};
 }
 
-async function extractSlides(filePath: string, pageCount: number): Promise<any[]> {
+async function extractSlides(filePath: string, pageCount: number): Promise<SlideData[]> {
 	const slides = [];
 
 	for (let i = 1; i <= pageCount; i++) {
@@ -63,6 +69,7 @@ async function extractSlides(filePath: string, pageCount: number): Promise<any[]
 			slides.push({
 				slideNumber: i,
 				text: slideText,
+				images: [],
 				wordCount: slideText.split(/\s+/).filter((word) => word.length > 0).length,
 				hasTitle: detectSlideTitle(slideText),
 				bulletPoints: extractBulletPoints(slideText)
@@ -71,6 +78,7 @@ async function extractSlides(filePath: string, pageCount: number): Promise<any[]
 			slides.push({
 				slideNumber: i,
 				text: '',
+				images: [],
 				wordCount: 0,
 				hasTitle: false,
 				bulletPoints: [],
@@ -147,8 +155,8 @@ function extractBulletPoints(text: string): string[] {
 	return bulletPoints;
 }
 
-function analyzeSlideStructure(slides: any[]): any {
-	const structure = {
+function analyzeSlideStructure(slides: SlideData[]): SlideStructure {
+	const structure: SlideStructure = {
 		titleSlides: [],
 		contentSlides: [],
 		summarySlides: [],
@@ -183,7 +191,7 @@ function analyzeSlideStructure(slides: any[]): any {
 	return structure;
 }
 
-async function getPDFInfo(filePath: string): Promise<any> {
+async function getPDFInfo(filePath: string): Promise<PDFMetadata> {
 	return new Promise((resolve, reject) => {
 		const pdfinfo = spawn('pdfinfo', [filePath]);
 		let output = '';
@@ -203,9 +211,9 @@ async function getPDFInfo(filePath: string): Promise<any> {
 	});
 }
 
-function parsePDFInfo(output: string): any {
+function parsePDFInfo(output: string): PDFMetadata {
 	const lines = output.split('\n');
-	const metadata: any = {};
+	const metadata: Record<string, string> = {};
 
 	lines.forEach((line) => {
 		const [key, ...valueParts] = line.split(':');
@@ -215,5 +223,16 @@ function parsePDFInfo(output: string): any {
 		}
 	});
 
-	return metadata;
+	return {
+		Pages: metadata.Pages || '1',
+		Title: metadata.Title,
+		Author: metadata.Author,
+		Subject: metadata.Subject,
+		Creator: metadata.Creator,
+		Producer: metadata.Producer,
+		CreationDate: metadata.CreationDate,
+		ModDate: metadata.ModDate,
+		'Page size': metadata['Page size'],
+		'File size': metadata['File size']
+	};
 }

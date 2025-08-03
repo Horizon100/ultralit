@@ -22,7 +22,12 @@ export interface PostAttachment {
 	created: string;
 	updated: string;
 }
-
+export interface AttachmentTagInfo {
+	attachmentId: string;
+	tags: string[];
+	analysis?: string;
+	fileName: string;
+}
 export interface Post {
 	id: string;
 	content: string;
@@ -226,6 +231,19 @@ export interface PostsApiResponse {
 	posts: PostWithInteractions[];
 	totalPages: number;
 	totalItems: number;
+	filters?: {
+		tag?: string;
+		tags?: string[];
+		parent?: string;
+	};
+}
+export interface ServerWrappedPostsResponse {
+	success: boolean;
+	data?: PostsApiResponse;
+	error?: string;
+	posts?: PostWithInteractions[];
+	totalPages?: number;
+	totalItems?: number;
 	filters?: {
 		tag?: string;
 		tags?: string[];

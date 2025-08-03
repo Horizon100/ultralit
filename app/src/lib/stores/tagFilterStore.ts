@@ -12,6 +12,8 @@ interface TagObject {
 	title?: string;
 	label?: string;
 }
+type PostTag = string | TagObject;
+
 // Create the stores
 export const selectedTags = writable<string[]>([]);
 export const tagCounts = writable<TagCount[]>([]);
@@ -126,10 +128,8 @@ export const filteredPosts = derived([postStore, selectedTags], ([$postStore, $s
 			return false;
 		}
 
-		// Check if post has ANY of the selected tags
 		const hasMatchingTag = $selectedTags.some((selectedTag) => {
-			const tagMatch = post.tags.some((postTag) => {
-				// Handle both string tags and object tags
+			const tagMatch = post.tags.some((postTag: PostTag) => {
 				let tagName = '';
 				if (typeof postTag === 'string') {
 					tagName = postTag.trim().toLowerCase();
