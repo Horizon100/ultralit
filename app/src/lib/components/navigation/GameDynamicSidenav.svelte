@@ -169,7 +169,7 @@
 		align-items: center;
 		border: none;
 		cursor: pointer;
-		color: white;
+		color: var(--text-color);
 		font-size: 14px;
 		background-color: transparent;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -210,7 +210,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		color: white;
+		color: var(--text-color);
 		margin-bottom: 1rem;
 	}
 
@@ -221,7 +221,7 @@
 
 	.cancel-btn {
 		background: rgba(255, 0, 0, 0.2);
-		color: white;
+		color: var(--text-color);
 		border: 1px solid rgba(255, 0, 0, 0.5);
 		border-radius: 50%;
 		width: 30px;
@@ -252,7 +252,7 @@
 		background: rgba(255, 255, 255, 0.1);
 		border: 2px solid transparent;
 		border-radius: 8px;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		transition: all 0.2s ease;
 		text-align: center;
@@ -294,7 +294,7 @@
 		border: 1px solid rgba(255, 152, 0, 0.3);
 		border-radius: 8px;
 		padding: 1rem;
-		color: white;
+		color: var(--text-color);
 		text-align: center;
 	}
 
@@ -312,7 +312,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.heroes-list {
@@ -324,7 +324,7 @@
 
 	/* Settings section styles */
 	.settings-section {
-		color: white;
+		color: var(--text-color);
 		text-align: center;
 		background: rgba(255, 255, 255, 0.1);
 		border-radius: 8px;

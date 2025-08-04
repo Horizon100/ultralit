@@ -41,7 +41,7 @@
 	}
 	
 	.sidebar h3 {
-		color: white;
+		color: var(--text-color);
 		margin-bottom: 1rem;
 	}
 	
@@ -61,7 +61,7 @@
 	}
 	
 	.sidebar a:hover {
-		color: white;
+		color: var(--text-color);
 	}
 	
 	.content {

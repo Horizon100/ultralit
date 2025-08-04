@@ -612,7 +612,7 @@
 		width: 3rem !important;
 		height: 3rem !important;
 		background-color: var(--primary-color, #6366f1);
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -642,7 +642,7 @@
 			width: 3rem !important;
 			height: 3rem !important;
 			background-color: var(--primary-color, #6366f1);
-			color: white;
+			color: var(--text-color);
 			display: flex;
 			align-items: center;
 			justify-content: center;

@@ -989,7 +989,7 @@ Priorities: low, medium, high`;
 
 	.error-message {
 		background: #ff4444;
-		color: white;
+		color: var(--text-color);
 		padding: 1rem;
 		margin: 1rem 1.5rem;
 		border-radius: 6px;
@@ -1149,12 +1149,12 @@ Priorities: low, medium, high`;
 
 				&.active {
 					background: #22c55e;
-					color: white;
+					color: var(--text-color);
 				}
 
 				&.inactive {
 					background: #ef4444;
-					color: white;
+					color: var(--text-color);
 				}
 			}
 		}
@@ -1180,7 +1180,7 @@ Priorities: low, medium, high`;
 
 				&.danger {
 					background: #ef4444;
-					color: white;
+					color: var(--text-color);
 
 					&:hover {
 						background: #dc2626;

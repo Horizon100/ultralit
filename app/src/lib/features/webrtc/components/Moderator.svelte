@@ -143,7 +143,14 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
+
 	.moderator-panel {
 		height: 100%;
 		display: flex;
@@ -159,7 +166,7 @@
 	}
 	
 	.mod-actions h3, .participants-list h3 {
-		color: white;
+		color: var(--text-color);
 		font-size: 0.875rem;
 		font-weight: 600;
 		margin: 0 0 0.75rem 0;
@@ -175,9 +182,9 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		background: #1a1a1a;
+		background: var(--secondary-color);
 		border: 1px solid #333;
-		color: white;
+		color: var(--text-color);
 		padding: 0.5rem 0.75rem;
 		border-radius: 0.375rem;
 		cursor: pointer;
@@ -187,7 +194,7 @@
 	
 	.action-btn:hover {
 		background: #2a2a2a;
-		border-color: #667eea;
+		border-color: var(--tertiary-color);
 	}
 	
 	.action-btn.danger:hover {
@@ -204,10 +211,22 @@
 	
 	.participants {
 		flex: 1;
-		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 	
 	.participant-item {
@@ -215,14 +234,14 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.5rem;
-		background: #1a1a1a;
-		border: 1px solid #333;
+		background: var(--primary-color);
+		border: 1px solid var(--line-color);
 		border-radius: 0.375rem;
 		transition: background 0.2s;
 	}
 	
 	.participant-item:hover {
-		background: #2a2a2a;
+		background: var(--secondary-color);
 	}
 	
 	.participant-info {
@@ -236,14 +255,14 @@
 	.participant-avatar {
 		width: 1.75rem;
 		height: 1.75rem;
-		background: #667eea;
+		background: var(--tertiary-color);
 		border-radius: 50%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		font-size: 0.75rem;
 		font-weight: bold;
-		color: white;
+		color: var(--text-color);
 		flex-shrink: 0;
 	}
 	
@@ -254,7 +273,7 @@
 	}
 	
 	.participant-name {
-		color: white;
+		color: var(--text-color);
 		font-size: 0.75rem;
 		font-weight: 500;
 	}
@@ -281,33 +300,33 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		background: #2a2a2a;
-		border: 1px solid #444;
+		background: var(--secondary-color);
+		border: 1px solid var(--line-color);
 		border-radius: 0.25rem;
-		color: #94a3b8;
+		color: var(--text-color);
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 	
 	.control-btn:hover {
-		background: #3a3a3a;
+		background: var(--bg-color);
 	}
 	
 	.control-btn.active {
-		background: #10b981;
-		border-color: #10b981;
-		color: white;
+		background: var(--tertiary-color);
+		border-color: var(--line-color);
+		color: var(--text-color);
 	}
 	
 	.control-btn.admin:hover {
-		background: #667eea;
-		border-color: #667eea;
-		color: white;
+		background: var(--tertiary-color);
+		border-color: var(--text-color);
+		color: var(--text-color);
 	}
 	
 	.control-btn.danger:hover {
 		background: #ef4444;
 		border-color: #ef4444;
-		color: white;
+		color: var(--text-color);
 	}
 </style>

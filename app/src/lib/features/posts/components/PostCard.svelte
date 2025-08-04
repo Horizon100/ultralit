@@ -2151,7 +2151,7 @@
 		align-items: center;
 		justify-content: center;
 		background-color: var(--secondary-color);
-		color: white;
+		color: var(--text-color);
 		font-weight: 600;
 		font-size: 0.75rem;
 	}
@@ -2211,7 +2211,7 @@
 		top: -2px;
 		right: -2px;
 		background-color: var(--success-color, #10b981);
-		color: white;
+		color: var(--text-color);
 		border-radius: 50%;
 		width: 16px;
 		height: 16px;

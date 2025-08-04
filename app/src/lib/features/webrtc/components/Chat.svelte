@@ -1,5 +1,6 @@
-<!-- Updated src/lib/components/Chat.svelte -->
+<!-- src/lib/features/webrtc/components/Chat.svelte -->
 <script lang="ts">
+	import Icon from "$lib/components/ui/Icon.svelte";
 	export let compact = false;
 	
 	let messages: Array<{id: string, user: string, text: string, timestamp: string}> = [
@@ -47,19 +48,22 @@
 			on:keydown={(e) => e.key === 'Enter' && sendMessage()}
 		/>
 		<button on:click={sendMessage} disabled={!newMessage.trim()}>
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-			</svg>
+			<Icon name="Send" size={24} />
 		</button>
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
 	.chat {
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		background: #1a1a1a;
 		border-radius: 0.5rem;
 		overflow: hidden;
 	}
@@ -69,8 +73,8 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 1rem;
-		background: #111;
-		border-bottom: 1px solid #333;
+
+		border-bottom: 1px solid var(--line-color);
 	}
 	
 	.chat.compact .chat-header {
@@ -79,18 +83,18 @@
 
 	.chat-header h3 {
 		margin: 0;
-		color: white;
+		color: var(--text-color);
 		font-size: 0.875rem;
 		font-weight: 600;
 	}
 	
 	.message-count {
-		background: #667eea;
-		color: white;
+		background: var(--tertiary-color);
+		color: var(--primary-color);
 		padding: 0.125rem 0.5rem;
 		border-radius: 1rem;
-		font-size: 0.75rem;
-		font-weight: 500;
+		font-size: 1rem;
+		font-weight: 800;
 	}
 
 	.messages {
@@ -120,18 +124,18 @@
 	}
 
 	.username {
-		color: #667eea;
+		color: var(--tertiary-color);
 		font-size: 0.75rem;
 		font-weight: 600;
 	}
 	
 	.timestamp {
-		color: #6b7280;
+		color: var(--placeholder-color);
 		font-size: 0.625rem;
 	}
 	
 	.message-text {
-		color: #e5e7eb;
+		color: var(--text-color);
 		font-size: 0.875rem;
 		line-height: 1.4;
 	}
@@ -144,7 +148,6 @@
 		display: flex;
 		padding: 1rem;
 		gap: 0.5rem;
-		background: #111;
 		border-top: 1px solid #333;
 	}
 	
@@ -158,7 +161,7 @@
 		border: 1px solid #444;
 		border-radius: 0.375rem;
 		background: #2a2a2a;
-		color: white;
+		color: var(--text-color);
 		font-size: 0.875rem;
 	}
 	
@@ -169,15 +172,16 @@
 
 	.chat-input input:focus {
 		outline: none;
-		border-color: #667eea;
+		border-color: var(--tertiary-color);
 	}
 
 	.chat-input button {
 		padding: 0.5rem;
-		background: #667eea;
-		color: white;
+		background: var(--secondary-color);
+		color: var(--text-color);
 		border: none;
 		border-radius: 0.375rem;
+		width: 2rem;
 		cursor: pointer;
 		transition: all 0.2s;
 		display: flex;
@@ -186,7 +190,7 @@
 	}
 
 	.chat-input button:hover:not(:disabled) {
-		background: #5a67d8;
+		background:var(--tertiary-color);
 	}
 	
 	.chat-input button:disabled {

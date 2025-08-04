@@ -68,7 +68,7 @@
 
                             }
                             .shape.rectangle.agent span {
-                                color: white;
+                                color: var(--text-color);
                                 font-size: 18px;
                                 user-select: none;
 
@@ -116,7 +116,7 @@
                                 height: 100px;
                             }
                             .shape.rectangle.agent span {
-                                color: white;
+                                color: var(--text-color);
                                 font-size: 18px;
                             }
                         `
@@ -174,7 +174,7 @@
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#3498db" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
-                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: white;">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: var(--text-color);">
                                     [ ] Task 1<br>
                                     [x] Task 2<br>
                                     [ ] Task 3
@@ -200,7 +200,7 @@
                                 background-color: #3498db;
                                 border-radius: 5px;
                                 padding: 10px;
-                                color: white;
+                                color: var(--text-color);
                             }
                             .shape.rectangle.task-tracker ul {
                                 list-style-type: none;
@@ -219,7 +219,7 @@
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#34495e" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
-                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: white; display: flex; justify-content: center; align-items: center; height: 100%;">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100%;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect><line x1="4" y1="10" x2="20" y2="10"></line><line x1="10" y1="4" x2="10" y2="20"></line></svg>
                                 </div>
                             </foreignObject>
@@ -241,7 +241,7 @@
                                 display: flex;
                                 justify-content: center;
                                 align-items: center;
-                                color: white;
+                                color: var(--text-color);
                             }
                         `
 					}
@@ -258,7 +258,7 @@
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#e74c3c" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
-                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: white;">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: var(--text-color);">
                                     CPU: 50%<br>
                                     RAM: 4GB<br>
                                     Disk: 100GB
@@ -282,7 +282,7 @@
                                 background-color: #e74c3c;
                                 border-radius: 5px;
                                 padding: 10px;
-                                color: white;
+                                color: var(--text-color);
                                 display: flex;
                                 flex-direction: column;
                                 justify-content: space-around;
@@ -297,7 +297,7 @@
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#9b59b6" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
-                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: white;">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: var(--text-color);">
                                     Table 1<br>
                                     Table 2<br>
                                     Table 3
@@ -321,7 +321,7 @@
                                 background-color: #9b59b6;
                                 border-radius: 5px;
                                 padding: 10px;
-                                color: white;
+                                color: var(--text-color);
                                 display: flex;
                                 flex-direction: column;
                                 justify-content: space-around;
@@ -341,7 +341,7 @@
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#f39c12" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
-                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: white; display: flex; justify-content: center; align-items: center; height: 100%;">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100%;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
                                 </div>
                             </foreignObject>
@@ -363,7 +363,7 @@
                                 display: flex;
                                 justify-content: center;
                                 align-items: center;
-                                color: white;
+                                color: var(--text-color);
                             }
                         `
 					}
@@ -375,7 +375,7 @@
                         <svg width="150" height="150" viewBox="0 0 150 150">
                             <rect width="150" height="150" fill="#1abc9c" rx="5" ry="5" />
                             <foreignObject width="130" height="130" x="10" y="10">
-                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: white; display: flex; justify-content: center; align-items: center; height: 100%;">
+                                <div xmlns="http://www.w3.org/1999/xhtml" style="font-family: Arial; font-size: 14px; color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100%;">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h18v18H3zM12 8v8"></path><path d="M8 12h8"></path></svg>
                                 </div>
                             </foreignObject>
@@ -397,7 +397,7 @@
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                color: white;
+                color: var(--text-color);
             }
         `
 					}
@@ -480,7 +480,7 @@
 	}
 
 	h2 {
-		color: white;
+		color: var(--text-color);
 		margin-bottom: 1rem;
 	}
 
@@ -496,7 +496,7 @@
 		padding: 0.5rem;
 		background-color: rgba(255, 255, 255, 0.1);
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		display: flex;
 		justify-content: space-between;

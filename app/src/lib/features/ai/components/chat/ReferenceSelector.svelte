@@ -120,7 +120,7 @@
 	button {
 		padding: 6px 12px;
 		background: var(--secondary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 1rem;
 		cursor: pointer;
@@ -159,7 +159,7 @@
 			height: 12px;
 			border: 2px solid rgba(255, 255, 255, 0.3);
 			border-radius: 50%;
-			border-top-color: white;
+			border-top-color: var(--text-color);
 			animation: spin 1s linear infinite;
 		}
 	}

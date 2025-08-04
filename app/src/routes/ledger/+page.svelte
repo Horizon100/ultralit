@@ -640,7 +640,7 @@
 				}
 
 				svg {
-					color: white;
+					color: var(--text-color);
 				}
 			}
 

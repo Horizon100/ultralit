@@ -348,25 +348,25 @@
 
 	.record-button.recording {
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 		animation: pulse 1.5s infinite;
 	}
 
 	.record-button.confirm {
 		background: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		font-weight: bold;
 		font-size: 1rem;
 	}
 
 	.record-button.cancel {
 		background: #6b7280;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.record-button.play {
 		background: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 	}
 
 	@keyframes pulse {

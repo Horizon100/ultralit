@@ -88,7 +88,13 @@
     {/if}
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	  
     .controls {
         position: fixed;
         bottom: 2rem;
@@ -144,17 +150,17 @@
 
     .control-btn.active {
         background: #10b981;
-        color: white;
+        color: var(--text-color);
     }
 
     .control-btn.inactive {
         background: #ef4444;
-        color: white;
+        color: var(--text-color);
     }
 
     .control-btn.danger {
         background: #dc2626;
-        color: white;
+        color: var(--text-color);
     }
     
     .control-btn.secondary {
@@ -164,7 +170,7 @@
     
     .control-btn.secondary:hover:not(:disabled) {
         background: #4b5563;
-        color: white;
+        color: var(--text-color);
     }
 
     .control-btn:hover:not(:disabled) {

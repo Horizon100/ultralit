@@ -155,6 +155,6 @@
 	}
 
 	.context-menu-button:hover {
-		color: white;
+		color: var(--text-color);
 	}
 </style>

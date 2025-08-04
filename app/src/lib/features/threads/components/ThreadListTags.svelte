@@ -283,7 +283,7 @@
 			background-color: var(--secondary-color);
 			padding: 0 1rem;
 			font-size: 16px;
-			color: white;
+			color: var(--text-color);
 			width: 100%;
 		}
 	}
@@ -342,7 +342,7 @@
 		background-color: var(--secondary-color);
 		padding: 5px 10px;
 		font-size: 12px;
-		color: white;
+		color: var(--text-color);
 		font-size: 16px;
 		width: 100%;
 	}

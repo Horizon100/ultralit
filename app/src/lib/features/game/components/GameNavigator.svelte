@@ -742,7 +742,7 @@
 						>
 							<!-- Building name label -->
 							<div
-								style="position: absolute; top: -25px; left: 0; background: #8B4513; color: white; padding: 2px 8px; font-size: 12px; border-radius: 3px; font-weight: bold;"
+								style="position: absolute; top: -25px; left: 0; background: #8B4513; color: var(--text-color); padding: 2px 8px; font-size: 12px; border-radius: 3px; font-weight: bold;"
 							>
 								{building.name}
 							</div>
@@ -864,7 +864,7 @@
 
 	.cancel-btn {
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 50%;
 		width: 1.5rem;
@@ -912,7 +912,7 @@
 
 	.building-btn.selected {
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		border-color: var(--primary);
 	}
 
@@ -978,7 +978,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		color: white;
+		color: var(--text-color);
 		z-index: 100;
 	}
 

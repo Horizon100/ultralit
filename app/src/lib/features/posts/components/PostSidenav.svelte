@@ -410,7 +410,7 @@
 	.remove-tag {
 		background: none;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		padding: 0;
 		display: flex;
@@ -543,7 +543,7 @@
 
 	.filter-button:not(.selected) .filter-count {
 		background: var(--primary-color, #3b82f6);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.no-tags {
@@ -595,7 +595,7 @@
 		margin: 20px auto 0;
 		padding: 10px 20px;
 		background: var(--primary-color, #3b82f6);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 8px;
 		cursor: pointer;

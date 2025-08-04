@@ -10,7 +10,7 @@
   import { callStore } from '$lib/features/webrtc/stores/call-store';
   import { participantsStore } from '$lib/features/webrtc/stores/participants-store';
   import { chatStore } from '$lib/features/webrtc/stores/chat-store';
-
+import { toast } from '$lib/utils/toastUtils';
   const roomId = $page.params.id;
   let userId = '';
   let isJoining = false;
@@ -43,16 +43,19 @@
     }
   });
 
-  onDestroy(() => {
-    // Clean up when leaving the page
-    if ($callStore.isInCall) {
-      callStore.leaveRoom();
-    }
-    callStore.destroy();
-    participantsStore.clear();
-    chatStore.clear();
-  });
+onDestroy(() => {
+  // Only clear stores, don't automatically leave the room
+  // Let the user explicitly leave via the leave button
+  callStore.destroy();
+  participantsStore.clear();
+  chatStore.clear();
+});
 
+function leaveRoom() {
+  // Explicitly leave the room and clean up
+  callStore.leaveRoom();
+  goto('/webrtc/dashboard');
+}
   async function joinRoom() {
     if (!userId.trim()) {
       error = 'Please enter a username';
@@ -92,11 +95,22 @@
       joinRoom();
     }
   }
+async function copyRoomId() {
+        try {
+            await navigator.clipboard.writeText(roomId);
+            toast.success('Room ID copied to clipboard!');
+        } catch (err) {
+            // Fallback for older browsers or if clipboard API fails
+            const textArea = document.createElement('textarea');
+            textArea.value = roomId;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            toast.success('Room ID copied to clipboard!');
+        }
+    }
 
-  function leaveRoom() {
-    callStore.leaveRoom();
-    goto('/webrtc/dashboard');
-  }
 
   // Watch for call store errors
   $: if ($callStore.error) {
@@ -123,8 +137,18 @@
     <div class="join-dialog">
       <div class="join-header">
         <h1>Join Video Call</h1>
-        <p>Room: <strong>{roomId}</strong></p>
-      </div>
+
+                <p>Room:</p>
+<button 
+    class="room"
+    on:click={copyRoomId}
+    title="Click to copy Room ID"
+>
+
+    {roomId}
+</button>      
+
+</div>
 
       <div class="join-form">
         <div class="input-group">
@@ -163,13 +187,13 @@
             {/if}
           </button>
           
-          <button
-            class="cancel-btn"
-            on:click={() => goto('/')}
-            disabled={isJoining}
-          >
-            Cancel
-          </button>
+<button 
+    class="cancel-btn" 
+    on:click={() => goto('/webrtc/')} 
+    disabled={isJoining}
+>
+    Cancel
+</button>
         </div>
       </div>
 
@@ -239,23 +263,33 @@
   </div>
 {/if}
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
+
+
   /* Join Dialog Styles */
   .join-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100vw;
-    height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin-top: 3rem;
+    height: calc(100% - 3rem);
+
+    // background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    // z-index: 1000;
   }
 
   .join-dialog {
-    background: white;
+    background: var(--primary-color);
     border-radius: 16px;
     padding: 2rem;
     max-width: 400px;
@@ -278,19 +312,22 @@
   .join-header {
     text-align: center;
     margin-bottom: 2rem;
+
   }
 
   .join-header h1 {
     margin: 0 0 0.5rem 0;
-    color: #1f2937;
+    color: var(--text-color);
     font-size: 1.75rem;
     font-weight: 700;
   }
 
   .join-header p {
     margin: 0;
-    color: #6b7280;
+    color: var(--placeholder-color);
     font-size: 1rem;
+    padding: 0.5rem;
+
   }
 
   .join-form {
@@ -304,7 +341,7 @@
   .input-group label {
     display: block;
     margin-bottom: 0.5rem;
-    color: #374151;
+    color: var(--placeholder-color);
     font-weight: 600;
     font-size: 0.875rem;
   }
@@ -312,21 +349,25 @@
   .username-input {
     width: 100%;
     padding: 0.75rem 1rem;
-    border: 2px solid #e5e7eb;
+    border: 1px solid var(--line-color);
     border-radius: 8px;
     font-size: 1rem;
     transition: all 0.2s;
     box-sizing: border-box;
+    background: var(--secondary-color);
+        color: var(--placeholder-color);
+
   }
 
   .username-input:focus {
     outline: none;
-    border-color: #667eea;
+    border-color: var(--tertiary-color);
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    color: var(--text-color);
   }
 
   .username-input:disabled {
-    background: #f9fafb;
+    background: var(--secondary-color);
     cursor: not-allowed;
   }
 
@@ -348,8 +389,8 @@
 
   .join-btn {
     flex: 1;
-    background: #667eea;
-    color: white;
+    background: var(--secondary-color);
+    color: var(--text-color);
     border: none;
     padding: 0.75rem 1.5rem;
     border-radius: 8px;
@@ -360,11 +401,12 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
+    font-size: 1rem;
   }
 
   .join-btn:hover:not(:disabled) {
-    background: #5a67d8;
-    transform: translateY(-1px);
+    background: var(--tertiary-color);
+    // transform: translateY(-1px);
   }
 
   .join-btn:disabled {
@@ -374,30 +416,33 @@
   }
 
   .cancel-btn {
-    background: #f3f4f6;
-    color: #374151;
+    background: var(--secondary-color);
+    color: var(--text-color);
     border: none;
     padding: 0.75rem 1.5rem;
-    border-radius: 8px;
+    border-radius: 0.5rem;
     font-weight: 600;
+        font-size: 1rem;
     cursor: pointer;
     transition: all 0.2s;
+    opacity: 0.5;
   }
 
   .cancel-btn:hover:not(:disabled) {
-    background: #e5e7eb;
+    opacity: 1;
+    color: red;
   }
 
   .join-info {
-    background: #f8fafc;
+    background: var(--bg-color);
     padding: 1.5rem;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+
   }
 
   .join-info h3 {
     margin: 0 0 1rem 0;
-    color: #1f2937;
+    color: var(--tertiary-color);
     font-size: 1rem;
     font-weight: 600;
   }
@@ -405,7 +450,7 @@
   .join-info ul {
     margin: 0;
     padding-left: 1.5rem;
-    color: #4b5563;
+    color: var(--placeholder-color);
     font-size: 0.875rem;
     line-height: 1.6;
   }
@@ -440,17 +485,17 @@
 
   .status-bar.connecting {
     background: #f59e0b;
-    color: white;
+    color: var(--text-color);
   }
 
   .status-bar.connected {
     background: #10b981;
-    color: white;
+    color: var(--text-color);
   }
 
   .status-bar.error {
     background: #ef4444;
-    color: white;
+    color: var(--text-color);
   }
 
   .main-content {
@@ -468,7 +513,7 @@
     top: 4rem;
     right: 1rem;
     background: rgba(0, 0, 0, 0.7);
-    color: white;
+    color: var(--text-color);
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-size: 0.875rem;
@@ -501,7 +546,7 @@
     left: 50%;
     transform: translateX(-50%);
     background: #dc2626;
-    color: white;
+    color: var(--text-color);
     padding: 0.75rem 1rem;
     border-radius: 6px;
     display: flex;
@@ -509,6 +554,17 @@
     gap: 0.75rem;
     z-index: 100;
     animation: slideDown 0.3s ease-out;
+  }
+
+  button.room {
+    color: var(--tertiary-color);
+    background: var(--secondary-color);
+    border: 1px solid var(--line-color);
+    user-select: none;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
   }
 
   @keyframes slideDown {
@@ -525,7 +581,7 @@
   .error-toast button {
     background: none;
     border: none;
-    color: white;
+    color: var(--text-color);
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0;

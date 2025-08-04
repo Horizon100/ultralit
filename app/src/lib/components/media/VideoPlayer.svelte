@@ -687,7 +687,7 @@ function setupAutoplay() {
 		background: rgba(0, 0, 0, 0.7);
 		border: none;
 		border-radius: 50%;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		display: flex;
 		align-items: center;

@@ -18,8 +18,8 @@
 	export let userId: string;
 	// export let user: User | null = null;
 	export let isUpdatingThreadName = false;
-	// export let isEditingThreadName = false;
-	// export let editedThreadName = '';
+	export let isEditingThreadName = false;
+	export let editedThreadName = '';
 	export let isMinimized = false;
 	export let promptSuggestions: string[] = [];
 	$: currentUserName = $currentUser?.name || $currentUser?.username || 'You';

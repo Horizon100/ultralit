@@ -28,11 +28,14 @@ export function getAvatarUrl(user: AvatarUser | null): string | null {
 	const userId = user.id;
 	const collectionId = user.collectionId || '_pb_users_auth_';
 
-	if (!avatar || !userId || avatar === 'uploaded') {
+	// if (!avatar || !userId || avatar === 'uploaded') {
+	// 	avatarUrlCache.set(cacheKey, '');
+	// 	return '';
+	// }
+	if (!avatar || !userId) {
 		avatarUrlCache.set(cacheKey, '');
 		return '';
 	}
-
 	let avatarUrl = '';
 
 	if (typeof avatar === 'string' && avatar.startsWith('http')) {
@@ -67,10 +70,12 @@ export function getExpandedUserAvatarUrl(
 	},
 	timestamp?: number
 ): string {
-	if (!expandedUser?.avatar || !expandedUser?.id || expandedUser.avatar === 'uploaded') {
+	// if (!expandedUser?.avatar || !expandedUser?.id || expandedUser.avatar === 'uploaded') {
+	// 	return '';
+	// }
+	if (!expandedUser?.avatar || !expandedUser?.id) {
 		return '';
 	}
-
 	if (expandedUser.avatar.startsWith('http')) {
 		return expandedUser.avatar;
 	}

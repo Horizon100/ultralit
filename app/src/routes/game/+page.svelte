@@ -513,7 +513,7 @@
 
 	.btn-primary {
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.btn-primary:hover {
@@ -567,7 +567,7 @@
 		height: 80px;
 		border-radius: 50%;
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -593,7 +593,7 @@
 		top: 0.5rem;
 		right: 0.5rem;
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		padding: 0.25rem 0.5rem;
 		border-radius: 0.25rem;
 		font-size: 0.75rem;

@@ -121,7 +121,7 @@
 	.error-button {
 		padding: 0.75rem 1.5rem;
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 0.375rem;
 		cursor: pointer;

@@ -1069,7 +1069,7 @@
 		font-weight: bold;
 		min-width: 50px;
 		text-align: center;
-		color: white;
+		color: var(--text-color);
 	}
 
 	/* 
@@ -1094,7 +1094,7 @@
     .controls button {
         padding: 5px 10px;
         background-color: rgba(255, 255, 255, 0.2);
-        color: white;
+        color: var(--text-color);
         border: none;
         border-radius: 5px;
         cursor: pointer;
@@ -1117,7 +1117,7 @@
 
 	.shape-container:hover {
 		/* border: 2px solid #2c3e50; */
-		/* color: white; */
+		/* color: var(--text-color); */
 		cursor: pointer;
 		/* border-style:outset; */
 		border: 20px solid #6a6a6a;

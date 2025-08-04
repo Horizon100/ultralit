@@ -53,7 +53,7 @@
 	{#if browser}
 		<div
 			class="debugger-panel"
-			style="position: fixed; {position} background: rgba(51, 51, 51, 0.95); color: white; padding: 15px; font-size: {fontSize}; z-index: 9999; border-radius: 8px; min-width: {minWidth}; max-width: {maxWidth};"
+			style="position: fixed; {position} background: rgba(51, 51, 51, 0.95); color: var(--text-color); padding: 15px; font-size: {fontSize}; z-index: 9999; border-radius: 8px; min-width: {minWidth}; max-width: {maxWidth};"
 		>
 			<div style="font-weight: bold; margin-bottom: 8px;">{title}</div>
 
@@ -72,7 +72,7 @@
 						<button
 							class="debugger-button"
 							style="background: {button.color ||
-								'#007bff'}; color: white; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; margin-bottom: 5px;"
+								'#007bff'}; color: var(--text-color); border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; margin-right: 5px; margin-bottom: 5px;"
 							on:click={() => handleButtonClick(button)}
 						>
 							{button.label}

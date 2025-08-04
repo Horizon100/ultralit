@@ -5,7 +5,8 @@
 	export let timestamp: number | null = null;
 
 	$: displayName = user?.name || user?.username || 'User';
-
+	$: console.log('Avatar component user data:', user);
+	$: console.log('Avatar URL:', avatarUrl);
 	// Always try server avatar if we have a user ID - server will handle identicon fallback
 	$: avatarUrl = user?.id
 		? `/api/users/${user.id}/avatar${timestamp ? `?t=${timestamp}` : ''}`
@@ -45,10 +46,17 @@
 		const hash = user.id.split('').reduce((a: number, b: string) => a + b.charCodeAt(0), 0);
 		return colors[hash % colors.length];
 	})();
-
+	$: if (user?.id === 'obku3t7s5m1csv9') {
+		console.log('Avatar component debug for user obku3t7s5m1csv9:', {
+			user: user,
+			avatarUrl: avatarUrl,
+			imageError: imageError
+		});
+	}
 	// Handle image load error
 	let imageError = false;
 	function handleImageError() {
+		console.log('Avatar image load error for:', user);
 		imageError = true;
 	}
 </script>
@@ -65,8 +73,7 @@
 	<!-- Show initials fallback (only if server completely fails) -->
 	<div
 		class="avatar-placeholder {className}"
-		style="width: {size}px; height: {size}px; background-color: {backgroundColor}; border-radius: 50%; font-size: {size *
-			0.4}px;"
+		style="width: {size}px; height: {size}px; background-color: {backgroundColor}; border-radius: 50%; font-size: {size * 0.4}px;"
 	>
 		{initials}
 	</div>
@@ -82,7 +89,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: white;
+		color: var(--text-color);
 		font-weight: 600;
 	}
 </style>

@@ -5,39 +5,45 @@
 	import type { AIModel, InternalChatMessage } from '$lib/types/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { currentUser } from '$lib/pocketbase'; // Import currentUser store
 	import AIChat from '$lib/features/ai/components/chat/AIChat.svelte';
 	import { defaultModel } from '$lib/features/ai/utils/models';
 
 	let isLoading = true;
 	let error: string | null = null;
 	let pageReady = false;
-	// let defaultMessage: InternalChatMessage;
 
-	$: user = $page.data.user;
+	// Use the reactive currentUser store instead of page data
+	$: user = $currentUser;
 	$: userId = user?.id || '';
 
 	export let aiModel = defaultModel;
-	// export let threadId: string | null = null;
-	// export let messageId: string | null = null;
-	// export let initialMessage: InternalChatMessage | null = null;
 
 	onMount(async () => {
 		try {
 			isLoading = true;
 
-			if (!user) {
+			// Give a moment for the auth store to populate
+			let retries = 0;
+			while (!$currentUser && retries < 20) { // 2 seconds max wait
+				await new Promise(resolve => setTimeout(resolve, 100));
+				retries++;
+			}
+
+			if (!$currentUser) {
+				console.log('No authenticated user, redirecting to home');
 				goto('/');
 				return;
 			}
+
+			console.log('User authenticated:', $currentUser.username);
 			pageReady = true;
 		} catch (e) {
 			error = 'Failed to load chat. Please try again.';
 			console.error(e);
 		} finally {
-			const minimumLoadingTime = 800;
-			setTimeout(() => {
-				isLoading = false;
-			}, minimumLoadingTime);
+			// Remove the artificial delay - let it load fast!
+			isLoading = false;
 		}
 	});
 </script>
@@ -282,7 +288,7 @@
 		width: 30px;
 		height: 30px;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		background: none;
 		display: flex;

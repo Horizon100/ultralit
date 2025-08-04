@@ -3,6 +3,7 @@ import type { User } from '$lib/types/types';
 import type { Handle } from '@sveltejs/kit';
 import { checkRateLimit } from '$lib/validation';
 import { dev } from '$app/environment';
+import { env } from '$env/dynamic/private';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	const clientIP = event.getClientAddress();
@@ -13,33 +14,32 @@ export const handle: Handle = async ({ event, resolve }) => {
 		hasAuthHeader: !!event.request.headers.get('cookie')
 	});
 
-	// Rate limiting for API endpoints (skip debug endpoints in development)
-	if (
-		event.url.pathname.startsWith('/api/') &&
-		!event.url.pathname.startsWith('/api/debug/') &&
-		!event.url.pathname.includes('/media')
-	) {
-		// ADD THIS LINE TO EXCLUDE MEDIA
-		// Different limits for different endpoints
-		let maxRequests = 300;
-		let windowMs = 60000; // 1 minute
-
-		if (event.url.pathname.includes('/auth')) {
-			maxRequests = 5;
-			windowMs = 300000; // 5 minutes for auth
-		} else if (event.url.pathname.includes('/ai/')) {
-			maxRequests = 10;
-			windowMs = 60000;
-		}
-
-		if (!checkRateLimit(clientIP, event.url.pathname, maxRequests, windowMs)) {
-			return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), {
-				status: 429,
-				headers: { 'Content-Type': 'application/json' }
-			});
-		}
+	// Add specific logging for avatar requests
+	if (event.url.pathname.includes('/avatar')) {
+		console.log('🖼️ Avatar request detected:', event.url.pathname);
 	}
+// In hooks.server.ts, add this before the rate limiting check:
+if (event.url.pathname.includes('/ai/')) {
+    console.log('🤖 AI endpoint detected, checking rate limiting exclusion:', event.url.pathname);
+}
+	// Rate limiting for API endpoints (skip debug endpoints in development)
+if (
+    event.url.pathname.startsWith('/api/') &&
+    !event.url.pathname.startsWith('/api/debug/') &&
+    !event.url.pathname.includes('/media') &&
+    !event.url.pathname.includes('/avatar') &&
+    !event.url.pathname.startsWith('/api/ai/') &&
+    !event.url.pathname.startsWith('/api/keys') &&
+    !event.url.pathname.startsWith('/api/users/') &&
+	!event.url.pathname.startsWith('/api/verify/') &&
+	!event.url.pathname.startsWith('/api/models')
 
+) {
+    console.log('🚫 Applying rate limiting to:', event.url.pathname);
+    // Rate limiting code...
+} else if (event.url.pathname.startsWith('/api/')) {
+    console.log('✅ Skipping rate limiting for:', event.url.pathname);
+}
 	// Initialize locals
 	event.locals.pb = pb;
 	event.locals.user = null;
@@ -109,15 +109,16 @@ export const handle: Handle = async ({ event, resolve }) => {
 
 	// CSP for production
 	if (!dev) {
+		const pocketbaseUrl = env.POCKETBASE_URL || env.PUBLIC_POCKETBASE_URL || 'http://localhost:8090';
+		console.log('🔒 Setting CSP with PocketBase URL:', pocketbaseUrl);
+		
 		response.headers.set(
 			'Content-Security-Policy',
 			"default-src 'self'; " +
 				"script-src 'self' 'unsafe-inline'; " +
 				"style-src 'self' 'unsafe-inline'; " +
-				"img-src 'self' data: https:; " +
-				"connect-src 'self' " +
-				process.env.POCKETBASE_URL +
-				';'
+				"img-src 'self' data: https: " + pocketbaseUrl + "; " +
+				"connect-src 'self' " + pocketbaseUrl + ";"
 		);
 	}
 

@@ -1982,7 +1982,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		color: white;
+		color: var(--text-color);
 		font-weight: 500;
 		gap: 8px;
 	}

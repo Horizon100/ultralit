@@ -97,6 +97,7 @@
 {#if $showOverlay}
 	<div
 		class="drawer"
+		class:active={showOverlay}
 		transition:fly={{ x: -300, duration: 300 }}
 		use:swipeGesture={drawerSwipeConfig}
 	>
@@ -294,12 +295,16 @@
 		scrollbar-color: var(--bg-color) transparent;
 		scroll-behavior: smooth;
 	}
+	.drawer.active {
 
+		width: 100%;
+	}
 	.drawer {
 		display: flex;
 		flex-direction: column;
 		justify-content: auto;
 		align-items: center;
+		border-radius: 1rem;
 		// background: var(--bg-gradient-right);
 		// z-index: 11;
 		transform: translateZ(0);
@@ -999,6 +1004,20 @@
 			flex-direction: row;
 			// background: var(--bg-gradient-r);
 			z-index: 3000;
+		}
+	}
+	@media (max-width: 768px) {
+		
+		.drawer-visible.drawer {
+			margin-left: 0;
+			width: 100%;
+			transform: translateX(0);
+			left: 0 !important;
+			right: 0;
+			top: 3rem !important;
+			padding-top: 0;
+			margin-bottom: 6rem !important;
+			background: var(--primary-color) !important ;
 		}
 	}
 

@@ -423,7 +423,7 @@
 		left: 0;
 		right: 0;
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 		padding: 12px 16px;
 		display: flex;
 		align-items: center;
@@ -433,7 +433,7 @@
 		button {
 			background: none;
 			border: none;
-			color: white;
+			color: var(--text-color);
 			font-size: 18px;
 			cursor: pointer;
 			padding: 0 4px;

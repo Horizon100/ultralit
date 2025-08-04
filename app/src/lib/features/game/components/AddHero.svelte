@@ -443,7 +443,7 @@
 		width: 100%;
 		height: 100%;
 		background: var(--primary-color, #007bff);
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;

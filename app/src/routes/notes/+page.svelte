@@ -847,7 +847,7 @@
 	.explorer-footer {
 		padding: 10px 20px;
 		/* background-color: #1e1e1e; */
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		justify-content: space-between;
 		user-select: none;
@@ -858,7 +858,7 @@
 	.explorer-nav {
 		padding: 10px 20px;
 		background-color: #1e1e1e;
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		justify-content: space-between;
 		user-select: none;
@@ -872,7 +872,7 @@
 		overflow-y: auto;
 		padding: 10px 10px;
 
-		color: white;
+		color: var(--text-color);
 	}
 
 	.explorer-header span,
@@ -946,7 +946,7 @@
 
 	.tab.active {
 		background-color: var(--primary-color) !important;
-		color: white;
+		color: var(--text-color);
 		border-top-left-radius: 10px;
 		border-top-right-radius: 10px;
 	}
@@ -963,7 +963,7 @@
 
 	.close-tab:hover,
 	.new-tab:hover {
-		color: white;
+		color: var(--text-color);
 	}
 
 	.title {
@@ -971,7 +971,7 @@
 		width: 80%;
 		margin-left: 10%;
 		margin-top: 2rem;
-		color: white;
+		color: var(--text-color);
 	}
 
 	textarea {
@@ -979,7 +979,7 @@
 		width: 80%;
 		/* margin-left: 10%; */
 		margin-top: 2rem;
-		color: white;
+		color: var(--text-color);
 		background-color: transparent;
 		border: none;
 		outline: none;
@@ -1028,7 +1028,7 @@
 		display: flex;
 		align-items: center;
 		background-color: #4a4a4a;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 10px 15px;
 		border-radius: 4px;
@@ -1046,7 +1046,7 @@
 
 	#editor {
 		height: 100%;
-		color: white;
+		color: var(--text-color);
 		padding: 20px;
 	}
 
@@ -1104,7 +1104,7 @@
 	}
 
 	.context-menu-button:hover {
-		color: white;
+		color: var(--text-color);
 	}
 
 	.context-menu {
@@ -1123,7 +1123,7 @@
 		text-align: left;
 		background: none;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 	}
 
@@ -1233,7 +1233,7 @@
 
 	.tab.active {
 		background-color: #1e1e1e;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.new-tab {
@@ -1259,7 +1259,7 @@
 
 	.close-tab:hover,
 	.new-tab:hover {
-		color: white;
+		color: var(--text-color);
 	}
 
 	.note-title {
@@ -1272,7 +1272,7 @@
 		font-size: 30px;
 		font-weight: bold;
 		background-color: transparent;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-bottom: 1px solid #4a4a4a;
 		background-color: var(--primary-color) !important;
@@ -1297,7 +1297,7 @@
 		display: flex;
 		align-items: center;
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 10px 15px;
 		border-radius: 4px;
@@ -1334,7 +1334,7 @@
 	.editor-toolbar button {
 		background: none;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		padding: 5px 10px;
 		margin: 0 2px;
 		cursor: pointer;
@@ -1359,7 +1359,7 @@
 		height: calc(100% - 120px);
 		width: 78vw;
 
-		color: white;
+		color: var(--text-color);
 		border: none;
 		text-align: left;
 		margin-left: 1rem;
@@ -1414,7 +1414,7 @@
 		text-align: left;
 		background: none;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 	}
 
@@ -1462,7 +1462,7 @@
 	.ai-tooltip {
 		position: absolute;
 		background-color: #333;
-		color: white;
+		color: var(--text-color);
 		padding: 5px 10px;
 		border-radius: 4px;
 		font-size: 14px;
@@ -1476,7 +1476,7 @@
 
 	.attachments-toggle {
 		background-color: #2a2a2a;
-		color: white;
+		color: var(--text-color);
 		padding: 10px;
 		cursor: pointer;
 		text-align: center;
@@ -1494,7 +1494,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		color: white;
+		color: var(--text-color);
 		font-size: 12px;
 	}
 

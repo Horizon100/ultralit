@@ -635,7 +635,7 @@
 
 			.selected-indicator {
 				background: var(--tertiary-color);
-				color: white;
+				color: var(--text-color);
 				border-radius: 50%;
 				width: 2rem;
 				height: 2rem;
@@ -692,7 +692,7 @@
 				top: 1rem;
 				right: 1rem;
 				background: rgba(0, 0, 0, 0.5);
-				color: white;
+				color: var(--text-color);
 				border: none;
 				border-radius: 50%;
 				width: 2.5rem;
@@ -722,7 +722,7 @@
 
 				.select-btn {
 					background: var(--secondary-color);
-					color: white;
+					color: var(--text-color);
 					border: none;
 					padding: 0.75rem 2rem;
 					border-radius: 0.5rem;

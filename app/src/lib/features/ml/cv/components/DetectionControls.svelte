@@ -218,7 +218,7 @@
 		background: rgba(255, 255, 255, 0.1);
 		border: 1px solid rgba(255, 255, 255, 0.2);
 		border-radius: 6px;
-		color: white;
+		color: var(--text-color);
 		padding: 6px 10px;
 		cursor: pointer;
 		transition: all 0.2s ease;

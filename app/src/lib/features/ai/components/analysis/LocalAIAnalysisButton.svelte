@@ -1362,7 +1362,7 @@ function handleLocalModelSelect(event: CustomEvent) {
 		width: auto;
 		padding: 0.5rem;
 		background: var(--tertiary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 6px;
 		font-weight: 500;
@@ -1585,7 +1585,7 @@ function handleLocalModelSelect(event: CustomEvent) {
 
 	.transcribe-btn {
 		background: var(--accent-color, #3b82f6);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.transcribe-btn:hover {
@@ -1696,7 +1696,7 @@ function handleLocalModelSelect(event: CustomEvent) {
 		width: 100%;
 		padding: 0.75rem 1rem;
 		background: linear-gradient(135deg, var(--accent-color), var(--accent-hover));
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 6px;
 		font-weight: 500;
@@ -1732,7 +1732,7 @@ function handleLocalModelSelect(event: CustomEvent) {
 
 	.type-btn.pdf-btn.active {
 		background: var(--accent-color);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.analysis-result.pdf-result {

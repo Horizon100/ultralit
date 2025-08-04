@@ -433,7 +433,7 @@
 
 	.retry-btn {
 		background: var(--color-primary);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 8px 16px;
 		border-radius: 6px;
@@ -518,7 +518,7 @@
 	}
 
 	.play-icon {
-		color: white;
+		color: var(--text-color);
 		font-size: 24px;
 		filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
 	}

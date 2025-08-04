@@ -314,7 +314,7 @@
 		top: -30px;
 		right: 0;
 		background-color: var(--success-color, #4caf50);
-		color: white;
+		color: var(--text-color);
 		padding: 4px 8px;
 		border-radius: 4px;
 		font-size: 12px;

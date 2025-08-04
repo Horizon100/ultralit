@@ -23,7 +23,8 @@
 	import type { AIModel, ExpandedSections } from '$lib/types/types';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
 	import { derived } from 'svelte/store';
-
+	import { localModelsService } from '$lib/stores/localModelStore'; 
+import { useLifecycleManagement } from '$lib/composables/useLifecycleManagement';
 	// Props
 	export let userInput = '';
 	export let isLoading = false;
@@ -40,6 +41,9 @@
 	export let isPlaceholder = false;
 	export let currentManualPlaceholder = $t('chat.manualPlaceholder');
 
+let hasInitializedModels = false;
+let isLoadingModels = false;
+
 	// Constants
 	const MAX_VISIBLE_CHARS = 200;
 
@@ -49,10 +53,31 @@
 	let isButtonAreaHovered = false;
 	let isTextareaFocused = false;
 
-	// Event dispatcher
-	const dispatch = createEventDispatcher();
-
-	// Event handlers
+const dispatch = createEventDispatcher<{
+    // Textarea events
+    textareaFocus: void;
+    textareaBlur: void;
+    
+    // Model events
+    modelUpdate: { model: AIModel };
+    modelSelection: any; // The model object from ModelSelector
+    
+    // Message events
+    sendMessage: { message: string };
+    
+    // UI events
+    toggleAiActive: void;
+    inputCleared: void;
+    textModalOpen: void;
+    
+    // Selection events
+    sysPromptSelect: { prompt: any };
+    promptSelect: { prompt: any };
+    collaboratorSelect: { collaborator: any };
+    
+    // Thread events
+    loadThread: { threadId: string };
+}>();
 
 	let clickOutsideTimeout: number | undefined;
 
@@ -74,27 +99,109 @@
 	let focusDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 	let blurTimeout: ReturnType<typeof setTimeout> | null = null;
 
-	function onTextareaFocus() {
-		// Removed unused event parameter
-		if (isProcessingFocus) return; // Prevent multiple rapid focus events
+const lifecycleManager = useLifecycleManagement();
 
-		isProcessingFocus = true;
+async function handleLazyModelLoading() {
+    if (hasInitializedModels || isLoadingModels) {
+        return;
+    }
+    
+    // Don't load models if any sections are expanded (user is interacting with UI)
+    if ($expandedSections.models || $expandedSections.prompts || $expandedSections.sysprompts || $expandedSections.collaborators || $expandedSections.bookmarks) {
+        console.log('🎯 Skipping lazy loading - UI sections are open');
+        return;
+    }
+    
+    console.log('🎯 Textarea focused - starting lazy model loading');
+    isLoadingModels = true;
+    
+    try {
+        const currentUserValue = $currentUser;
+        if (!currentUserValue?.id) {
+            console.warn('No user available for model initialization');
+            return;
+        }
+        
+        // Use setTimeout to defer the heavy work and prevent UI blocking
+        setTimeout(async () => {
+            try {
+                // Double-check that sections are still closed
+                if ($expandedSections.models || $expandedSections.prompts || $expandedSections.sysprompts || $expandedSections.collaborators || $expandedSections.bookmarks) {
+                    console.log('🎯 Aborting lazy loading - UI sections opened during delay');
+                    isLoadingModels = false;
+                    return;
+                }
+                
+                const result = await lifecycleManager.initializeModelsLazily(
+                    currentUserValue.id,
+                    aiModel,
+                    (model) => {
+                        // Dispatch model update to parent
+                        dispatch('modelUpdate', { model });
+                    }
+                );
+                
+                if (result) {
+                    hasInitializedModels = true;
+                    console.log('🎯 Lazy model initialization completed:', result.name);
+                }
+            } catch (error) {
+                console.error('Error in deferred model loading:', error);
+            } finally {
+                isLoadingModels = false;
+            }
+        }, 1000); // Increase delay to 1 second
+        
+    } catch (error) {
+        console.error('Error in lazy model loading:', error);
+        isLoadingModels = false;
+    }
+}
+let isUsingSelectors = false;
 
-		if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
-		if (blurTimeout) clearTimeout(blurTimeout);
+// Add this reactive statement to track when selectors are being used:
+$: isUsingSelectors = $expandedSections.models || 
+                     $expandedSections.prompts || 
+                     $expandedSections.sysprompts || 
+                     $expandedSections.collaborators || 
+                     $expandedSections.bookmarks;
 
-		focusDebounceTimer = setTimeout(() => {
-			isFocused = true;
-			dispatch('textareaFocus');
+// Simplified focus handler:
+function onTextareaFocus() {
+    if (isProcessingFocus) return;
 
-			setTimeout(() => {
-				isProcessingFocus = false;
-			}, 300);
-		}, 300); // No more type casting needed
-	}
+    isProcessingFocus = true;
+
+    if (focusDebounceTimer) clearTimeout(focusDebounceTimer);
+    if (blurTimeout) clearTimeout(blurTimeout);
+
+    focusDebounceTimer = setTimeout(() => {
+        isFocused = true;
+        isTextareaFocused = true;
+        
+        // ONLY trigger lazy loading if:
+        // 1. Models haven't been initialized
+        // 2. Not currently loading
+        // 3. No selectors are open
+        // 4. User has been focused for a while (indicating they want to type, not click)
+        if (!hasInitializedModels && !isLoadingModels && !isUsingSelectors) {
+            setTimeout(() => {
+                // Double-check conditions after delay
+                if (!isUsingSelectors && !hasInitializedModels && !isLoadingModels) {
+                    handleLazyModelLoading();
+                }
+            }, 2000); // Wait 2 seconds before considering lazy loading
+        }
+        
+        dispatch('textareaFocus');
+
+        setTimeout(() => {
+            isProcessingFocus = false;
+        }, 300);
+    }, 300);
+}
 
 	function onTextareaBlur() {
-		// Removed unused event parameter
 		if (isProcessingFocus) return;
 
 		if (blurTimeout) clearTimeout(blurTimeout);
@@ -102,9 +209,10 @@
 		blurTimeout = setTimeout(() => {
 			if (!isButtonAreaHovered) {
 				isFocused = false;
+				isTextareaFocused = false;
 				dispatch('textareaBlur');
 			}
-		}, 300); // No more type casting needed
+		}, 600); 
 	}
 	let inputTimeout: number | undefined;
 	let resizeTimeout: number | undefined;
@@ -122,6 +230,11 @@
 			}
 		}
 	}
+function handleModelSelectorClick() {
+    if (!hasInitializedModels && !isLoadingModels) {
+        handleLazyModelLoading();
+    }
+}
 
 	function handleSendMessage() {
 		console.log('Sending message:', userInput);
@@ -262,7 +375,9 @@
 >
 	<!-- AI Active Mode or Placeholder Input -->
 	{#if (isAiActive && !isPlaceholder) || isPlaceholder}
-		<div class="ai-selector">
+		<div 
+			class="ai-selector"
+		>
 			<!-- Collaborators Section -->
 			{#if $expandedSections.collaborators && currentThreadId && !isPlaceholder}
 				<div class="section-content" in:slide={{ duration: 200 }} out:slide={{ duration: 200 }}>
@@ -291,7 +406,7 @@
 			<!-- Models Section -->
 			{#if $expandedSections.models}
 				<div class="section-content">
-					<ModelSelector provider={aiModel?.provider} on:select={handleModelSelection} />
+					<ModelSelector provider={aiModel?.provider} on:select={handleModelSelectorClick} />
 				</div>
 			{/if}
 
@@ -715,6 +830,7 @@
 		&.model {
 			border-radius: 1rem;
 			width: 3rem !important;
+			height: 3rem;
 			padding: 0;
 			gap: 0.5rem;
 			background: var(--bg-color) !important;
@@ -777,6 +893,8 @@
 		justify-content: center;
 		max-width: 1200px;
 		border: 1px solid var(--line-color);
+					background: var(--primary-color);
+
 		width: 100%;
 		height: auto;
 		bottom: 3rem;
@@ -802,7 +920,6 @@
 			border: none;
 			border-radius: 1rem;
 			color: var(--text-color);
-			display: flex;
 		}
 	}
 
@@ -826,9 +943,10 @@
 		bottom: 0.5rem;
 		z-index: 1;
 		transition: all 0.1s ease;
+					background: var(--primary-color);
+
 
 		& .combo-input {
-			background: var(--primary-color);
 			display: flex;
 			justify-content: center;
 			align-items: stretch;
@@ -851,15 +969,13 @@
 			border: none;
 			background: transparent;
 			color: var(--text-color);
-			display: flex;
 			font-size: 1.5rem;
-			width: calc(100% - 2rem);
+			width: auto;
 			border-radius: 2rem;
 			transition: all 0.3s ease;
 			max-height: 100px;
 			&:focus {
 				overflow-y: auto;
-				display: flex;
 				max-height: 400px;
 			}
 		}
@@ -870,7 +986,7 @@
    ============================================================================= */
 
 	.combo-input {
-		border-radius: var(--radius-m);
+		// border-radius: var(--radius-m);
 		height: auto;
 		width: 100%;
 		display: flex;
@@ -878,22 +994,19 @@
 		align-items: stretch;
 		flex-direction: column;
 		max-height: 400px;
-		overflow: hidden;
 
 		& textarea {
-			padding: 1rem;
+			// padding: 1rem;
+			width: calc(100% - 1rem) !important;
+			padding: 0.5rem;
 			height: auto;
-			width: 100%;
-			margin: 1rem 1rem 0;
 			font-size: 1rem;
-			flex: 1;
 
 			&:focus {
 				height: auto;
-				margin-top: 1.5rem;
-				margin-bottom: 0;
+				// margin-top: 1.5rem;
+				// margin-bottom: 0;
 				overflow-y: scroll;
-				flex: 1;
 			}
 		}
 	}
@@ -997,8 +1110,9 @@
    ============================================================================= */
 
 	.section-content {
-		width: calc(100vw - 2rem);
+		width: calc(100% - 2rem);
 		max-width: 1200px;
+
 		height: auto;
 		display: flex;
 		position: relative;
@@ -1009,6 +1123,16 @@
 		border-radius: 2rem;
 		justify-content: flex-end;
 		box-shadow: var(--tertiary-color) 0 -10px 24px 2px;
+	}
+
+	.ai-selector {
+		display: flex;
+		justify-content: center;
+		margin-top: 1rem;
+		width: 100%;
+		& .disabled {
+			display: none;
+		}
 	}
 
 	.btn-row {
@@ -1025,15 +1149,13 @@
 	.submission {
 		display: flex;
 		flex-direction: row;
-		margin: 0.5rem;
 		gap: 0.5rem;
 		padding: 0;
 		width: 100%;
 		height: 100%;
 		justify-content: flex-end;
-		align-self: flex-end;
+		align-items: flex-end;
 		transition: all 0.3s ease;
-		padding: 0.5rem;
 
 		&.visible {
 			z-index: 7000;

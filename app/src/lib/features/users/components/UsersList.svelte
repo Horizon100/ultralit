@@ -448,7 +448,7 @@
 
 	.retry-button {
 		background: #3498db;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 0.5rem 1rem;
 		border-radius: 4px;

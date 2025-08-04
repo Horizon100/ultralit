@@ -222,7 +222,7 @@
 		justify-content: center;
 		align-items: center;
 		background-color: rgba(0, 0, 0, 0.5);
-		color: white;
+		color: var(--text-color);
 		font-size: 24px;
 	}
 </style>

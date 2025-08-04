@@ -194,7 +194,7 @@
 
 	.toggle-view-btn {
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 10px 20px;
 		border-radius: 5px;
@@ -231,7 +231,7 @@
 	}
 
 	.child-agent-card {
-		background-color: white;
+		background-color: var(--text-color);
 		border-radius: 5px;
 		padding: 15px;
 		width: 100%;

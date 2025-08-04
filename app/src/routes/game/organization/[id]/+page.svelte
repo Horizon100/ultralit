@@ -211,7 +211,7 @@
 
 	.error-state button {
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 0.75rem 1.5rem;
 		border-radius: 0.5rem;

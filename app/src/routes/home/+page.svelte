@@ -1252,7 +1252,7 @@
 {#if $showDebug}
 	{#if browser}
 		<div
-			style="position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 15px; font-size: 14px; z-index: 9999; border-radius: 8px; min-width: 200px;"
+			style="position: fixed; top: 10px; right: 10px; background: #333; color: var(--text-color); padding: 15px; font-size: 14px; z-index: 9999; border-radius: 8px; min-width: 200px;"
 		>
 			<div>🔄 Scroll Debug</div>
 			<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
@@ -1264,7 +1264,7 @@
 			<div>Posts: {$postStore.posts.length}</div>
 			<div style="margin-top: 10px;">
 				<button
-					style="background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
+					style="background: #007bff; color: var(--text-color); border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
 					on:click={() => {
 						console.log('🚀 Manual trigger loadMorePosts from local function');
 						loadMoreHomePosts();
@@ -1275,7 +1275,7 @@
 			</div>
 			<div style="margin-top: 5px;">
 				<button
-					style="background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
+					style="background: #28a745; color: var(--text-color); border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
 					on:click={() => {
 						console.log('🔄 Recreate infinite scroll');
 						setupInfiniteScroll();
@@ -1293,7 +1293,7 @@
 <!-- Arrow indicator for scroll position -->
 <!-- <div style="position: fixed; bottom: 100px; right: 10px; z-index: 9999;">
 	{#if hasMore && !loadingMore}
-		<div style="background: #28a745; color: white; padding: 10px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 20px; animation: bounce 2s infinite;">
+		<div style="background: #28a745; color: var(--text-color); padding: 10px; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; font-size: 20px; animation: bounce 2s infinite;">
 			↓
 		</div>
 	{/if}

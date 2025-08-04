@@ -52,7 +52,7 @@
 	import { messageCountsStore, messageCounts, getCountColor } from '$lib/stores/messageCountStore';
 	import { promptStore } from '$lib/stores/promptStore';
 	import { currentCite, availableCites, type Cite } from '$lib/stores/citeStore';
-
+	import { showSidenav } from '$lib/stores/sidenavStore';
 	// ===== SERVICE IMPORTS =====
 	import { MessageService } from '$lib/services/messageService';
 	import { ThreadService } from '$lib/services/threadService';
@@ -281,42 +281,41 @@
 	function toggleSection(section: string) {
 		uiStore.toggleSection(section as keyof ExpandedSections);
 	}
-	function handleModelSelection(event: CustomEvent) {
-		console.log('🔄 AIChat handleModelSelection - Raw event:', event);
-		console.log('🔄 AIChat handleModelSelection - event.detail:', event.detail);
+function handleModelSelection(event: CustomEvent | any) {
+    console.log('🔄 AIChat handleModelSelection - Raw event:', event);
+    console.log('🔄 AIChat handleModelSelection - event type:', typeof event);
 
-		// Check the event structure
-		if (!event || !event.detail) {
-			console.error('❌ No event detail in AIChat handleModelSelection');
-			return;
-		}
+    let selectedModel: AIModel;
 
-		// Handle both possible structures
-		let selectedModel: AIModel;
+    // Handle different event formats
+    if (event && typeof event === 'object') {
+        if (event.detail) {
+            // Standard CustomEvent format
+            selectedModel = event.detail;
+            console.log('✅ Found model in event.detail:', selectedModel);
+        } else if (event.provider) {
+            // Direct model object passed
+            selectedModel = event;
+            console.log('✅ Found direct model object:', selectedModel);
+        } else {
+            console.error('❌ No valid model found in event:', event);
+            return;
+        }
+    } else {
+        console.error('❌ Invalid event format:', event);
+        return;
+    }
 
-		if (event.detail.model) {
-			// New format: { model: AIModel }
-			selectedModel = event.detail.model;
-			console.log('✅ Found model in event.detail.model:', selectedModel);
-		} else if (event.detail.provider) {
-			// Old format: direct AIModel
-			selectedModel = event.detail;
-			console.log('✅ Found model in event.detail (direct):', selectedModel);
-		} else {
-			console.error('❌ No valid model found in event:', event.detail);
-			return;
-		}
+    if (!selectedModel || !selectedModel.provider) {
+        console.error('❌ Selected model missing provider:', selectedModel);
+        return;
+    }
 
-		if (!selectedModel || !selectedModel.provider) {
-			console.error('❌ Selected model missing provider:', selectedModel);
-			return;
-		}
-
-		console.log('✅ Setting AI model in AIChat:', selectedModel.name);
-		aiModel = { ...selectedModel, provider: selectedModel.provider || 'openai' };
-		selectedModelLabel = aiModel.name || '';
-		uiStore.setExpandedSectionExclusive('models', false);
-	}
+    console.log('✅ Setting AI model in AIChat:', selectedModel.name);
+    aiModel = { ...selectedModel, provider: selectedModel.provider || 'openai' };
+    selectedModelLabel = aiModel.name || '';
+    // uiStore.setExpandedSectionExclusive('models', false);
+}
 
 	// ===== THREAD MANAGEMENT =====
 	async function handleLoadThread(threadId: string) {
@@ -364,7 +363,7 @@
 			const chatState = get(chatStore);
 			console.log('🔍 chatStore after setMessages:', chatState.messages?.length || 0);
 
-			uiStore.closeAllInputRelatedSections();
+			// uiStore.closeAllInputRelatedSections();
 
 			return currentState.currentThread;
 		} catch (error) {
@@ -379,7 +378,7 @@
 			if (newThread) {
 				currentThreadId = newThread.id;
 				currentThread = newThread;
-				uiStore.closeAllInputRelatedSections();
+				// uiStore.closeAllInputRelatedSections();
 				await handleLoadThread(newThread.id);
 			}
 			return newThread;
@@ -828,7 +827,7 @@
 		<div class="chat-wapper" in:fly={{ x: 200, duration: 1000 }} out:fade={{ duration: 200 }}>
 			<div
 				class="chat-content"
-				class:drawer-visible={$showThreadList}
+				class:drawer-visible={$showOverlay}
 				in:fly={{ x: 200, duration: 300 }}
 				out:fade={{ duration: 200 }}
 			>
@@ -1069,7 +1068,7 @@
 
 			&.btn-delete {
 				background: #ef4444;
-				color: white;
+				color: var(--text-color);
 
 				&:hover {
 					background: #dc2626;
@@ -2077,7 +2076,7 @@
 			& svg {
 				width: 20px;
 				height: 20px;
-				color: white;
+				color: var(--text-color);
 			}
 		}
 	}
@@ -2162,8 +2161,10 @@
 	}
 	.chat-container.drawer-visible {
 		justify-content: space-between;
+
 		& .chat-content {
-			width: 100vw;
+			width: calc(100vw - 400px);
+			margin-right: 1rem;
 			flex: 1;
 		}
 	}
@@ -2483,7 +2484,7 @@
 		justify-content: center;
 		width: auto;
 		height: 1.25rem;
-		color: white;
+		color: var(--text-color);
 		border-radius: 1rem;
 		font-size: 0.75rem;
 		font-weight: bold;
@@ -2883,7 +2884,7 @@
 	//     x: hidden;
 	//     y: hidden;
 	//   }
-	//   color: white;
+	//   color: var(--text-color);
 	//   left: auto;
 
 	//   &.minimized {
@@ -2968,7 +2969,7 @@
 		border-radius: 0.25rem;
 		background: transparent;
 		border: 1px solid rgba(255, 255, 255, 0.2);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.thread-count {
@@ -3182,7 +3183,7 @@
 		background-color: #1976d2;
 		border: none;
 		border-radius: 6px;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		display: flex;
 		align-items: center;
@@ -3225,7 +3226,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		color: white;
+		color: var(--text-color);
 		margin-bottom: 0;
 		backdrop-filter: blur(20px) !important;
 	}
@@ -3380,7 +3381,7 @@
 				x: hidden;
 				y: hidden;
 			}
-			color: white;
+			color: var(--text-color);
 			left: auto;
 
 			&.minimized {
@@ -3448,11 +3449,7 @@
 			// }
 		}
 
-		.chat-content {
-			width: auto;
-			margin-right: 0;
-			margin-left: 0;
-		}
+
 
 		.chat-placeholder img {
 			width: 150%;
@@ -3588,27 +3585,31 @@
 			margin-top: 0;
 		}
 
-		.chat-content {
-			flex-grow: 1;
-			display: flex;
-			flex-direction: column;
-			// background: var(--bg-gradient);
-			justify-content: flex-start;
-			// align-items: center;
-			width: 100% !important;
-			margin-left: 0 !important;
-			height: auto;
-			margin-top: 0;
-			margin-right: 0 !important;
-			height: auto;
-			// width: 50%;
-			// margin: 0 1rem;
-			// margin-left: 25%;
-			// padding: 0 10px;
-			overflow-y: hidden;
-			overflow-x: hidden;
-			transition: all ease 0.3s;
+		.chat-content.drawer-visible {
+			border-radius: 0;
 		}
+
+		// .chat-content {
+		// 	flex-grow: 1;
+		// 	display: flex;
+		// 	flex-direction: column;
+		// 	// background: var(--bg-gradient);
+		// 	justify-content: flex-start;
+		// 	// align-items: center;
+		// 	width: 100% !important;
+		// 	margin-left: 0 !important;
+		// 	height: auto;
+		// 	margin-top: 0;
+		// 	margin-right: 0 !important;
+		// 	height: auto;
+		// 	// width: 50%;
+		// 	// margin: 0 1rem;
+		// 	// margin-left: 25%;
+		// 	// padding: 0 10px;
+		// 	overflow-y: hidden;
+		// 	overflow-x: hidden;
+		// 	transition: all ease 0.3s;
+		// }
 
 		.chat-messages {
 			width: auto;
@@ -3744,6 +3745,11 @@
 			left: 10px;
 		}
 	}
+		@media (max-width: 768px) {
+			.chat-content.drawer-visible {
+				display: none;
+			}
+		}
 	@media (max-width: 450px) {
 		.chat-messages {
 			top: 2rem;
@@ -3813,7 +3819,7 @@
 			bottom: 10rem !important;
 			right: 1rem;
 			background-color: #21201d;
-			color: white;
+			color: var(--text-color);
 			border: 1px solid rgba(53, 63, 63, 0.5);
 			border-radius: 50%;
 			width: 2rem;

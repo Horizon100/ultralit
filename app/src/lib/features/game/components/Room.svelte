@@ -381,7 +381,7 @@
 
 	.close-btn {
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 10px 16px;
 		border-radius: 8px;
@@ -449,7 +449,7 @@
 	.entrance-content,
 	.lobby-content {
 		text-align: center;
-		color: white;
+		color: var(--text-color);
 		padding: 2px;
 	}
 

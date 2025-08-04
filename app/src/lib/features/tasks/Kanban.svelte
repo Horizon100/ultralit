@@ -3384,7 +3384,7 @@
 		border-radius: 5px;
 		border: 1px solid #ddd;
 		background-color: #3a3e3c;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.timer-controls button {
@@ -3446,7 +3446,7 @@
 		padding-inline-start: 1rem;
 		border: none;
 		background-color: #3a3e3c;
-		color: white;
+		color: var(--text-color);
 		font-size: 1rem;
 		transition: all 0.2s ease;
 	}
@@ -3460,7 +3460,7 @@
 		gap: 0.5rem;
 		font-size: 1.2rem;
 		background: var(--secondary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 5px;
 		cursor: pointer;
@@ -3506,7 +3506,7 @@
 		&:hover {
 			cursor: pointer;
 			background: red;
-			color: white;
+			color: var(--text-color);
 
 			& span {
 				display: flex;
@@ -3554,7 +3554,7 @@
 
 	.confirm-btn {
 		background-color: red;
-		color: white;
+		color: var(--text-color);
 		border: 1px solid var(--line-color);
 		padding: 0.5rem 1rem;
 		border-radius: 0.5rem;
@@ -3791,7 +3791,7 @@
 
 	.navigate-parent-btn {
 		background-color: var(--color-secondary);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 4px;
 		padding: 4px 8px;
@@ -3943,7 +3943,7 @@
 
 	.shared-tooltip {
 		background: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		padding: 4px 8px;
 		border-radius: 4px;
 		font-size: 12px;
@@ -4063,7 +4063,7 @@
 		padding: 0.25rem 0.5rem;
 		border-radius: 0.25rem;
 		font-size: 0.75rem;
-		color: white;
+		color: var(--text-color);
 		font-weight: 500;
 	}
 
@@ -4366,7 +4366,7 @@
 			border-radius: 5px;
 			border: 1px solid #ddd;
 			background-color: #3a3e3c;
-			color: white;
+			color: var(--text-color);
 		}
 
 		.timer-controls button {
@@ -4402,7 +4402,7 @@
 			padding-inline-start: 1rem;
 			border: none;
 			background-color: #3a3e3c;
-			color: white;
+			color: var(--text-color);
 			font-size: 0.9rem;
 		}
 
@@ -4414,7 +4414,7 @@
 			width: auto;
 			font-size: 0.9rem;
 			background: var(--secondary-color);
-			color: white;
+			color: var(--text-color);
 			border: none;
 			border-radius: 5px;
 			cursor: pointer;

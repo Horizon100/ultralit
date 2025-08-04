@@ -10,11 +10,11 @@ interface GridItem {
 }
 
 const defaultLayout: GridItem[] = [
-    { id: 'video', x: 0, y: 0, w: 6, h: 4 },
-    { id: 'chat', x: 9, y: 0, w: 3, h: 6 },
-    { id: 'moderator', x: 6, y: 0, w: 3, h: 4 },
-    { id: 'automator', x: 6, y: 4, w: 3, h: 3 },
-    { id: 'projects', x: 0, y: 4, w: 6, h: 3 }
+    { id: 'video', x: 0, y: 0, w: 12, h: 7 },     // Main video area - bigger
+    { id: 'chat', x: 12, y: 0, w: 6, h: 7 },     // Chat panel - top right
+    { id: 'moderator', x: 0, y: 7, w: 6, h: 6 }, // Moderator - bottom left
+    { id: 'automator', x: 6, y: 7, w: 6, h: 6 }, // Automator - bottom center
+    { id: 'projects', x: 12, y: 7, w: 6, h: 6 }  // Projects - bottom right
 ];
 
 function checkCollision(currentItemId: string, layout: GridItem[], x: number, y: number, w: number, h: number): boolean {

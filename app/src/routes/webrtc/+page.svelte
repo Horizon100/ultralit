@@ -3,21 +3,32 @@
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { currentUser } from '$lib/pocketbase';
-	
+	import Icon
+	 from '$lib/components/ui/Icon.svelte';
+	  let roomName = '';
+  let userName = '';
 	let recentRooms = [
 		{ id: '1', name: 'Team Meeting', participants: 5, lastUsed: '2 hours ago' },
 		{ id: '2', name: 'Project Demo', participants: 12, lastUsed: '1 day ago' },
 		{ id: '3', name: 'Daily Standup', participants: 8, lastUsed: '3 days ago' }
 	];
+
+	// function quickJoin() {
+	// 	goto('/webrtc/lobby');
+	// }
 	
-	function quickJoin() {
-		goto('/webrtc/lobby');
-	}
-	
-	function createRoom() {
-		goto('/webrtc/lobby?mode=create');
-	}
-	
+  async function createRoom() {
+    const response = await fetch('/api/webrtc/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: roomName })
+    });
+    
+    if (response.ok) {
+      const room = await response.json();
+      goto(`/webrtc/room/${room.roomId}`);
+    }
+  }
 	function joinRoom(roomId: string) {
 		goto(`/webrtc/room/${roomId}`);
 	}
@@ -31,6 +42,7 @@
 <svelte:head>
 	<title>Video Conferencing - Vrazum</title>
 </svelte:head>
+<main>
 
 {#if $currentUser}
 	<div class="home-page">
@@ -45,8 +57,8 @@
 					High-quality video calls with advanced moderation tools and real-time collaboration.
 				</p>
 				
-				<div class="hero-actions">
-					<button class="btn-primary" on:click={quickJoin}>
+				<!-- <div class="hero-actions">
+					<button class="btn-primary" on:click={openModal}>
 						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
 						</svg>
@@ -59,10 +71,10 @@
 						</svg>
 						Create Room
 					</button>
-				</div>
+				</div> -->
 			</div>
 			
-			<div class="hero-visual">
+			<!-- <div class="hero-visual">
 				<div class="demo-grid">
 					<div class="demo-video active">
 						<div class="demo-avatar">
@@ -87,10 +99,10 @@
 						<span>Emma</span>
 					</div>
 				</div>
-			</div>
+			</div> -->
 		</div>
 		
-		<div class="recent-section">
+		<!-- <div class="recent-section">
 			<h2>Recent Rooms</h2>
 			<div class="rooms-grid">
 				{#each recentRooms as room}
@@ -106,10 +118,10 @@
 					</div>
 				{/each}
 			</div>
-		</div>
+		</div> -->
 		
 		<div class="features-section">
-			<h2>Powerful Features</h2>
+			<!-- <h2>Powerful Features</h2> -->
 			<div class="features-grid">
 				<div class="feature-card">
 					<div class="feature-icon">🎥</div>
@@ -142,7 +154,14 @@
 		<p>Loading...</p>
 	</div>
 {/if}
-<style>
+</main>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
 	.home-page {
 		padding: 2rem;
 		max-width: 1200px;
@@ -150,23 +169,24 @@
 	}
 	
 	.hero-section {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 4rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 		align-items: center;
-		margin-bottom: 6rem;
-		min-height: 60vh;
+		margin-bottom: 2rem;
 	}
 	
 	.hero-title {
-		font-size: 3.5rem;
+		font-size: 2.5rem;
 		font-weight: bold;
 		line-height: 1.1;
 		margin-bottom: 1.5rem;
+		color: var(--text-color);
+		
 	}
 	
 	.gradient-text {
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		background: var(--tertiary-color);
 		-webkit-background-clip: text;
 		-webkit-text-fill-color: transparent;
 		background-clip: text;
@@ -174,7 +194,7 @@
 	
 	.hero-subtitle {
 		font-size: 1.25rem;
-		color: #94a3b8;
+		color: var(--placeholder-color);
 		margin-bottom: 2.5rem;
 		line-height: 1.6;
 	}
@@ -184,45 +204,38 @@
 		gap: 1rem;
 	}
 	
-	.btn-primary {
+	.btn-primary, .btn-secondary {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
-		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-		color: white;
+		background: var(--bg-gradient-r);
+		color: var(--text-color);
 		padding: 1rem 2rem;
-		border: none;
-		border-radius: 0.75rem;
+		border: 1px solid var(--primary-color);
+		border-radius: 2rem;
 		font-size: 1.125rem;
 		font-weight: 600;
+
 		cursor: pointer;
 		transition: all 0.2s;
 	}
 	
-	.btn-primary:hover {
+	.btn-primary:hover, .btn-secondary:hover {
 		transform: translateY(-2px);
-		box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+		box-shadow: 0 10px 25px var(--tertiary-color);
+		color: var(--tertiary-color);
+
 	}
 	
 	.btn-secondary {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		background: transparent;
-		color: white;
-		padding: 1rem 2rem;
-		border: 2px solid #374151;
-		border-radius: 0.75rem;
-		font-size: 1.125rem;
-		font-weight: 600;
-		cursor: pointer;
-		transition: all 0.2s;
+		opacity: 0.5;
+		&:hover {
+			opacity: 1;
+		}
 	}
+
 	
-	.btn-secondary:hover {
-		border-color: #667eea;
-		background: rgba(102, 126, 234, 0.1);
-	}
+	
 	
 	.demo-grid {
 		display: grid;
@@ -266,6 +279,7 @@
 		font-weight: bold;
 		margin-bottom: 2rem;
 		text-align: center;
+		color: var(--text-color)
 	}
 	
 	.rooms-grid {
@@ -275,8 +289,8 @@
 	}
 	
 	.room-card {
-		background: #111;
-		border: 1px solid #333;
+		background: var(--primary-color);
+		border: 1px solid var(--line-color);
 		border-radius: 0.75rem;
 		padding: 1.5rem;
 		cursor: pointer;
@@ -284,7 +298,7 @@
 	}
 	
 	.room-card:hover {
-		border-color: #667eea;
+		border-color: var(--tertiary-color);
 		transform: translateY(-2px);
 	}
 	
@@ -301,7 +315,7 @@
 	}
 	
 	.participants {
-		color: #94a3b8;
+		color: var(--placeholder-color);
 		font-size: 0.875rem;
 	}
 	
@@ -317,8 +331,8 @@
 	}
 	
 	.join-btn {
-		background: #667eea;
-		color: white;
+		background: var(--secondary-color);
+		color: var(--text-color);
 		padding: 0.5rem 1rem;
 		border: none;
 		border-radius: 0.5rem;
@@ -328,7 +342,8 @@
 	}
 	
 	.join-btn:hover {
-		background: #5a67d8;
+		background: var(--tertiary-color);
+		color: var(--primary-color);
 	}
 	
 	.features-grid {
@@ -340,8 +355,8 @@
 	.feature-card {
 		text-align: center;
 		padding: 2rem;
-		background: #111;
-		border: 1px solid #333;
+		background: var(--primary-color);
+
 		border-radius: 0.75rem;
 		transition: all 0.2s;
 	}
@@ -366,7 +381,85 @@
 		color: #94a3b8;
 		line-height: 1.6;
 	}
-	
+	  .lobby {
+    display: flex;
+	position: absolute;
+	left: 0;
+	top: 0;
+	right: 0;
+	bottom: 0;
+    justify-content: center;
+    align-items: center;
+    // height: calc(100vh - 4rem);
+    		background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 60%);
+		backdrop-filter: blur(10px);
+  }
+
+  .lobby-wrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: 400px;
+    width: 100%;
+    user-select: none;
+    & h1 {
+      color: var(--tertiary-color);
+      text-align: center;
+    }
+    & input {
+      padding: 0.5rem 1rem;
+      margin-bottom: 0.5rem;
+      border-radius: 1rem;
+      border: 1px solid var(--line-color);
+      background: var(--secondary-color);
+      font-size: 1rem;
+      color: var(--placeholder-color);
+      width: calc(100% - 2rem);
+      &:focus {
+        color: var(--text-color);
+        border: 1px solid var(--tertiary-color);
+        outline: none;
+        background: var(--primary-color);
+      }
+    }
+	& .close-wrapper {
+
+		width: 100%;
+		display: flex;
+		justify-content: flex-end;
+		align-items: center;
+	}
+    & button {
+      padding: 0.5rem 1rem;
+      width: 100%;
+      border-radius: 2rem;
+      border: 1px solid var(--line-color);
+      background: var(--primary-color);
+      color: var(--placeholder-color);
+      font-size: 1.2rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      &:hover {
+        transform: scale(1.1);
+        color: var(--tertiary-color);
+      }
+	  &.close {
+		position: relative;
+		padding: 0;
+		border: none;
+		height: 3rem;
+		width: 3rem;
+		color: red;
+		background: transparent;
+		&:hover {
+			background: red;
+			color: white;
+		}
+	  }
+    }
+  }
+
 	@media (max-width: 768px) {
 		.hero-section {
 			grid-template-columns: 1fr;

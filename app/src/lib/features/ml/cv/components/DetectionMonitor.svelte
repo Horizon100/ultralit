@@ -203,7 +203,7 @@
 	}
 
 	.reset-btn:hover {
-		color: white;
+		color: var(--text-color);
 		background: rgba(255, 255, 255, 0.1);
 	}
 

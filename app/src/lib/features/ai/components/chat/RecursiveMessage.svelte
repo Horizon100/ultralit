@@ -1364,7 +1364,7 @@
 	.send-btn {
 		background-color: var(--secondary-color);
 		border-radius: 50%;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.send-btn:disabled {
@@ -1403,7 +1403,7 @@
 			& svg {
 				width: 20px;
 				height: 20px;
-				color: white;
+				color: var(--text-color);
 			}
 		}
 	}
@@ -1576,7 +1576,7 @@
 
 	.loader {
 		width: 2rem;
-		height: 0.5rem;
+		// height: 0.5rem;
 		border: 1px solid;
 		box-sizing: border-box;
 		border-radius: 50%;
@@ -1654,11 +1654,10 @@
 			text-align: center;
 			justify-content: center;
 			box-shadow: none !important;
-			padding: 2rem;
+			padding: 0.5rem;
 			width: 100%;
 			height: auto;
 			font-style: italic;
-			border-radius: 50px;
 			transition: all 0.3s ease-in;
 
 			& p {

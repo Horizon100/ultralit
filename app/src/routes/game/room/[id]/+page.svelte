@@ -414,7 +414,7 @@
 		top: 0;
 		left: 0;
 		background: var(--accent);
-		color: white;
+		color: var(--text-color);
 		border-radius: 0.25rem;
 		padding: 0.5rem;
 		display: flex;
@@ -500,7 +500,7 @@
 
 	.join-button {
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 0.5rem 1rem;
 		border-radius: 0.375rem;
@@ -553,7 +553,7 @@
 		width: 100%;
 		height: 100%;
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -583,7 +583,7 @@
 
 	.error-state button {
 		background: var(--primary);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 0.75rem 1.5rem;
 		border-radius: 0.5rem;

@@ -60,16 +60,16 @@
 		right: 10px;
 		background: none;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 	}
 
 	h2 {
-		color: white;
+		color: var(--text-color);
 		margin-bottom: 20px;
 	}
 
 	.content {
-		color: white;
+		color: var(--text-color);
 	}
 </style>

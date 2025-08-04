@@ -1,3 +1,5 @@
+//src/lib/features/ai/utils/providers.ts
+
 import type { AIModel, AIProviderType, SelectableAIModel } from '$lib/types/types';
 import openaiIcon from '$lib/assets/icons/providers/openai.svg';
 import anthropicIcon from '$lib/assets/icons/providers/anthropic.svg';
@@ -5,6 +7,7 @@ import googleIcon from '$lib/assets/icons/providers/google.svg';
 import grokIcon from '$lib/assets/icons/providers/x.svg';
 import deepseekIcon from '$lib/assets/icons/providers/deepseek.svg';
 import ollamaIcon from '$lib/assets/icons/providers/ollama.svg';
+import { localModelsService } from '$lib/stores/localModelStore';
 
 import { fetchTryCatch, isFailure, clientTryCatch } from '$lib/utils/errorUtils';
 export interface ProviderConfig {
@@ -33,184 +36,295 @@ const handleFetchError = (providerName: string) => (error: unknown) => {
 };
 
 export const providers: Record<AIProviderType, ProviderConfig> = {
-	local: {
-		name: 'Local Models', // Static name in the providers config
-		icon: ollamaIcon,
-		validateApiKey: async (): Promise<boolean> => {
-			try {
-				const response = await fetch('/api/ai/local/models');
-				const result = await response.json();
-				return result.success && result.data?.models?.length > 0;
-			} catch {
-				return false;
-			}
-		},
-		fetchModels: async (): Promise<AIModel[]> => {
-			try {
-				const response = await fetch('/api/ai/local/models');
-				const result = await response.json();
+    local: {
+        name: 'Local Models',
+        icon: ollamaIcon,
+        validateApiKey: async (): Promise<boolean> => {
+            try {
+                const status = await localModelsService.checkStatus();
+                return status === 'online';
+            } catch {
+                return false;
+            }
+        },
+        fetchModels: async (): Promise<AIModel[]> => {
+            try {
+                // Use the centralized service instead of direct fetch
+                const models = await localModelsService.getModels();
+                
+                return models.map((model: SelectableAIModel) => ({
+                    id: `local-${model.api_type}`,
+                    name: model.name,
+                    provider: 'local' as AIProviderType,
+                    api_key: '', // Local models don't need API keys
+                    base_url: 'http://localhost:11434',
+                    api_type: model.api_type,
+                    api_version: 'v1',
+                    description: `${model.parameters} - ${model.families?.join(', ') || 'Local Model'}`,
+                    user: [],
+                    created: new Date().toISOString(),
+                    updated: new Date().toISOString(),
+                    collectionId: 'local_models',
+                    collectionName: 'local_models'
+                }));
+            } catch (error) {
+                console.error('Error fetching local models:', error);
+                return [];
+            }
+        }
+    },
+openai: {
+    name: 'OpenAI',
+    icon: openaiIcon,
+    validateApiKey: async (apiKey: string): Promise<boolean> => {
+        try {
+            const response = await fetch('https://api.openai.com/v1/models', {
+                headers: { Authorization: `Bearer ${apiKey}` }
+            });
+            return response.status === 200;
+        } catch {
+            return false;
+        }
+    },
+    fetchModels: async (apiKey: string): Promise<AIModel[]> => {
+        const result = await clientTryCatch(
+            (async () => {
+                // Return current OpenAI models directly since the API sometimes has issues
+                // and we know the current model names
+                return [
+                    {
+                        id: 'openai-gpt-4o',
+                        name: 'GPT-4o',
+                        provider: 'openai' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.openai.com/v1',
+                        api_type: 'gpt-4o',
+                        api_version: '',
+                        description: 'Most advanced GPT-4 model with vision capabilities',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'openai-gpt-4o-mini',
+                        name: 'GPT-4o Mini',
+                        provider: 'openai' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.openai.com/v1',
+                        api_type: 'gpt-4o-mini',
+                        api_version: '',
+                        description: 'Faster, more affordable GPT-4 model',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'openai-gpt-4-turbo',
+                        name: 'GPT-4 Turbo',
+                        provider: 'openai' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.openai.com/v1',
+                        api_type: 'gpt-4-turbo',
+                        api_version: '',
+                        description: 'High-performance GPT-4 model',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'openai-gpt-3.5-turbo',
+                        name: 'GPT-3.5 Turbo',
+                        provider: 'openai' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.openai.com/v1',
+                        api_type: 'gpt-3.5-turbo',
+                        api_version: '',
+                        description: 'Fast and affordable GPT-3.5 model',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    }
+                ];
+            })(),
+            'Fetching OpenAI models'
+        );
 
-				if (result.success && result.data?.models) {
-					return result.data.models.map((model: AIModel) => ({
-						id: `local-${model.api_type}`,
-						name: model.name,
-						provider: 'local' as AIProviderType,
-						api_key: '', // Local models don't need API keys
-						base_url: 'http://localhost:11434',
-						api_type: model.api_type,
-						api_version: 'v1',
-						description: `${model.parameters} - ${model.families?.join(', ') || 'Local Model'}`,
-						user: [],
-						created: new Date().toISOString(),
-						updated: new Date().toISOString(),
-						collectionId: 'local_models',
-						collectionName: 'local_models'
-					}));
-				}
+        if (isFailure(result)) {
+            throw new Error(result.error);
+        }
 
-				return [];
-			} catch (error) {
-				console.error('Error fetching local models:', error);
-				return [];
-			}
-		}
-	},
-	openai: {
-		name: 'OpenAI',
-		icon: openaiIcon,
-		validateApiKey: async (apiKey: string): Promise<boolean> => {
-			try {
-				const response = await fetch('https://api.openai.com/v1/models', {
-					headers: { Authorization: `Bearer ${apiKey}` }
-				});
-				return response.status === 200;
-			} catch {
-				return false;
-			}
-		},
-		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch(
-				(async () => {
-					const fetchResult = await fetchTryCatch<ModelListResponse>(
-						'https://api.openai.com/v1/models',
-						{
-							headers: { Authorization: `Bearer ${apiKey}` }
-						}
-					);
+        return result.data;
+    }
+},
 
-					if (isFailure(fetchResult)) {
-						throw new Error(`Failed to fetch OpenAI models: ${fetchResult.error}`);
-					}
+deepseek: {
+    name: 'DeepSeek',
+    icon: deepseekIcon,
+    validateApiKey: async (apiKey: string): Promise<boolean> => {
+        try {
+            const response = await fetch('https://api.deepseek.com/v1/models', {
+                headers: { Authorization: `Bearer ${apiKey}` }
+            });
+            return response.status === 200;
+        } catch {
+            return false;
+        }
+    },
+    fetchModels: async (apiKey: string): Promise<AIModel[]> => {
+        const result = await clientTryCatch(
+            (async () => {
+                // Return current DeepSeek models directly
+                return [
+                    {
+                        id: 'deepseek-deepseek-chat',
+                        name: 'DeepSeek Chat',
+                        provider: 'deepseek' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.deepseek.com/v1',
+                        api_type: 'deepseek-chat',
+                        api_version: '',
+                        description: 'DeepSeek conversational model - highly capable and cost-effective',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'deepseek-deepseek-coder',
+                        name: 'DeepSeek Coder',
+                        provider: 'deepseek' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.deepseek.com/v1',
+                        api_type: 'deepseek-coder',
+                        api_version: '',
+                        description: 'DeepSeek specialized coding model',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'deepseek-deepseek-reasoner',
+                        name: 'DeepSeek Reasoner',
+                        provider: 'deepseek' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.deepseek.com/v1',
+                        api_type: 'deepseek-reasoner',
+                        api_version: '',
+                        description: 'DeepSeek reasoning model with enhanced logical capabilities',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    }
+                ];
+            })(),
+            'Fetching DeepSeek models'
+        );
 
-					const data = fetchResult.data;
-					return data.data
-						.filter(
-							(model: OpenAIModel) => model.id.includes('gpt') && !model.id.includes('instruct')
-						)
-						.map((model: OpenAIModel) => ({
-							id: `openai-${model.id}`,
-							name: model.id,
-							provider: 'openai' as AIProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.openai.com/v1',
-							api_type: model.id,
-							api_version: '',
-							description: `OpenAI ${model.id} model`,
-							user: [],
-							created: new Date(model.created * 1000).toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						}));
-				})(),
-				'Fetching OpenAI models'
-			);
+        if (isFailure(result)) {
+            throw new Error(result.error);
+        }
 
-			if (isFailure(result)) {
-				throw new Error(result.error);
-			}
+        return result.data;
+    }
+},
 
-			return result.data;
-		}
-	},
-	anthropic: {
-		name: 'Claude',
-		icon: anthropicIcon,
-		validateApiKey: async (apiKey: string): Promise<boolean> => {
-			try {
-				const response = await fetch('https://api.anthropic.com/v1/messages', {
-					method: 'POST',
-					headers: {
-						'x-api-key': apiKey,
-						'anthropic-version': '2023-06-01'
-					}
-				});
-				return response.status !== 401;
-			} catch {
-				return false;
-			}
-		},
-		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch(
-				(async () => {
-					return [
-						{
-							id: 'anthropic-claude-3-opus',
-							name: 'Claude 3 Opus',
-							provider: 'anthropic' as AIProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.anthropic.com/v1',
-							api_type: 'claude-3-opus-20240229',
-							api_version: '2024-02-29',
-							description: 'Most capable Claude model for complex tasks',
-							user: [],
-							created: new Date().toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						},
-						{
-							id: 'anthropic-claude-3-sonnet',
-							name: 'Claude 3 Sonnet',
-							provider: 'anthropic' as AIProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.anthropic.com/v1',
-							api_type: 'claude-3-sonnet-20240229',
-							api_version: '2024-02-29',
-							description: 'Balanced model for most tasks',
-							user: [],
-							created: new Date().toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						},
-						{
-							id: 'anthropic-claude-3-haiku',
-							name: 'Claude 3 Haiku',
-							provider: 'anthropic' as AIProviderType,
-							api_key: apiKey,
-							base_url: 'https://api.anthropic.com/v1',
-							api_type: 'claude-3-haiku-20240307',
-							api_version: '2024-03-07',
-							description: 'Fastest Claude model for simple tasks',
-							user: [],
-							created: new Date().toISOString(),
-							updated: new Date().toISOString(),
-							collectionId: 'models',
-							collectionName: 'models'
-						}
-					];
-				})(),
-				'Fetching Anthropic models'
-			);
+anthropic: {
+    name: 'Claude',
+    icon: anthropicIcon,
+    validateApiKey: async (apiKey: string): Promise<boolean> => {
+        try {
+            const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                    'x-api-key': apiKey,
+                    'anthropic-version': '2023-06-01',
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify({
+                    model: 'claude-3-5-haiku-20241022',
+                    max_tokens: 1,
+                    messages: [{ role: 'user', content: 'test' }]
+                })
+            });
+            return response.status !== 401;
+        } catch {
+            return false;
+        }
+    },
+    fetchModels: async (apiKey: string): Promise<AIModel[]> => {
+        const result = await clientTryCatch(
+            (async () => {
+                return [
+                    {
+                        id: 'anthropic-claude-3-5-sonnet',
+                        name: 'Claude 3.5 Sonnet',
+                        provider: 'anthropic' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.anthropic.com/v1',
+                        api_type: 'claude-3-5-sonnet-20241022',
+                        api_version: '2023-06-01',
+                        description: 'Most capable Claude model with enhanced reasoning',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'anthropic-claude-3-5-haiku',
+                        name: 'Claude 3.5 Haiku',
+                        provider: 'anthropic' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.anthropic.com/v1',
+                        api_type: 'claude-3-5-haiku-20241022',
+                        api_version: '2023-06-01',
+                        description: 'Fastest Claude model for simple tasks',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    },
+                    {
+                        id: 'anthropic-claude-3-opus',
+                        name: 'Claude 3 Opus',
+                        provider: 'anthropic' as AIProviderType,
+                        api_key: apiKey,
+                        base_url: 'https://api.anthropic.com/v1',
+                        api_type: 'claude-3-opus-20240229',
+                        api_version: '2023-06-01',
+                        description: 'Most powerful Claude model for complex tasks',
+                        user: [],
+                        created: new Date().toISOString(),
+                        updated: new Date().toISOString(),
+                        collectionId: 'models',
+                        collectionName: 'models'
+                    }
+                ];
+            })(),
+            'Fetching Anthropic models'
+        );
 
-			if (isFailure(result)) {
-				throw new Error(result.error);
-			}
+        if (isFailure(result)) {
+            throw new Error(result.error);
+        }
 
-			return result.data;
-		}
-	},
+        return result.data;
+    }
+},
 	google: {
 		name: 'Gemini',
 		icon: googleIcon,
@@ -346,61 +460,8 @@ export const providers: Record<AIProviderType, ProviderConfig> = {
 
 			return result.data;
 		}
-	},
-	deepseek: {
-		name: 'Deepseek',
-		icon: deepseekIcon,
-		validateApiKey: async (apiKey: string): Promise<boolean> => {
-			try {
-				const response = await fetch('https://api.deepseek.com/v1/models', {
-					headers: { Authorization: `Bearer ${apiKey}` }
-				});
-				return response.status === 200;
-			} catch {
-				return false;
-			}
-		},
-		fetchModels: async (apiKey: string): Promise<AIModel[]> => {
-			const result = await clientTryCatch(
-				(async () => {
-					const fetchResult = await fetchTryCatch<ModelListResponse>(
-						'https://api.deepseek.com/v1/models',
-						{
-							headers: { Authorization: `Bearer ${apiKey}` }
-						}
-					);
-
-					if (isFailure(fetchResult)) {
-						throw new Error(`Failed to fetch Deepseek models: ${fetchResult.error}`);
-					}
-
-					const data = fetchResult.data;
-					return data.data.map((model: OpenAIModel) => ({
-						id: `deepseek-${model.id}`,
-						name: model.id,
-						provider: 'deepseek' as AIProviderType,
-						api_key: apiKey,
-						base_url: 'https://api.deepseek.com/v1',
-						api_type: model.id,
-						api_version: '',
-						description: `Deepseek ${model.id} model`,
-						user: [],
-						created: new Date().toISOString(),
-						updated: new Date().toISOString(),
-						collectionId: 'models',
-						collectionName: 'models'
-					}));
-				})(),
-				'Fetching Deepseek models'
-			);
-
-			if (isFailure(result)) {
-				throw new Error(result.error);
-			}
-
-			return result.data;
-		}
 	}
+
 };
 
 export const fetchAllProviderModels = async (

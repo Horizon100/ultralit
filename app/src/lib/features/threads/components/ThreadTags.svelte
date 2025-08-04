@@ -140,7 +140,7 @@
 			font-weight: bolder;
 			width: auto;
 			height: auto;
-			color: white;
+			color: var(--text-color);
 		}
 	}
 
@@ -148,7 +148,7 @@
 		background: none;
 		border: none;
 		cursor: pointer;
-		color: white;
+		color: var(--text-color);
 		position: relative;
 		margin-top: 0 !important;
 		top: 0;

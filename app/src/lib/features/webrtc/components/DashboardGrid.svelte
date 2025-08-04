@@ -21,8 +21,8 @@
 	let initialItemData = { x: 0, y: 0, w: 0, h: 0 };
 	
 	// Grid configuration
-	const GRID_COLS = 12;
-	const GRID_ROWS = 8;
+	const GRID_COLS = 16;
+	const GRID_ROWS = 14;
 	const CELL_HEIGHT = 80;
 	const GAP = 8;
 	
@@ -295,7 +295,7 @@
 					role="button"
 					tabindex={isEditMode ? 0 : -1}
 				>
-					<div class="grid-item-header">
+					<!-- <div class="grid-item-header">
 						<h4>{componentDef.title}</h4>
 						{#if isEditMode}
 							<div class="item-controls">
@@ -306,7 +306,7 @@
 								</button>
 							</div>
 						{/if}
-					</div>
+					</div> -->
 					
 					<div class="grid-item-content">
 						<svelte:component this={componentDef.component} compact={true} />
@@ -366,7 +366,16 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
+
+
+
 	.dashboard-grid-container {
 		flex: 1;
 		padding: 1rem;
@@ -374,15 +383,15 @@
 	}
 	
 	.edit-toolbar {
-		background: #111;
-		border: 1px solid #333;
+		background: var(--primary-color);
+		border: 1px solid var(--tertiary-color);
 		border-radius: 0.5rem;
 		padding: 1rem;
 		margin-bottom: 1rem;
 	}
 	
 	.edit-toolbar h3 {
-		color: white;
+		color: var(--text-color);
 		margin: 0 0 1rem 0;
 		font-size: 1rem;
 	}
@@ -402,19 +411,20 @@
 	}
 	
 	.toggle-item input[type="checkbox"] {
-		accent-color: #667eea;
+		accent-color: var(--tertiary-color);
 	}
 	
 	.dashboard-grid {
 		display: grid;
-		height: fit-content;
+		// height: fit-content;
 		min-height: 600px;
+		height: calc(100% - 7rem);
 		position: relative;
 	}
 	
 	.grid-item {
-		background: #111;
-		border: 1px solid #333;
+		background: var(--primary-color);
+		border: 1px solid var(--line-color);
 		border-radius: 0.5rem;
 		overflow: hidden;
 		display: flex;
@@ -431,16 +441,16 @@
 		transform: scale(1.02);
 		box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
 		z-index: 1000;
-		border-color: #667eea;
+		border-color: var(--tertiary-color);
 	}
 	
 	.grid-item.resizing {
 		transition: none;
-		border-color: #10b981;
+		border-color: var(--tertiary-color);
 	}
 	
 	.grid-item:hover {
-		border-color: #667eea;
+		border-color: var(--tertiary-color);
 	}
 	
 	.grid-item-header {
@@ -448,16 +458,16 @@
 		justify-content: space-between;
 		align-items: center;
 		padding: 0.75rem 1rem;
-		background: #1a1a1a;
-		border-bottom: 1px solid #333;
+		background: var(--primary-color);
+		border-bottom: 1px solid var(--line-color);
 		position: relative;
 		z-index: 10;
 	}
 	
 	.grid-item-header h4 {
-		color: white;
+		color: var(--placeholder-color);
 		margin: 0;
-		font-size: 0.875rem;
+		font-size: 1rem;
 		font-weight: 600;
 		pointer-events: none;
 	}
@@ -505,7 +515,7 @@
 	
 	.resize-handle {
 		position: absolute;
-		background: #667eea;
+		background: var(--tertiary-color);
 		pointer-events: all;
 		transition: all 0.2s;
 		opacity: 0;
@@ -590,7 +600,7 @@
 	}
 	
 	.resize-handle:hover {
-		background: #10b981;
+		background: var(--tertiary-color);
 		transform: scale(1.2);
 	}
 	

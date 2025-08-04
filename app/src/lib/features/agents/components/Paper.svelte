@@ -396,7 +396,7 @@
 		flex-direction: column;
 		justify-content: flex-end;
 		background-color: rgba(0, 0, 0, 0.8);
-		color: white;
+		color: var(--text-color);
 		padding: 10px 15px;
 		border-radius: 5px;
 		font-size: 14px;

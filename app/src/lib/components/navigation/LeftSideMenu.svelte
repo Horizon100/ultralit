@@ -152,7 +152,7 @@
 		overflow-y: auto;
 		background-color: #343434;
 		backdrop-filter: blur(3px);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.tabs {
@@ -166,7 +166,7 @@
 		border: none;
 		background-color: transparent;
 		cursor: pointer;
-		color: white;
+		color: var(--text-color);
 		font-size: 24px;
 	}
 
@@ -192,14 +192,14 @@
 		width: 100%;
 		padding: 0.5rem;
 		background-color: #2a3130;
-		color: white;
+		color: var(--text-color);
 		border: 1px solid #4a5a5a;
 		border-radius: 4px;
 	}
 
 	button {
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		padding: 0.5rem 1rem;
 		border: none;
 		border-radius: 4px;

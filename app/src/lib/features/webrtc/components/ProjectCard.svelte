@@ -59,28 +59,19 @@
 	<div class="projects-grid">
 		{#each projects as project}
 			<div class="project-card">
-				<div class="project-thumbnail">
 					{#if project.status === 'live'}
 						<div class="live-indicator">
 							<div class="live-dot"></div>
 							LIVE
 						</div>
 					{/if}
-					
-					{#if project.thumbnail}
-						<img src={project.thumbnail} alt={project.name} />
-					{:else}
-						<div class="placeholder-thumbnail">
-							<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-							</svg>
-						</div>
-					{/if}
-				</div>
-				
+									
 				<div class="project-info">
+					{#if project.status === 'live'}
+					<h4 class="project-name live">{project.name}</h4>
+					{:else}
 					<h4 class="project-name">{project.name}</h4>
-					
+					{/if}
 					<div class="project-meta">
 						{#if project.status === 'live'}
 							<span class="meta-item">
@@ -154,7 +145,13 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}		
 	.projects-panel {
 		height: 100%;
 		display: flex;
@@ -175,7 +172,7 @@
 	}
 	
 	.projects-header h3 {
-		color: white;
+		color: var(--text-color);
 		font-size: 0.875rem;
 		font-weight: 600;
 		margin: 0;
@@ -185,8 +182,8 @@
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
-		background: #667eea;
-		color: white;
+		background: var(--secondary-color);
+		color: var(--text-white);
 		border: none;
 		padding: 0.375rem 0.75rem;
 		border-radius: 0.375rem;
@@ -197,48 +194,70 @@
 	}
 	
 	.new-project-btn:hover {
-		background: #5a67d8;
+		background: var(--tertiary-color);
 	}
 	
 	.projects-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-		gap: 1rem;
-		overflow-y: auto;
-		flex: 1;
+		grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+		gap: 0.5rem;
+
+		justify-content: center;
+		align-items: center;
+				scroll-behavior: smooth;
+		overflow-x: hidden;
+		overflow-y: scroll;
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 	
 	.project-card {
-		background: #1a1a1a;
-		border: 1px solid #333;
+		background: var(--bg-color);
+		border: 1px solid var(--line-color);
 		border-radius: 0.5rem;
 		overflow: hidden;
 		transition: all 0.2s;
+		display: flex;
+		flex-direction: column;
+		justify-content: flex-start;
+		height: auto;
 	}
 	
 	.project-card:hover {
-		border-color: #667eea;
+		border-color: var(--tertiary-color);
 		transform: translateY(-2px);
+		z-index: 2;
 	}
 	
 	.project-thumbnail {
 		position: relative;
-		aspect-ratio: 16/9;
-		background: #2a2a2a;
+
+		background: var(--bg-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	}
 	
 	.live-indicator {
-		position: absolute;
-		top: 0.5rem;
-		left: 0.5rem;
+		position: relative;
 		display: flex;
 		align-items: center;
+		justify-content: center;
+		top: 0.25rem;
+		margin-left: calc(100% - 4rem);
+		width: 2.5rem;
 		gap: 0.375rem;
-		background: rgba(239, 68, 68, 0.9);
-		color: white;
+		background: rgba(16, 185, 129, 0.2);
+		color: #10b981;		
 		padding: 0.25rem 0.5rem;
 		border-radius: 0.25rem;
 		font-size: 0.625rem;
@@ -260,19 +279,25 @@
 	}
 	
 	.placeholder-thumbnail {
-		color: #6b7280;
+		color: var(--placeholder-color);
 	}
 	
 	.project-info {
-		padding: 0.75rem;
+		padding: 0rem 0.75rem;
+		padding-bottom: 0.5rem;
 	}
 	
 	.project-name {
-		color: white;
+		color: var(--text-color);
 		font-size: 0.875rem;
 		font-weight: 600;
-		margin: 0 0 0.5rem 0;
+		margin: 0;
 		line-height: 1.2;
+		padding: 0.5rem;
+		&.live {
+			color: var(--tertiary-color);
+			padding-top: 0;
+		}
 	}
 	
 	.project-meta {
@@ -311,23 +336,23 @@
 	}
 	
 	.action-btn.primary {
-		background: #667eea;
-		color: white;
+		background: var(--primary-color);
+		color: var(--text-color);
 	}
 	
 	.action-btn.primary:hover {
-		background: #5a67d8;
+		background: var(--tertiary-color);
 	}
 	
 	.action-btn.secondary {
-		background: transparent;
-		color: #94a3b8;
-		border: 1px solid #374151;
+		background: var(--secondary-color);
+		color: var(--placeholder-color);
+		border: 1px solid var(--line-color);
 	}
 	
 	.action-btn.secondary:hover {
-		background: rgba(102, 126, 234, 0.1);
-		border-color: #667eea;
-		color: white;
+		background: var(--primary-color);
+		border-color: var(--line-color);
+		color: var(--text-color);
 	}
 </style>

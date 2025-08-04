@@ -1694,7 +1694,7 @@
 
 	.status-ai-button {
 		background-color: var(--accent-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 3px;
 		padding: 0 0.5rem;
@@ -1771,7 +1771,7 @@
 
 	.ai-prompt-button {
 		background-color: var(--accent-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 3px;
 		padding: 0 0.75rem;
@@ -1837,7 +1837,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		background-color: var(--accent-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 3px;
 		padding: 0.25rem 0.5rem;

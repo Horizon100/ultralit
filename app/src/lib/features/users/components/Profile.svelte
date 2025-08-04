@@ -34,10 +34,9 @@
 	export let onClose: () => void;
 	export let onStyleClick: () => void;
 
-	$: userAvatarUrl = getAvatarUrl(user);
-	$: userIdentifier = user ? getUserIdentifier(user) : null;
-	$: identiconUrl = user ? generateUserIdenticon(getUserIdentifier(user), 120) : null;
-	$: finalAvatarUrl = userAvatarUrl && userAvatarUrl.trim() !== '' ? userAvatarUrl : identiconUrl;
+	$: finalAvatarUrl = user?.id 
+		? `/api/users/${user.id}/avatar?t=${Date.now()}` 
+		: '/api/placeholder/120/120';
 
 	let isLoading = false;
 	let completeUser: User | null = null;
@@ -697,11 +696,16 @@
 											on:change={handleFileChange}
 											style="display: none;"
 										/>
-										<img
-											src={finalAvatarUrl || '/api/placeholder/120/120'}
-											alt="{user?.name || user?.username || 'User'}'s avatar"
-											class="avatar"
-										/>
+					<img
+						src={finalAvatarUrl}
+						alt="{user?.name || user?.username || 'User'}'s avatar"
+						class="avatar"
+						on:error={(e) => {
+							console.log('Profile avatar load error:', e);
+							// Fallback to placeholder if avatar fails
+							e.target.src = '/api/placeholder/120/120';
+						}}
+					/>
 
 										<!-- Make the overlay clickable too -->
 										<div class="avatar-overlay" on:click={handleAvatarClick}>
@@ -1092,7 +1096,7 @@
 		width: calc(100% - 100px);
 		margin-left: 1rem;
 		height: auto;
-		color: white;
+		color: var(--text-color);
 
 		&.info-column {
 			display: flex;
@@ -1690,7 +1694,7 @@
 		justify-content: center;
 		opacity: 0;
 		transition: opacity 0.2s ease;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.avatar-container:hover .avatar-overlay {

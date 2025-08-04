@@ -528,7 +528,7 @@
     }}
 >
 	<!-- Debug info (remove this in production) -->
-	<!-- <div style="position: fixed; top: 10px; left: 300px; background: rgba(0,0,0,0.8); color: white; padding: 10px; font-size: 12px; z-index: 9999; max-width: 300px;">
+	<!-- <div style="position: fixed; top: 10px; left: 300px; background: rgba(0,0,0,0.8); color: var(--text-color); padding: 10px; font-size: 12px; z-index: 9999; max-width: 300px;">
 <strong>Wallpaper Debug:</strong><br>
 	User ID: {$currentUser?.id || 'None'}<br>
 	Raw Preference: {$currentUser?.wallpaper_preference || 'None'}<br>
@@ -558,7 +558,7 @@
 	{:else}
 		<!-- Debug: Show when no wallpaper -->
 		<!-- <div
-			style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,0,0,0.8); color: white; padding: 5px; font-size: 12px;"
+			style="position: fixed; bottom: 10px; left: 10px; background: rgba(255,0,0,0.8); color: var(--text-color); padding: 5px; font-size: 12px;"
 		>
 			No wallpaper: {wallpaperPreference?.isActive ? 'Active but no src' : 'Inactive'}
 		</div> -->
@@ -673,9 +673,15 @@
 		class:active-right={$showRightSidenav}
 		class:active-left={$showSidenav}
 		class:welcome-page={$page.url.pathname === '/welcome'}
+    class:webrtc-open={$page.url.pathname.startsWith('/webrtc')}
 		transition:slide={{ duration: 150, axis: 'x' }}
 	>
-		<div class="navigation-buttons" class:hidden={isNarrowScreen} class:active={$showInput}>
+		<div 
+			class="navigation-buttons" 
+			class:hidden={isNarrowScreen} 
+			class:active={$showInput}
+
+			>
 			{#if $currentUser}
 				<!-- Home Route Navigation -->
 				{#if currentPath.startsWith('/home') || (currentPath.split('/').length >= 2 && !['chat', 'lean', 'game', 'canvas', 'ask', 'notes', 'map', 'ide', 'html-canvas', 'api'].includes(currentPath.split('/')[1]))}
@@ -1180,6 +1186,7 @@
 		class:guest={!$currentUser}
 		class:profile={showProfile}
 		class:nav={isNavExpanded}
+		class:webrtc-open={$page.url.pathname.startsWith('/webrtc')}
 		on:click={() => {
 			isNavExpanded = false;
 			showProfile = false;
@@ -1358,7 +1365,7 @@
 									</span>
 								{:else}
 									<span
-										class="icon filter"
+										class="icon filter active"
 										title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}
 									>
 										<Icon name="Filter" />
@@ -1401,8 +1408,11 @@
 							}
 						}}
 						>
+						<span class="inline">
+
 							<Icon name="Compass" /> <span class="nav-text">{$t('nav.chat')}</span>
 							{#if isNavExpanded}{/if}
+							</span>
 						</a>
 					{/if}
 
@@ -1446,13 +1456,16 @@
 							}}
 						>
 							{#if $showSidenav}
-								<div title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
+								<span title={`${String($t('generic.hide'))} ${String($t('generic.filters'))}`}>
 									<Icon name="ListX" />
-								</div>
+								</span>
 							{:else}
-								<div title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
+								<span 
+								class="icon filter active"
+
+								title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
 									<Icon name="ListFilter" />
-								</div>
+								</span>
 							{/if}
 							{#if isNavExpanded}
 								<span class="nav-text">{$t('nav.sidebar')}</span>
@@ -1482,7 +1495,7 @@
 						<a
 							class="shortcut"
 							class:expanded={isNavExpanded}
-							class:active={$showOverlay}
+							class:active={currentPath === '/chat'}
 							class:reveal-active={$showOverlay}
 							use:swipeGesture={{
 								threshold: 50,
@@ -1618,7 +1631,82 @@
 				{#if isNavExpanded}
 				{/if}
 			</a> -->
+					{#if currentPath === '/webrtc'}
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+				class:active={$page.url.pathname.startsWith('/webrtc')}
+							class:reveal-active={$showSidenav}
+							use:swipeGesture={{
+								threshold: 50,
+								enableVisualFeedback: true,
+								onSwipeRight: () => {
+									console.log('🟢 Left button swiped right - showing sidenav');
+									if (innerWidth <= 450) {
+										sidenavStore.hideInput();
+										sidenavStore.hideRight();
+									}
+									if (!$showSidenav) {
+										sidenavStore.toggleLeft();
+									}
+									isNavExpanded = false;
+								},
+								onSwipeLeft: () => {
+									console.log('🟢 Left button swiped left - hiding sidenav');
+									if ($showSidenav) {
+										sidenavStore.hideLeft();
+									}
+									isNavExpanded = false;
+								}
+							}}
+							on:click={(event) => {
+								event.preventDefault();
+								if (innerWidth <= 450) {
+									// Mobile: close others first
+									sidenavStore.hideInput();
+									sidenavStore.hideRight();
+								}
+								sidenavStore.toggleLeft();
+								isNavExpanded = false;
+							}}
+						>
+											<span class="inline">
 
+
+								<div class="icon-container" title={`${String($t('generic.show'))} ${String($t('generic.filters'))}`}>
+									<Icon name="Video" />
+								</div>
+							{#if isNavExpanded}
+								<span class="nav-text">{$t('generic.hide')}</span>	
+							{/if}
+												</span>
+
+						</a>
+					{:else}
+												<span class="inline">
+
+						<a
+							class="shortcut"
+							class:expanded={isNavExpanded}
+							class:active={currentPath === '/webrtc'}
+							title={String($t('nav.webrtc'))}
+							on:click={() => {
+								navigateTo('/webrtc');
+								if (isNavExpanded) {
+									isNavExpanded = false;
+								}
+							}}
+						>
+						<div class="icon-container">
+														<Icon name="Video" />
+
+						</div>
+								<span class="nav-text">{$t('nav.webrtc')}</span>
+								{#if isNavExpanded}{/if}
+						</a>
+													</span>
+
+					{/if}
 					<button
 						class="shortcut"
 						class:expanded={isNavExpanded}
@@ -1768,6 +1856,7 @@
 	}
 	:root {
 		background-color: var(--bg-color);
+		overflow-x: hidden;
 	}
 	.middle-buttons {
 		display: flex;
@@ -1789,7 +1878,7 @@
 		flex-direction: row;
 		justify-content: center;
 		height: 100%;
-		width: calc(100% - 1rem);
+		width: 100%;
 	}
 
 	.navigator-flex {
@@ -1817,9 +1906,11 @@
 		}
 		&.expanded {
 			width: 300px !important;
-			align-items: flex-end;
+			align-items: center;
 			justify-content: center;
+		
 			& .tracker,
+			.settings,
 			.icon.logout,
 			.author-link,
 			.icon {
@@ -1828,21 +1919,21 @@
 				align-items: center;
 				border-radius: 50%;
 			}
+			
 			& .user-shortcuts {
 				display: flex;
 				align-items: center;
-
 				width: 100%;
 				gap: 0.5rem;
 				border-radius: 2rem;
 				transition: all 0.2s ease;
-				height: 2rem;
+				padding: 0;
+				
 				&:hover {
 					transform: none !important;
-					padding: 0;
+					padding: 0 !important;
 					width: 100%;
-					background: var(--primary-color);
-					border: none;
+					border: none !important;
 				}
 			}
 			& .navigator-menu {
@@ -1863,31 +1954,45 @@
 				height: 3rem;
 			}
 			& .user-shortcuts {
-				width: 100% !important;
+				width: auto !important;
 				justify-content: space-between;
 				align-items: center;
-				background-color: var(--primary-color);
+				// background-color: var(--primary-color);
 				&:hover {
 					transform: translateX(0) !important;
-					padding-right: 0;
 					border: 1px solid transparent;
 					background-color: var(--primary-color);
 
-					padding: 0.5rem;
+					padding: 0 1.5rem;
 				}
 			}
 			& button.shortcut,
 			a.shortcut {
 				padding: 1.5rem;
 				margin: 0;
-				background: var(--primary-color);
-				box-shadow: var(--line-color) 0 0 10px 2px;
+				// background: var(--primary-color);
+				// box-shadow: var(--line-color) 0 0 10px 2px;
 
 				border-radius: 2rem;
 				width: 100% !important;
 				height: 3rem;
+				user-select: none;
+				&.expanded {
+					
+					border-radius: 0 !important;
+					border-top: 1px solid var(--line-color);
+					background: var(--bg-color);
+					&:hover {
+						background: var(--primary-color);
+						& .user-shortcuts {
+						background: var(--primary-color);
+						}
+					}
+
+				}
 
 				& .tracker,
+				.settings,
 				.icon,
 				.nav-text,
 				.logout,
@@ -1895,6 +2000,7 @@
 					display: flex;
 				}
 				& .tracker,
+				.settings,
 				.icon,
 				.author-link {
 					width: 2rem !important;
@@ -1946,6 +2052,7 @@
 			width: 100%;
 			align-items: center;
 			justify-content: flex-end;
+			gap: 0;
 			& .tracker,
 			.icon.logout,
 			.author-link,
@@ -1963,23 +2070,44 @@
 			border: 1px solid transparent;
 			width: 2rem;
 			height: 2rem !important;
+							user-select: none;
+
+							&.active {
+					color: var(--tertiary-color);
+				}
+				.icon.filter.active {
+					color: var(--tertiary-color);
+				}
 			&.expanded {
 				justify-content: flex-start;
 				align-items: center;
 				padding: 0;
-				background: var(--primary-color);
+				background: transparent;
+				// background: var(--primary-color);
 				// width: 200px !important;
-				box-shadow: var(--line-color) 0 0 10px 2px;
+				// box-shadow: var(--line-color) 0 0 10px 2px;
 				height: 3rem !important;
-				width: auto;
+				width: calc(100% - 2px) !important;
+				border-radius: 0;
+				&:hover {
+					background: var(--primary-color);
+						& .icon-container {
+							background: var(--primary-color);
+						}
+				}
 				& span.inline {
 					display: flex;
 					flex: 1;
 					gap: 0.5rem;
+					padding-inline-start: 1rem;
 					margin-right: 1.5rem;
 					margin-left: 0.5rem;
+					background: transparent;
+				&:hover {
 					background: var(--primary-color);
 				}
+				}
+
 				& .icon.filter {
 					background-color: var(--primary-color);
 				}
@@ -1997,6 +2125,7 @@
 			width: 2rem !important;
 			height: 2rem !important;
 			color: var(--placeholder-color);
+
 			& .user-avatar {
 				width: 2rem !important;
 				height: 2rem !important;
@@ -2082,10 +2211,9 @@
 			// width: 100%;
 			gap: 0.5rem;
 			transition: all 0.2s ease;
-			height: 2rem !important;
+			height: 3rem !important;
 			&:hover {
 				transform: translateX(0.25rem);
-				padding: 0.5rem;
 				width: 200px;
 				border-radius: 2rem;
 				border: 1px solid var(--line-color);
@@ -2289,7 +2417,7 @@
 
 	.user-button {
 		background-color: #3c3c3c;
-		color: white;
+		color: var(--text-color);
 		padding: 5px 10px;
 		border-radius: 4px;
 		font-size: 14px;
@@ -2330,6 +2458,9 @@
 		}
 		&.profile {
 			left: calc(4rem + 501px);
+		}
+		&.webrtc-open {
+			bottom: 2px;
 		}
 		scroll-behavior: smooth;
 		overflow-x: hidden;
@@ -2782,7 +2913,7 @@
 		align-items: center;
 
 		text-align: center;
-		color: white;
+		color: var(--text-color);
 		font-size: 20px;
 		border-radius: 8px;
 		/* border: 2px solid #4b4b4b; */
@@ -2980,7 +3111,7 @@
 	  background-color: rgb(4, 4, 4);
 	  padding: 20px 40px;
 	  border-radius: 20px;
-	  color: white;
+	  color: var(--text-color);
 	  
 	  font-size: 30px;
 	  cursor: pointer;
@@ -3003,7 +3134,7 @@
 	/* justify-content: center; */
 	/* text-align: center; */
 	/* background: linear-gradient(to top, #3f4b4b, #333333); */
-	/* color: white; */
+	/* color: var(--text-color); */
 	/* font-size: 1rem; */
 	/* height: 40px; */
 	/* border-radius: 8px; */
@@ -3036,7 +3167,7 @@
 
 	footer {
 		/* background-color: #1d2026; */
-		color: white;
+		color: var(--text-color);
 		text-align: center;
 		justify-content: center;
 		align-items: center;
@@ -3057,7 +3188,7 @@
 
 	.user-button {
 		background-color: #3c3c3c;
-		color: white;
+		color: var(--text-color);
 		padding: 5px 10px;
 		border-radius: 4px;
 		font-size: 14px;
@@ -3102,7 +3233,7 @@
 		width: 30px;
 		height: 30px;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		background: none;
 		display: flex;
@@ -3127,8 +3258,7 @@
 		display: flex;
 		flex-direction: row;
 		gap: 2rem;
-		width: 100vw !important;
-		max-width: 600px;
+		width: 100%;
 		justify-content: center;
 		align-items: center;
 		backdrop-filter: blur(3px);
@@ -3149,6 +3279,9 @@
 		border: none;
 		height: 3rem;
 		border-radius: 1rem 1rem 0 0;
+	}
+	.sidenav.webrtc-open {
+		display: none;
 	}
 	.sidenav.active-right,
 	.sidenav.active,
@@ -3242,7 +3375,7 @@
 			background: var(--tertiary-color);
 			// box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
 			&.expanded {
-				width: 250px;
+				width: auto;
 				justify-content: flex-start;
 				padding: 0.5rem 1rem;
 				border-radius: var(--radius-s);
@@ -3259,7 +3392,7 @@
 		}
 
 		&.expanded {
-			width: 250px;
+			width: auto;
 			justify-content: flex-start;
 			padding: 0.5rem 1rem;
 			border-radius: var(--radius-s);
@@ -3285,8 +3418,8 @@
 	}
 
 	.user-button {
-		background-color: #3c3c3c;
-		color: white;
+		background-color: var(--bg-color);
+		color: var(--text-color);
 		padding: 5px 10px;
 		border-radius: 4px;
 		font-size: 14px;
@@ -3297,7 +3430,7 @@
 	}
 
 	.user-button:hover {
-		background-color: #4a4a4a;
+		background-color: var(--priamry-color);
 	}
 
 	.style-switcher-container {
@@ -3502,7 +3635,6 @@
 				justify-content: flex-start;
 				padding-inline-start: 1rem;
 				&.expanded {
-					max-width: 350px;
 					& a,
 					button {
 						border: blue 1px solid;
@@ -3550,7 +3682,7 @@
 		width: 30px;
 		height: 30px;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		background: var(--secondary-color) !important;
 		display: flex;
@@ -3810,6 +3942,7 @@
 		}
 		&.nav-open {
 			width: 300px !important;
+			background: var(--primary-color) !important;
 			border-radius: 2rem;
 			height: 3rem !important;
 			&.thread-toggle {
@@ -3929,7 +4062,7 @@
 		}
 		.navigator-flex {
 			&.expanded {
-				width: calc(100% - 4rem) !important;
+				width: calc(100% - 1rem) !important;
 				justify-content: center;
 			}
 		}
@@ -3944,7 +4077,7 @@
 		}
 		.navigator-menu {
 			&.expanded {
-				margin-left: 2rem;
+				margin-left: 0;
 			}
 		}
 
@@ -4003,9 +4136,7 @@
 					& .tracker {
 						display: flex;
 					}
-					& .logo-container {
-						width: 200px !important;
-					}
+
 				}
 				& a {
 					flex-direction: row !important;
@@ -4021,12 +4152,6 @@
 				}
 			}
 
-			& .logo-container {
-				position: relative;
-				top: 0;
-				left: 0;
-				width: 80px;
-			}
 		}
 		.illustration {
 			position: fixed;
@@ -4183,21 +4308,8 @@
 				z-index: 9999;
 			}
 		}
-		.user-wrapper {
-			display: flex;
-			flex-direction: column;
-			justify-content: flex-start;
-			align-self: flex-start;
-			width: 100%;
-			gap: 1rem;
-		}
-		.user-shortcuts {
-			display: flex;
-			flex-direction: row;
-			align-items: center;
-			width: auto;
-			justify-content: flex-start;
-		}
+
+
 		.project {
 			left: 0;
 			right: 0;
@@ -4226,7 +4338,7 @@
 		}
 
 		footer {
-			color: white;
+			color: var(--text-color);
 			text-align: center;
 			width: 100%;
 			padding: 1rem 0;
@@ -4313,7 +4425,7 @@
 			bottom: 0 !important;
 			border-radius: 0 !important;
 			gap: 0.5rem;
-
+			width: 100%;
 			flex: 1;
 			top: auto;
 			bottom: 0;
@@ -4321,9 +4433,7 @@
 			z-index: 1100;
 			border-radius: 0;
 			transition: all 0.3s ease-in;
-			&.expanded {
-				display: none;
-			}
+
 			&:hover {
 				& .nav-button.info.user,
 				& .nav-button.drawer {
@@ -4341,7 +4451,7 @@
 			margin-left: 2rem;
 			align-items: center;
 			justify-content: center;
-			gap: 5rem;
+			gap: 0;
 		}
 
 		.bottom-buttons {
@@ -4408,6 +4518,15 @@
 				}
 			}
 		}
+		.sidenav {
+			& .expanded {
+				display: none;
+				
+			}
+		}
+			.sidenav.active-left {
+				display: none;
+	}
 
 		button.nav-link {
 			span {
@@ -4450,9 +4569,9 @@
 		.project {
 			margin-left: 0;
 		}
-		.logo-container a {
-			display: none;
-		}
+		// .logo-container a {
+		// 	display: none;
+		// }
 	}
 	@media (max-width: 450px) {
 		.header-navigation {
@@ -4470,9 +4589,9 @@
 				display: none;
 			}
 		}
-		.logo-container {
-			display: none;
-		}
+		// .logo-container {
+		// 	display: none;
+		// }
 
 		main {
 			background: var(--bg-gradient-r);

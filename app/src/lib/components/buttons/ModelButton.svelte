@@ -99,7 +99,7 @@
 	}
 
 	img {
-		color: white;
+		color: var(--text-color);
 	}
 
 	.status-icon {

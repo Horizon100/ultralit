@@ -37,7 +37,7 @@ export const POST: RequestHandler = async ({ request, cookies, getClientAddress 
 			cookies.set('pb_auth', pb.authStore.exportToCookie(), {
 				path: '/',
 				secure: process.env.NODE_ENV === 'production',
-				sameSite: 'strict',
+				sameSite: 'lax',
 				httpOnly: true,
 				maxAge: 60 * 60 * 24 * 7 // 7 days
 			});

@@ -390,7 +390,7 @@
 	.select-button,
 	.apply-button {
 		background-color: var(--bg-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 4px;
 		padding: 0.5rem 1rem;
@@ -614,7 +614,7 @@
 
 	.dual-mode-button.active {
 		background-color: var(--primary-color, #3b82f6);
-		color: white;
+		color: var(--text-color);
 		border-color: var(--primary-color, #3b82f6);
 	}
 
@@ -627,7 +627,7 @@
 		padding: 8px 16px;
 		border-radius: 6px;
 		background-color: var(--primary-color, #3b82f6);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		cursor: pointer;
 		font-weight: 500;

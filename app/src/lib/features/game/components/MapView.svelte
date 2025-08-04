@@ -277,7 +277,7 @@
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
-		color: white;
+		color: var(--text-color);
 		pointer-events: none;
 		text-align: center;
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -333,7 +333,7 @@
 
 	.room-indicator.more {
 		background: #3b82f6;
-		color: white;
+		color: var(--text-color);
 		font-size: 8px;
 		font-weight: bold;
 		border-color: #2563eb;
@@ -396,7 +396,7 @@
 
 	.tooltip-content {
 		background: #1f2937;
-		color: white;
+		color: var(--text-color);
 		padding: 16px;
 		border-radius: 12px;
 		min-width: 200px;

@@ -963,7 +963,7 @@
 
 	.submit-button:hover {
 		background-color: #45a049;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.create-button {
@@ -971,7 +971,7 @@
 		position: absolute;
 		right: 10px;
 		top: 5px;
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1073,7 +1073,7 @@
 		bottom: 20px;
 		right: 20px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		padding: 10px 20px;
 		border-radius: 4px;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
@@ -1142,17 +1142,17 @@
 		font-size: 12px;
 		font-weight: bold;
 		background-color: #333333;
-		color: white;
+		color: var(--text-color);
 		z-index: 1; /* Ensure it's above other elements */
 	}
 
 	.status-active {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 	.status-inactive {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 	.status-maintenance {
 		background-color: #1f1f1f;
@@ -1160,7 +1160,7 @@
 	}
 	.status-paused {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.container-row:hover .data-counts {
@@ -1193,7 +1193,7 @@
 	}
 
 	.control-button:hover {
-		color: white;
+		color: var(--text-color);
 	}
 
 	.control-button-delete:hover {
@@ -1217,7 +1217,7 @@
 		background-color: var(--primary-color);
 		width: 100%;
 		/* background-image: linear-gradient(to top, rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0)); */
-		color: white;
+		color: var(--text-color);
 	}
 
 	.sort-container {
@@ -1303,7 +1303,7 @@
 	.filter-button.active,
 	.tag-button.active {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.status-active {
@@ -1341,7 +1341,7 @@
 		height: 20px;
 		border-radius: 50%;
 		background-color: #2196f3;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		cursor: pointer;
 	}
@@ -1399,7 +1399,7 @@
 		cursor: pointer;
 		padding: 5px 10px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		border-radius: 5px;
 	}
 
@@ -1423,7 +1423,7 @@
 	}
 
 	.upload-overlay :global(svg) {
-		color: white;
+		color: var(--text-color);
 	}
 
 	h2 {
@@ -1461,7 +1461,7 @@
 
 	.agent-name {
 		flex-grow: 1;
-		color: white;
+		color: var(--text-color);
 		font-size: 16px;
 	}
 

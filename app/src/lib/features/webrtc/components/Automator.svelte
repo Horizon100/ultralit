@@ -120,7 +120,14 @@
 	</div>
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
+
 	.automator-panel {
 		height: 100%;
 		display: flex;
@@ -136,7 +143,7 @@
 	}
 	
 	.automod-settings h3, .automod-queue h3 {
-		color: white;
+		color: var(--text-color);
 		font-size: 0.875rem;
 		font-weight: 600;
 		margin: 0 0 0.75rem 0;
@@ -158,7 +165,7 @@
 	}
 	
 	.setting-item input[type="checkbox"] {
-		accent-color: #667eea;
+		accent-color: var(--tertiary-color);
 	}
 	
 	.automod-queue {
@@ -174,7 +181,7 @@
 		align-items: center;
 		justify-content: center;
 		flex: 1;
-		color: #6b7280;
+		color: var(--placeholder-color);
 		text-align: center;
 		gap: 0.5rem;
 	}
@@ -186,14 +193,28 @@
 	
 	.queue-items {
 		flex: 1;
-		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
+				scroll-behavior: smooth;
+		overflow-x: hidden;
+				overflow-y: auto;
+
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
 	}
 	
 	.queue-item {
-		background: #1a1a1a;
+		background: var(--bg-color);
 		border: 1px solid #333;
 		border-radius: 0.375rem;
 		padding: 0.75rem;
@@ -212,7 +233,7 @@
 	}
 	
 	.username {
-		color: white;
+		color: var(--text-color);
 		font-size: 0.75rem;
 		font-weight: 500;
 	}
@@ -279,7 +300,7 @@
 	
 	.approve-btn:hover {
 		background: #10b981;
-		color: white;
+		color: var(--text-color);
 	}
 	
 	.deny-btn {
@@ -289,6 +310,6 @@
 	
 	.deny-btn:hover {
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 	}
 </style>

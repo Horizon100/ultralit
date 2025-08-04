@@ -265,7 +265,7 @@
 
 	button:hover {
 		background-color: #21201d;
-		color: white;
+		color: var(--text-color);
 		border-radius: 10px;
 	}
 

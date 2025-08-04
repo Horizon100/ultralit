@@ -64,7 +64,7 @@
 		margin-top: 1rem;
 		padding: 0.5rem;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		cursor: pointer;
 	}

@@ -908,7 +908,7 @@
 
 	.default-avatar {
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.collaborator-info {
@@ -936,7 +936,7 @@
 
 	.add-btn {
 		background-color: var(--success-color);
-		color: white;
+		color: var(--text-color);
 
 		&:hover {
 			background-color: var(--success-hover-color, #0d9488);
@@ -945,7 +945,7 @@
 
 	.remove-btn {
 		background-color: var(--danger-color);
-		color: white;
+		color: var(--text-color);
 
 		&:hover {
 			background-color: var(--danger-hover-color, #dc2626);

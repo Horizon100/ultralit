@@ -41,7 +41,7 @@
 	}
 	
 	.blog-header h1 {
-		color: white;
+		color: var(--text-color);
 		font-size: 2.5rem;
 		margin-bottom: 1rem;
 	}

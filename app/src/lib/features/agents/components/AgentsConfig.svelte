@@ -1451,7 +1451,7 @@
 	.model-button.selected {
 		background: var(--primary-color);
 		border-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.model-name {
@@ -1618,7 +1618,7 @@
 
 	.submit-button:hover {
 		background-color: #45a049;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.create-button {
@@ -1854,16 +1854,16 @@
 		justify-content: left;
 		border-radius: 0.5rem;
 		font-size: 0.7rem;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.status-active {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 	.status-inactive {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 	.status-maintenance {
 		background-color: #1f1f1f;
@@ -1871,7 +1871,7 @@
 	}
 	.status-paused {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.container-row:hover .data-counts {
@@ -2036,7 +2036,7 @@
 		height: 20px;
 		border-radius: 50%;
 		background-color: #2196f3;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		cursor: pointer;
 	}
@@ -2086,7 +2086,7 @@
 		cursor: pointer;
 		padding: 5px 10px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		border-radius: 5px;
 	}
 
@@ -2110,7 +2110,7 @@
 	}
 
 	.upload-overlay :global(svg) {
-		color: white;
+		color: var(--text-color);
 	}
 
 	h2 {
@@ -2157,7 +2157,7 @@
 	}
 
 	.agent-name {
-		color: white;
+		color: var(--text-color);
 		font-size: 16px;
 		margin-top: 10px;
 	}

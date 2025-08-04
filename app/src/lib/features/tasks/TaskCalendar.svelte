@@ -967,7 +967,7 @@
 
 	.toggle-btn.active {
 		background-color: #4299e1;
-		color: white;
+		color: var(--text-color);
 		border-color: #4299e1;
 	}
 
@@ -1011,7 +1011,7 @@
 	}
 
 	.task-card {
-		background-color: white;
+		background-color: var(--text-color);
 		border-radius: 6px;
 		padding: 1rem;
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -1061,7 +1061,7 @@
 		font-size: 0.9rem !important;
 		padding: 0.2rem 0.5rem;
 		border-radius: 12px;
-		color: white;
+		color: var(--text-color);
 		max-width: 100px;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -1328,7 +1328,7 @@
 
 	.delete-button {
 		background-color: #ef4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 	}
 	.date-input-wrapper {
@@ -1486,7 +1486,7 @@
 
 	.toggle-btn.active {
 		background-color: #4299e1;
-		color: white;
+		color: var(--text-color);
 		border-color: #4299e1;
 	}
 	.calendar-header {
@@ -1614,7 +1614,7 @@
 		border-radius: 4px;
 		font-size: 0.75rem;
 		width: auto;
-		color: white;
+		color: var(--text-color);
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -1840,7 +1840,7 @@
 			padding: 0.25rem 0.5rem;
 			border-radius: 4px;
 			font-size: 0.75rem;
-			color: white;
+			color: var(--text-color);
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;
@@ -1850,7 +1850,7 @@
 			padding: 0.25rem 0.5rem;
 			border-radius: 4px;
 			font-size: 0.75rem;
-			color: white;
+			color: var(--text-color);
 			white-space: nowrap;
 			overflow: hidden;
 			text-overflow: ellipsis;

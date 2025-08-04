@@ -484,160 +484,80 @@ export class MessageService {
 	/**
 	 * Enhanced fetchLocalAIResponse with improved response parsing
 	 */
-	static async fetchLocalAIResponse(
-		messages: any[],
-		model: SelectableAIModel,
-		userId: string
-	): Promise<string> {
-		console.log('🤖 Sending request to local AI model:', model.name);
-		console.log('🤖 Messages:', messages);
+static async fetchLocalAIResponse(
+    messages: any[],
+    model: SelectableAIModel,
+    userId: string
+): Promise<string> {
+    console.log('🤖 Sending request to local AI model:', model.name);
+    console.log('🤖 Messages:', messages);
 
-		try {
-			const response = await fetch('/api/ai/local/chat', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					messages: messages,
-					model: (model.api_type || model.id).replace(/^local-/, ''),
-					userId: userId,
-					temperature: 0.7,
-					max_tokens: 4096,
-					stream: false
-				})
-			});
+    try {
+        // Convert messages to a prompt for the generate endpoint
+        let promptText = '';
+        
+        messages.forEach((msg) => {
+            if (msg.role === 'system') {
+                promptText += `System: ${msg.content}\n\n`;
+            } else if (msg.role === 'user') {
+                promptText += `Human: ${msg.content}\n\n`;
+            } else if (msg.role === 'assistant') {
+                promptText += `Assistant: ${msg.content}\n\n`;
+            }
+        });
+        
+        promptText += 'Assistant: ';
 
-			console.log('🤖 Local AI response status:', response.status);
-			console.log('🤖 Local AI response ok:', response.ok);
+        // Use the working generate endpoint instead of chat
+        const response = await fetch('/api/ai/local/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                prompt: promptText,
+                model: (model.api_type || model.id).replace(/^local-/, ''),
+                temperature: 0.7,
+                max_tokens: 4096,
+                stream: false
+            })
+        });
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				console.error('Local AI API error:', response.status, errorText);
+        console.log('🤖 Local AI response status:', response.status);
+        console.log('🤖 Local AI response ok:', response.ok);
 
-				// Provide user-friendly error messages for local AI failures
-				if (response.status === 404) {
-					throw new Error(
-						'Local AI server not found. Please ensure Ollama is running on localhost:11434'
-					);
-				} else if (response.status === 500) {
-					throw new Error(
-						'Local AI server error. The model might not be available or the server is overloaded'
-					);
-				} else if (response.status >= 400 && response.status < 500) {
-					throw new Error(`Local AI request error: ${errorText}`);
-				} else {
-					throw new Error(`Local AI server error: ${errorText}`);
-				}
-			}
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Local AI API error:', response.status, errorText);
+            throw new Error(`Local AI request error: ${errorText}`);
+        }
 
-			const responseData = await response.json();
-			console.log('🤖 Local AI response data:', responseData);
+        const responseData = await response.json();
+        console.log('🤖 Local AI response data:', responseData);
 
-			// Enhanced debugging - log the exact structure
-			console.log('🔍 Response structure analysis:');
-			console.log('🔍 responseData.success:', responseData.success);
-			console.log('🔍 responseData.data exists:', !!responseData.data);
-			if (responseData.data) {
-				console.log('🔍 responseData.data keys:', Object.keys(responseData.data));
-				console.log('🔍 responseData.data.response type:', typeof responseData.data.response);
-				console.log('🔍 responseData.data.response value:', responseData.data.response);
-			}
+        // Extract response from generate endpoint format
+        let finalResponse: string = '';
 
-			// Handle local AI response structure with better error checking
-			let finalResponse: string = '';
+        if (responseData.success && responseData.data && responseData.data.response) {
+            finalResponse = responseData.data.response.trim();
+        } else if (responseData.response) {
+            finalResponse = responseData.response.trim();
+        } else {
+            throw new Error('No response found in generate endpoint response');
+        }
 
-			if (responseData.success && responseData.data) {
-				const outerData = responseData.data;
+        if (!finalResponse) {
+            throw new Error('Empty response from generate endpoint');
+        }
 
-				// Check for double-wrapped structure (apiTryCatch wrapper)
-				if (outerData.success && outerData.data) {
-					const innerData = outerData.data;
+        console.log('🎯 Local AI final response length:', finalResponse.length);
+        return finalResponse;
 
-					if (
-						innerData.response &&
-						typeof innerData.response === 'string' &&
-						innerData.response.trim()
-					) {
-						finalResponse = innerData.response.trim();
-						console.log('✅ Found response in double-wrapped structure: data.data.response');
-					} else if (
-						innerData.content &&
-						typeof innerData.content === 'string' &&
-						innerData.content.trim()
-					) {
-						finalResponse = innerData.content.trim();
-						console.log('✅ Found response in double-wrapped structure: data.data.content');
-					}
-				}
-				// Check for single-wrapped structure
-				else if (
-					outerData.response &&
-					typeof outerData.response === 'string' &&
-					outerData.response.trim()
-				) {
-					finalResponse = outerData.response.trim();
-					console.log('✅ Found response in single-wrapped structure: data.response');
-				} else if (
-					outerData.content &&
-					typeof outerData.content === 'string' &&
-					outerData.content.trim()
-				) {
-					finalResponse = outerData.content.trim();
-					console.log('✅ Found response in single-wrapped structure: data.content');
-				}
-			}
-
-			// Fallback: check top-level fields
-			if (!finalResponse) {
-				if (
-					responseData.response &&
-					typeof responseData.response === 'string' &&
-					responseData.response.trim()
-				) {
-					finalResponse = responseData.response.trim();
-					console.log('✅ Found response in top-level response field');
-				} else if (
-					responseData.content &&
-					typeof responseData.content === 'string' &&
-					responseData.content.trim()
-				) {
-					finalResponse = responseData.content.trim();
-					console.log('✅ Found response in top-level content field');
-				}
-			}
-
-			if (!finalResponse) {
-				console.error('❌ Could not extract response from local AI');
-				console.error('❌ Complete response structure:', JSON.stringify(responseData, null, 2));
-				console.error('❌ Available top-level keys:', Object.keys(responseData || {}));
-				if (responseData.data) {
-					console.error('❌ Available data keys:', Object.keys(responseData.data || {}));
-				}
-				throw new Error(
-					'Local AI returned empty response. Check the logs for response structure details.'
-				);
-			}
-
-			console.log('🎯 Local AI final response length:', finalResponse.length);
-			console.log(
-				'🎯 Local AI final response preview:',
-				finalResponse.substring(0, 100) + (finalResponse.length > 100 ? '...' : '')
-			);
-			return finalResponse;
-		} catch (error) {
-			console.error('❌ Error calling local AI:', error);
-
-			// Re-throw with more context for connection errors
-			if (error instanceof TypeError && error.message.includes('fetch')) {
-				throw new Error(
-					'Cannot connect to local AI server. Please ensure Ollama is running on localhost:11434'
-				);
-			}
-
-			throw error; // Re-throw the original error if it's already user-friendly
-		}
-	}
+    } catch (error) {
+        console.error('❌ Error calling local AI:', error);
+        throw error;
+    }
+}
 
 	/**
 	 * Handles replying to a specific message

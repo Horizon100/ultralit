@@ -117,14 +117,14 @@
 		transition: all 0.3s ease;
 
 		&:hover {
-			color: white;
+			color: var(--text-color);
 			transform: rotate(90deg);
 		}
 	}
 
 	.success-message {
 		text-align: center;
-		color: white;
+		color: var(--text-color);
 
 		h3 {
 			font-size: 2rem;
@@ -153,7 +153,7 @@
 		h3 {
 			font-size: 2rem;
 			font-weight: bold;
-			color: white;
+			color: var(--text-color);
 			margin: 0;
 		}
 	}
@@ -166,7 +166,7 @@
 			border: 1px solid rgba(255, 255, 255, 0.2);
 			border-radius: 8px;
 			background: var(--tertiary-color, rgba(255, 255, 255, 0.1));
-			color: white;
+			color: var(--text-color);
 			transition: all 0.3s ease-in-out;
 			text-align: center;
 			&::placeholder {
@@ -193,7 +193,7 @@
 			display: flex;
 			align-items: center;
 			gap: 0.5rem;
-			color: white;
+			color: var(--text-color);
 			font-size: 1.2rem;
 			cursor: pointer;
 			transition: transform 0.2s ease;
@@ -223,7 +223,7 @@
 		padding: 1rem;
 		font-size: 1.2rem;
 		font-weight: bold;
-		color: white;
+		color: var(--text-color);
 		background: var(--secondary-color);
 		border: none;
 		border-radius: 8px;

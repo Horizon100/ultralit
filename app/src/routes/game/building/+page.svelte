@@ -196,7 +196,7 @@
 		justify-content: center;
 		padding: 8px;
 		text-align: center;
-		color: white;
+		color: var(--text-color);
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 		height: calc(100% - 24px);
 	}
@@ -243,7 +243,7 @@
 		top: -8px;
 		right: -8px;
 		background: #10b981;
-		color: white;
+		color: var(--text-color);
 		border-radius: 50%;
 		width: 20px;
 		height: 20px;
@@ -292,7 +292,7 @@
 
 	.tooltip-content {
 		background: #1f2937;
-		color: white;
+		color: var(--text-color);
 		padding: 12px;
 		border-radius: 8px;
 		min-width: 200px;

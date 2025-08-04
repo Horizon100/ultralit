@@ -211,7 +211,7 @@
 
 	.delete-btn {
 		background: #ff4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 50%;
 		width: 24px;

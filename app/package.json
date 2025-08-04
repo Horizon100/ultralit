@@ -1,6 +1,6 @@
 {
 	"name": "vrazum",
-	"version": "1.0.0",
+	"version": "1.0.2",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
@@ -39,7 +39,7 @@
 		"docker:restart": "docker compose restart vrazum",
 		"docker:clean": "docker compose down -v && docker system prune -f",
 		"test:docker": "docker compose up -d && sleep 30 && curl http://localhost:3000/api/health",
-		"dev:server": "vite dev --host 0.0.0.0 --port 5173",
+		"dev:server": "bash -c 'sudo lsof -i :5173 && (echo \"Killing process on port 5173...\" && sudo kill -9 $(sudo lsof -t -i:5173)) || true; vite dev --host 0.0.0.0 --port 5173'",
 		"build:prod": "NODE_ENV=production vite build",
 		"preview:server": "vite preview --host 0.0.0.0 --port 3000",
 		"start:prod": "NODE_ENV=production node build"

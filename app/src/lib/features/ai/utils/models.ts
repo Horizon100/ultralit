@@ -1,6 +1,40 @@
+//src/lib/features/ai/utils/models.ts
+
 import type { AIModel, AIProviderType, SelectableAIModel } from '$lib/types/types';
+import { localModelsService, localModelsStore } from '$lib/stores/localModelStore';
 
 export const availableModels: AIModel[] = [
+	// OpenAI - Updated models
+	{
+		id: 'gpt-4o',
+		name: 'GPT-4o',
+		provider: 'openai' as AIProviderType,
+		api_key: '',
+		base_url: 'https://api.openai.com/v1',
+		api_type: 'gpt-4o',
+		api_version: '',
+		description: 'Most advanced GPT-4 model with vision capabilities',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
+	},
+	{
+		id: 'gpt-4o-mini',
+		name: 'GPT-4o Mini',
+		provider: 'openai' as AIProviderType,
+		api_key: '',
+		base_url: 'https://api.openai.com/v1',
+		api_type: 'gpt-4o-mini',
+		api_version: '',
+		description: 'Faster, more affordable GPT-4 model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
+	},
 	{
 		id: 'gpt-3.5-turbo',
 		name: 'GPT-3.5 Turbo',
@@ -9,8 +43,23 @@ export const availableModels: AIModel[] = [
 		base_url: 'https://api.openai.com/v1',
 		api_type: 'gpt-3.5-turbo',
 		api_version: '',
-		description:
-			'Most capable GPT-3.5 model and optimized for chat at 1/10th the cost of text-davinci-003.',
+		description: 'Fast and affordable GPT-3.5 model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
+	},
+	// Anthropic - Updated models
+	{
+		id: 'claude-3-5-sonnet',
+		name: 'Claude 3.5 Sonnet',
+		provider: 'anthropic' as AIProviderType,
+		api_key: '',
+		base_url: 'https://api.anthropic.com/v1',
+		api_type: 'claude-3-5-sonnet-20241022',
+		api_version: '2023-06-01',
+		description: 'Most capable Claude model with enhanced reasoning',
 		user: [],
 		created: new Date().toISOString(),
 		updated: new Date().toISOString(),
@@ -18,13 +67,13 @@ export const availableModels: AIModel[] = [
 		collectionName: 'models'
 	},
 	{
-		id: 'claude-3-haiku',
-		name: 'Claude 3 Haiku',
+		id: 'claude-3-5-haiku',
+		name: 'Claude 3.5 Haiku',
 		provider: 'anthropic' as AIProviderType,
 		api_key: '',
 		base_url: 'https://api.anthropic.com/v1',
-		api_type: 'claude-3-haiku-20240307',
-		api_version: '2024-03-07',
+		api_type: 'claude-3-5-haiku-20241022',
+		api_version: '2023-06-01',
 		description: 'Fastest Claude model for simple tasks',
 		user: [],
 		created: new Date().toISOString(),
@@ -33,14 +82,61 @@ export const availableModels: AIModel[] = [
 		collectionName: 'models'
 	},
 	{
-		id: 'deepseek-deepseek-chat',
-		name: 'Deepseek Chat',
+		id: 'claude-3-opus',
+		name: 'Claude 3 Opus',
+		provider: 'anthropic' as AIProviderType,
+		api_key: '',
+		base_url: 'https://api.anthropic.com/v1',
+		api_type: 'claude-3-opus-20240229',
+		api_version: '2023-06-01',
+		description: 'Most powerful Claude model for complex tasks',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
+	},
+	// DeepSeek - Updated models
+	{
+		id: 'deepseek-chat',
+		name: 'DeepSeek Chat',
 		provider: 'deepseek' as AIProviderType,
 		api_key: '',
 		base_url: 'https://api.deepseek.com/v1',
 		api_type: 'deepseek-chat',
 		api_version: 'v1',
-		description: 'Deepseek Chat Model',
+		description: 'DeepSeek conversational model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
+	},
+	{
+		id: 'deepseek-coder',
+		name: 'DeepSeek Coder',
+		provider: 'deepseek' as AIProviderType,
+		api_key: '',
+		base_url: 'https://api.deepseek.com/v1',
+		api_type: 'deepseek-coder',
+		api_version: 'v1',
+		description: 'DeepSeek specialized coding model',
+		user: [],
+		created: new Date().toISOString(),
+		updated: new Date().toISOString(),
+		collectionId: 'models',
+		collectionName: 'models'
+	},
+	// Grok - Updated models
+	{
+		id: 'grok-beta',
+		name: 'Grok Beta',
+		provider: 'grok' as AIProviderType,
+		api_key: '',
+		base_url: 'https://api.x.ai/v1',
+		api_type: 'grok-beta',
+		api_version: 'v1',
+		description: 'X.AI Grok model with real-time knowledge',
 		user: [],
 		created: new Date().toISOString(),
 		updated: new Date().toISOString(),
@@ -119,11 +215,12 @@ export async function getRuntimeDefaultModel(): Promise<SelectableAIModel> {
 		};
 	}
 
-	// Fall back to API models
+	// Fall back to API models - prioritize DeepSeek as it's most cost-effective
 	console.log('🎯 Local not available, using API model as default');
 	const fallbackModel =
-		availableModels.find((model) => model.provider === 'deepseek') || // Changed order: deepseek first
+		availableModels.find((model) => model.provider === 'deepseek') ||
 		availableModels.find((model) => model.provider === 'anthropic') ||
+		availableModels.find((model) => model.provider === 'openai') ||
 		availableModels[0];
 
 	return {
@@ -135,9 +232,9 @@ export async function getRuntimeDefaultModel(): Promise<SelectableAIModel> {
 	};
 }
 
-// Static default for backwards compatibility (but prefer getRuntimeDefaultModel)
+// Static default for backwards compatibility
 export const defaultModel: AIModel =
-	availableModels.find((model) => model.provider === 'local') ||
+	availableModels.find((model) => model.provider === 'deepseek') ||
 	availableModels.find((model) => model.provider === 'anthropic') ||
 	availableModels[0];
 
@@ -157,26 +254,12 @@ export function getAllAvailableModels(): (AIModel | SelectableAIModel)[] {
 }
 
 // Helper function to check if local server is available
-// Helper function to check if local server is available
 export async function checkLocalServerAvailability(): Promise<boolean> {
-	try {
-		// Create AbortController for timeout
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-		const response = await fetch('/api/ai/local/models', {
-			method: 'GET',
-			signal: controller.signal
-		});
-
-		clearTimeout(timeoutId);
-
-		if (!response.ok) return false;
-
-		const data = await response.json();
-		return data.success && data.data?.models?.length > 0;
-	} catch (error) {
-		console.log('Local server not available:', error);
-		return false;
-	}
+    try {
+        const status = await localModelsService.checkStatus();
+        return status === 'online';
+    } catch (error) {
+        console.log('Local server not available:', error);
+        return false;
+    }
 }

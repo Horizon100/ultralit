@@ -670,7 +670,7 @@
 		width: 30px;
 		height: 30px;
 		border: none;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		background: none;
 		display: flex;

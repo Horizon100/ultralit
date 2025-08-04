@@ -1,9 +1,11 @@
 <!-- src/lib/components/Sidebar.svelte -->
 <script lang="ts">
 	import { page } from '$app/stores';
-	
+	import { goto } from '$app/navigation';
 	let icons: any = {};
 	let iconsLoaded = false;
+	  let roomName = '';
+  let userName = '';
 	
 	import('lucide-svelte').then((lucide) => {
 		icons = {
@@ -11,7 +13,8 @@
 			LayoutDashboard: lucide.LayoutDashboard,
 			Video: lucide.Video,
 			BookOpen: lucide.BookOpen,
-			Settings: lucide.Settings
+			Settings: lucide.Settings,
+			Plus: lucide.Plus
 		};
 		iconsLoaded = true;
 	}).catch((error) => {
@@ -20,37 +23,75 @@
 	});
 
 	const menuItems = [
-		{ path: '/webrtc/', label: 'Home', icon: 'Home', emoji: '🏠' },
+		{ path: '/webrtc', label: 'Home', icon: 'Home', emoji: '🏠' },
 		{ path: '/webrtc/dashboard', label: 'Dashboard', icon: 'LayoutDashboard', emoji: '📊' },
 		{ path: '/webrtc/lobby', label: 'Join Room', icon: 'Video', emoji: '🎥' },
-		{ path: '/webrtc/docs', label: 'Documentation', icon: 'BookOpen', emoji: '📚' },
-		{ path: '/webrtc/settings', label: 'Settings', icon: 'Settings', emoji: '⚙️' }
+    { label: 'Create Room', icon: 'Plus', emoji: '➕', action: 'createRoom' },
+		// { path: '/webrtc/docs', label: 'Documentation', icon: 'BookOpen', emoji: '📚' },
+		// { path: '/webrtc/settings', label: 'Settings', icon: 'Settings', emoji: '⚙️' }
 	];
-	
+function handleMenuAction(action: string) {
+    switch (action) {
+        case 'createRoom':
+            createRoom();
+            break;
+    }
+}
+  async function createRoom() {
+    const response = await fetch('/api/webrtc/rooms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: roomName })
+    });
+    
+    if (response.ok) {
+      const room = await response.json();
+      goto(`/webrtc/room/${room.roomId}`);
+    }
+  }
 	$: currentPath = $page.url.pathname;
+
 </script>
 
 <aside class="sidebar">
 	<nav class="sidebar-nav">
-		{#each menuItems as item}
-			<a 
-				href={item.path} 
-				class="nav-item"
-				class:active={currentPath === item.path}
-			>
-				<div class="nav-icon">
-					{#if iconsLoaded && icons[item.icon]}
-						<svelte:component this={icons[item.icon]} size={20} />
-					{:else}
-						<span>{item.emoji}</span>
-					{/if}
-				</div>
-				<span class="nav-label">{item.label}</span>
-			</a>
-		{/each}
+{#each menuItems as item}
+    {#if item.path}
+        <a 
+            href={item.path} 
+            class="nav-item"
+            class:active={currentPath === item.path}
+        >
+            <div class="nav-icon">
+                {#if iconsLoaded && icons[item.icon]}
+                    <svelte:component this={icons[item.icon]} size={20} />
+                {:else}
+                    <span>{item.emoji}</span>
+                {/if}
+            </div>
+            <span class="nav-label">{item.label}</span>
+        </a>
+    {:else if item.action}
+        <button 
+            class="nav-item" 
+            on:click={() => handleMenuAction(item.action)}
+			    class:active={item.action === 'createRoom' && currentPath.startsWith('/webrtc/room/')}
+
+        >
+            <div class="nav-icon">
+                {#if iconsLoaded && icons[item.icon]}
+                    <svelte:component this={icons[item.icon]} size={20} />
+                {:else}
+                    <span>{item.emoji}</span>
+                {/if}
+            </div>
+            <span class="nav-label">{item.label}</span>
+        </button>
+    {/if}
+{/each}
 	</nav>
 	
-	<div class="sidebar-footer">
+	<!-- <div class="sidebar-footer">
 		<div class="status-indicator">
 			<div class="status-dot online"></div>
 			<span>Online</span>
@@ -61,44 +102,58 @@
 				<small>Using emoji fallback</small>
 			</div>
 		{/if}
-	</div>
+	</div> -->
 </aside>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
 	.sidebar {
-		width: 250px;
-		background: #111;
-		border-right: 1px solid #333;
+		width: 100%;
+		background: var(--bg-gradient);
+		height: 3rem;
 		display: flex;
-		flex-direction: column;
-		padding: 1rem 0;
+		flex-direction: row;
+		justify-content: center;
+		align-items: center;
 	}
 	
 	.sidebar-nav {
+		display: flex;
+		flex-direction: row;
 		flex: 1;
-		padding: 0 1rem;
+		gap: 0.5rem;
+				justify-content: center;
+		align-items: center;
 	}
 	
 	.nav-item {
 		display: flex;
 		align-items: center;
 		gap: 1rem;
-		padding: 0.75rem 1rem;
-		color: #94a3b8;
+		padding: 0.5rem 1rem;
+		color: var(--placeholder-color);
+		background-color: var(--primary-color);
 		text-decoration: none;
 		border-radius: 0.5rem;
-		margin-bottom: 0.25rem;
 		transition: all 0.2s;
+		width: auto !important;
+		outline: none;
+		border: none;
 	}
 	
 	.nav-item:hover {
-		background: rgba(102, 126, 234, 0.1);
-		color: white;
+		background: var(--secondary-color);
+		color: var(--text-color);
 	}
 	
 	.nav-item.active {
-		background: rgba(102, 126, 234, 0.2);
-		color: #667eea;
+		background: var(--bg-color) !important;
+		color: var(--tertiary-color) !important;
 	}
 	
 	.nav-icon {
@@ -112,6 +167,7 @@
 	
 	.nav-label {
 		font-weight: 500;
+		font-size: 1rem;
 	}
 	
 	.sidebar-footer {
@@ -129,7 +185,7 @@
 	}
 	
 	.icon-status {
-		color: #6b7280;
+		color: var(--placeholder-color);
 		font-size: 0.75rem;
 	}
 	

@@ -558,7 +558,7 @@
 
 		&.selected {
 			background: var(--primary-color);
-			color: white;
+			color: var(--text-color);
 		}
 	}
 

@@ -498,7 +498,7 @@
 
 	.play-pause {
 		background: var(--accent-color);
-		color: white;
+		color: var(--text-color);
 		padding: 12px;
 	}
 
@@ -658,7 +658,7 @@
 
 	.speed-option.active {
 		background: var(--accent-color);
-		color: white;
+		color: var(--text-color);
 	}
 
 	/* Mobile responsiveness */

@@ -921,7 +921,7 @@
 	.save-btn {
 		padding: 8px 16px;
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 6px;
 		font-size: 0.875rem;
@@ -941,7 +941,7 @@
 
 	.delete-btn {
 		background-color: #ef4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 6px;
 		padding: 6px;

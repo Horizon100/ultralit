@@ -734,7 +734,7 @@
 	.stats-container h2 {
 		display: flex;
 		justify-content: right;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.stat-item {
@@ -840,7 +840,7 @@
 		top: -8px;
 		right: -8px;
 		background: #ff6b6b;
-		color: white;
+		color: var(--text-color);
 		border-radius: 50%;
 		width: 22px;
 		height: 22px;
@@ -939,7 +939,7 @@
 		position: fixed;
 		z-index: 100;
 		background: rgba(0, 0, 0, 0.85);
-		color: white;
+		color: var(--text-color);
 		padding: 10px 14px;
 		border-radius: 6px;
 		font-size: 0.85rem;

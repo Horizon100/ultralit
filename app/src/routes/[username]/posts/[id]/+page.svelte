@@ -1258,7 +1258,7 @@
 
 	.btn-primary {
 		background: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.btn-primary:hover {

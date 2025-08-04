@@ -574,13 +574,12 @@
 		background: transparent;
 		border: none;
 		resize: none;
-		font-size: 16px;
+		font-size: 1rem;
 		color: var(--text-color);
 		font-family: var(--font-family);
 		line-height: 1.5;
 		outline: none;
-		overflow: hidden; /* Hide scrollbar initially */
-		min-height: 2.5rem; /* Start with smaller min-height */
+		min-height: 2.5rem;
 		max-height: 50vh;
 		width: 100%;
 		box-sizing: border-box;
@@ -765,7 +764,7 @@
 		top: -8px;
 		right: -8px;
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 50%;
 		width: 24px;
@@ -817,7 +816,7 @@
 
 	.remove-attachment {
 		background: #ef4444;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 4px;
 		width: 24px;

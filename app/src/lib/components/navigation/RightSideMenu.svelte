@@ -101,7 +101,7 @@
 		/* padding: 5px; */
 		border: none;
 		cursor: pointer;
-		color: white;
+		color: var(--text-color);
 		font-size: 16px;
 		background-color: transparent;
 		transition: all 0.3s cubic-bezier(0.075, 0.82, 0.165, 1);
@@ -134,7 +134,7 @@
 		background-color: rgba(255, 255, 255, 0.1);
 		border: none;
 		border-radius: 4px;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.content {

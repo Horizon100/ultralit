@@ -856,7 +856,7 @@
 		background-color: #e74c3c;
 		border: none;
 		border-radius: 5px;
-		color: white;
+		color: var(--text-color);
 		cursor: pointer;
 		transition: background-color 0.3s;
 		font-size: 16px;
@@ -937,7 +937,7 @@
 
 		.button-group .button {
 			/* background-color: #007bff; Button background color */
-			color: white; /* Button text color */
+			color: var(--text-color); /* Button text color */
 			border: none; /* Remove default border */
 			border-radius: 4px; /* Rounded corners */
 			cursor: pointer; /* Pointer cursor on hover */

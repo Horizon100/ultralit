@@ -47,7 +47,7 @@
 		justify-content: center;
 		align-items: center;
 		border-radius: 50%;
-		color: white;
+		color: var(--text-color);
 		font-weight: bold;
 	}
 </style>

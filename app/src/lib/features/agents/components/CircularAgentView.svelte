@@ -104,7 +104,7 @@
 		height: 70px;
 		border-radius: 50%;
 		background-color: #414d4d;
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		justify-content: center;
 		align-items: center;

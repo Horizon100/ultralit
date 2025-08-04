@@ -34,7 +34,7 @@
 	}
 	.sticker-creator {
 		position: absolute;
-		background-color: white;
+		background-color: var(--text-color);
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		padding: 10px;

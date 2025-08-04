@@ -235,7 +235,7 @@
 		align-items: center;
 		justify-content: center;
 		background: var(--hero-color);
-		color: white;
+		color: var(--text-color);
 		font-weight: 600;
 		font-size: 18px;
 		text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -357,7 +357,7 @@
 		margin-bottom: 6px;
 		font-size: 10px;
 		background: rgba(59, 130, 246, 0.9);
-		color: white;
+		color: var(--text-color);
 		padding: 2px 6px;
 		border-radius: 3px;
 		white-space: nowrap;
@@ -376,7 +376,7 @@
 
 	.tooltip-content {
 		background: #1f2937;
-		color: white;
+		color: var(--text-color);
 		padding: 10px 12px;
 		border-radius: 6px;
 		font-size: 12px;

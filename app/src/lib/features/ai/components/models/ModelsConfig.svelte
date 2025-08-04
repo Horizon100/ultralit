@@ -364,7 +364,7 @@
 
 	.submit-button {
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.submit-button:hover {
@@ -373,7 +373,7 @@
 
 	.create-button {
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -423,7 +423,7 @@
 
 	.delete-button {
 		background-color: transparent;
-		color: white;
+		color: var(--text-color);
 		padding: 0;
 		border: none;
 		border-radius: 0px;
@@ -447,7 +447,7 @@
 		bottom: 20px;
 		right: 20px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		padding: 10px 20px;
 		border-radius: 4px;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);

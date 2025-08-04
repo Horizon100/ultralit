@@ -118,7 +118,7 @@
 		border-radius: 3px;
 		font-size: 11px;
 		font-weight: 600;
-		color: white;
+		color: var(--text-color);
 		white-space: nowrap;
 		max-width: 120px;
 		overflow: hidden;

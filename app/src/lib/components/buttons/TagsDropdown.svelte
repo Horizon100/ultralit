@@ -486,7 +486,7 @@
 		padding: 0 0.375rem;
 		margin-left: 0.5rem;
 		background-color: var(--secondary-color);
-		color: white;
+		color: var(--text-color);
 		border-radius: 9999px;
 		font-size: 0.75rem;
 		font-weight: 500;
@@ -600,13 +600,13 @@
 		padding: 0.375rem 0.5rem;
 		font-size: 0.875rem;
 		outline: none;
-		background-color: white;
+		background-color: var(--text-color);
 	}
 
 	.create-form .create-btn {
 		margin-left: 0.5rem;
 		background-color: var(--primary-color, #3b82f6);
-		color: white;
+		color: var(--text-color);
 	}
 
 	.create-form .create-btn:hover:not(:disabled) {

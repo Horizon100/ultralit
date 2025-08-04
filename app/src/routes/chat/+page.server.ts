@@ -1,12 +1,12 @@
-import type { ServerLoad } from '@sveltejs/kit';
-import { redirect } from '@sveltejs/kit';
+// import type { ServerLoad } from '@sveltejs/kit';
+// import { redirect } from '@sveltejs/kit';
 
-export const load = (async ({ locals }) => {
-	if (!locals.user) {
-		throw redirect(302, '/');
-	}
+// export const load = (async ({ locals }) => {
+// 	if (!locals.user) {
+// 		throw redirect(302, '/');
+// 	}
 
-	return {
-		user: locals.user
-	};
-}) satisfies ServerLoad;
+// 	return {
+// 		user: locals.user
+// 	};
+// }) satisfies ServerLoad;

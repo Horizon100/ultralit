@@ -280,7 +280,7 @@
 
 	.retry-btn {
 		background: var(--accent-primary);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		padding: 0.5rem 1rem;
 		border-radius: 6px;

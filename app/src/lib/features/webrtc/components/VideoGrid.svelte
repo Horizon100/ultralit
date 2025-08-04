@@ -3,7 +3,7 @@
 	import { onMount, afterUpdate } from 'svelte';
 	import { participantsStore } from '$lib/features/webrtc/stores/participants-store';
 	import { callStore } from '$lib/features/webrtc/stores/call-store';
-	
+	import Icon from '$lib/components/ui/Icon.svelte';
 	export let compact = false;
 
 	// Initialize participants store when component mounts
@@ -145,16 +145,13 @@
 				</div>
 			{:else if !$callStore.isInCall}
 				<div class="disconnected">
-					<svg class="w-12 h-12 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728L5.636 5.636m12.728 12.728L18.364 5.636M5.636 18.364l12.728-12.728" />
-					</svg>
+					<!-- <Icon name="Video"/> -->
 					<p>Not connected to room</p>
 				</div>
 			{:else}
 				<div class="waiting">
-					<svg class="w-12 h-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-					</svg>
+					<Icon name="Video"/>
+
 					<p>Waiting for other participants...</p>
 					<p class="text-sm">Share the room link to invite others</p>
 				</div>
@@ -163,14 +160,37 @@
 	{/each}
 </div>
 
-<style>
+<style lang="scss">
+	:root {
+		font-family: var(--font-family);
+	}	
+	* {
+		font-family: var(--font-family);
+	}	
+
 	.video-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 		gap: 1rem;
 		padding: 1rem;
 		height: 100%;
-		overflow: auto;
+						scroll-behavior: smooth;
+		overflow-x: hidden;
+				overflow-y: auto;
+
+		&::-webkit-scrollbar {
+			width: 0.5rem;
+			background-color: transparent;
+		}
+		&::-webkit-scrollbar-track {
+			background: transparent;
+		}
+		&::-webkit-scrollbar-thumb {
+			background: var(--secondary-color);
+			border-radius: 1rem;
+		}
+	
+	
 	}
 	
 	.video-grid.compact {
@@ -212,7 +232,7 @@
 		align-items: center;
 		justify-content: center;
 		background: linear-gradient(135deg, #374151 0%, #1f2937 100%);
-		color: white;
+		color: var(--text-color);
 		gap: 1rem;
 	}
 
@@ -226,7 +246,7 @@
 		justify-content: center;
 		font-size: 1.5rem;
 		font-weight: bold;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.compact .avatar {
@@ -257,7 +277,7 @@
 		bottom: 8px;
 		left: 8px;
 		background: rgba(0, 0, 0, 0.7);
-		color: white;
+		color: var(--text-color);
 		padding: 4px 8px;
 		border-radius: 4px;
 		font-size: 0.875rem;

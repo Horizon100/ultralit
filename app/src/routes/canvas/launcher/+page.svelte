@@ -257,7 +257,7 @@
 	}
 
 	.config-selector button.active {
-		color: white;
+		color: var(--text-color);
 		transform: scale(1.5);
 	}
 
@@ -294,7 +294,7 @@
 		background: none;
 		border: none;
 		cursor: pointer;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.workspace-selector {
@@ -330,7 +330,7 @@
 		height: 60px;
 		border-radius: 50%;
 		background-color: transparent;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		cursor: pointer;
 		display: flex;
@@ -470,7 +470,7 @@
 		background: linear-gradient(to top, #1a1a1a, #212121);
 		align-items: center;
 		gap: 10px;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		text-align: left;
 		font-size: 20px;
@@ -610,7 +610,7 @@
 	h1 {
 		font-size: 30px;
 		margin: 0;
-		color: white;
+		color: var(--text-color);
 		width: 100%;
 		text-align: center;
 	}
@@ -641,7 +641,7 @@
 		background: none;
 		border: none;
 		cursor: pointer;
-		color: white;
+		color: var(--text-color);
 		padding: 5px;
 		transition: color 0.3s;
 		margin-right: 30px;
@@ -660,7 +660,7 @@
 		top: 20px;
 		right: 20px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		padding: 10px 20px;
 		border-radius: 5px;
 		z-index: 1001;
@@ -677,7 +677,7 @@
 		background: linear-gradient(to top, #1a1a1a, #212121);
 		align-items: center;
 		gap: 10px;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		text-align: left;
 		font-size: 20px;
@@ -716,7 +716,7 @@
 	textarea:focus {
 		outline: none;
 		border: 2px solid #000000;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.cta-button {
@@ -750,7 +750,7 @@
 		right: 20px;
 		padding: 10px 20px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 5px;
 		cursor: pointer;

@@ -307,7 +307,7 @@
 		cursor: pointer;
 		transition: all 0.2s ease;
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		border: 1px solid var(--primary-color);
 		width: 100%;
 	}
@@ -367,7 +367,7 @@
 		cursor: pointer;
 		transition: all 0.2s ease;
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		border: 1px solid var(--primary-color);
 	}
 

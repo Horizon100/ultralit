@@ -201,7 +201,7 @@
 
 	.btn-secondary {
 		background: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		padding: 0.5rem 1rem;
 		border-radius: 6px;
 		border: none;

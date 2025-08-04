@@ -158,7 +158,7 @@
 		padding: 0.75rem;
 		margin-top: 1rem;
 		background-color: var(--primary-color);
-		color: white;
+		color: var(--text-color);
 		border: none;
 		border-radius: 4px;
 		cursor: pointer;

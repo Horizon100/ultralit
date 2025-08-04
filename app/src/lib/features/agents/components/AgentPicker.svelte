@@ -962,12 +962,12 @@
 
 	.submit-button:hover {
 		background-color: #45a049;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.create-button {
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -1071,7 +1071,7 @@
 		bottom: 20px;
 		right: 20px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		z-index: 3000;
 		padding: 10px 20px;
 		border-radius: 4px;
@@ -1144,16 +1144,16 @@
 		font-size: 12px;
 		font-weight: bold;
 		background-color: #333333;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.status-active {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 	.status-inactive {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 	.status-maintenance {
 		background-color: #1f1f1f;
@@ -1161,7 +1161,7 @@
 	}
 	.status-paused {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.container-row:hover .data-counts {
@@ -1279,7 +1279,7 @@
 	.filter-button.active,
 	.tag-button.active {
 		background-color: #1f1f1f;
-		color: white;
+		color: var(--text-color);
 	}
 
 	.status-active {
@@ -1317,7 +1317,7 @@
 		height: 20px;
 		border-radius: 50%;
 		background-color: #2196f3;
-		color: white;
+		color: var(--text-color);
 		border: none;
 		cursor: pointer;
 	}
@@ -1375,7 +1375,7 @@
 		cursor: pointer;
 		padding: 5px 10px;
 		background-color: #4caf50;
-		color: white;
+		color: var(--text-color);
 		border-radius: 5px;
 	}
 
@@ -1399,7 +1399,7 @@
 	}
 
 	.upload-overlay :global(svg) {
-		color: white;
+		color: var(--text-color);
 	}
 
 	h2 {
@@ -1443,7 +1443,7 @@
 	}
 
 	.agent-name {
-		color: white;
+		color: var(--text-color);
 		font-size: 16px;
 		margin-top: 10px;
 	}
