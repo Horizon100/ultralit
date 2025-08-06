@@ -4,8 +4,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 // Configure worker - simple and direct approach
 if (typeof window !== 'undefined') {
-	pdfjsLib.GlobalWorkerOptions.workerSrc =
-		'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+	pdfjsLib.GlobalWorkerOptions.workerSrc = '/js/pdf.worker.min.js';
 }
 
 export interface PDFThumbnail {
@@ -95,9 +94,22 @@ export async function generatePDFThumbnail(
 /**
  * Load PDF document
  */
+/**
+ * Load PDF document
+ */
 export async function loadPDFDocument(pdfUrl: string): Promise<PDFDocument> {
 	try {
+		// Add detailed debugging
+		console.log('loadPDFDocument called with:', {
+			pdfUrl,
+			type: typeof pdfUrl,
+			length: pdfUrl?.length,
+			isEmpty: !pdfUrl,
+			isString: typeof pdfUrl === 'string'
+		});
+
 		if (!pdfUrl || typeof pdfUrl !== 'string') {
+			console.log('Validation failed at loadPDFDocument');
 			throw new Error('Invalid PDF URL provided');
 		}
 
@@ -106,8 +118,12 @@ export async function loadPDFDocument(pdfUrl: string): Promise<PDFDocument> {
 		const pdf = await pdfjsLib.getDocument({
 			url: pdfUrl,
 			cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
-			cMapPacked: true
+			cMapPacked: true,
+			useWorkerFetch: false,
+			isEvalSupported: false,
+			useSystemFonts: true
 		}).promise;
+		
 		const metadata = await pdf.getMetadata();
 
 		let title = 'PDF Document';
@@ -128,7 +144,6 @@ export async function loadPDFDocument(pdfUrl: string): Promise<PDFDocument> {
 		throw error;
 	}
 }
-
 /**
  * Extract text from PDF page
  */

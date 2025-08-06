@@ -16,6 +16,7 @@
 	import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 	import UmamiAnalytics from '$lib/components/analytics/UmamiAnalytics.svelte';
 	import { dev } from '$app/environment';
+  import { analytics } from '$lib/stores/analyticsStore';
 
 	// Components
 	import Kanban from '$lib/features/tasks/Kanban.svelte';
@@ -77,7 +78,6 @@
 	} from '$lib/utils/errorUtils';
 	import { createHoverManager } from '$lib/utils/hoverUtils';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
-	import { analytics } from '$lib/stores/analyticsStore';
 	if (dev) {
 		analytics.enableDebug(true);
 	}
@@ -110,6 +110,8 @@
 	let wallpaperPreference: WallpaperPreference = { wallpaperId: null, isActive: false };
 	let wallpaperSrc: string | null = null;
 	let preference: WallpaperPreference;
+	let previousWallpaperPreference: WallpaperPreference | null = null;
+	let previousUserId: string | null = null;
 	let isLogoHovered = false;
 	// let scrollObserverCleanup: (() => void) | null = null;
 	let cleanup: (() => void) | undefined;
@@ -326,18 +328,36 @@
 	// 	return /^\/[^\/]+(?:\/posts(?:\/[^\/]+)?)?$/.test(path);
 	// }
 	$: searchPlaceholder = $t('nav.searchEverything') as string;
-	$: {
-		if ($currentUser?.wallpaper_preference) {
-			wallpaperPreference = parseWallpaperPreference($currentUser.wallpaper_preference);
-		} else if (!$currentUser) {
-			wallpaperPreference = { wallpaperId: 'aristoles', isActive: true };
-		} else {
-			wallpaperPreference = { wallpaperId: null, isActive: false };
-		}
+$: {
+	const currentUserId = $currentUser?.id || null;
+	const currentPreference = $currentUser?.wallpaper_preference 
+		? parseWallpaperPreference($currentUser.wallpaper_preference)
+		: !$currentUser 
+			? { wallpaperId: 'aristoles', isActive: true }
+			: { wallpaperId: null, isActive: false };
 
+	// Only update if user changed or wallpaper preference actually changed
+	const preferenceChanged = !previousWallpaperPreference || 
+		previousWallpaperPreference.wallpaperId !== currentPreference.wallpaperId ||
+		previousWallpaperPreference.isActive !== currentPreference.isActive;
+	
+	const userChanged = previousUserId !== currentUserId;
+
+	if (userChanged || preferenceChanged) {
+		wallpaperPreference = currentPreference;
 		wallpaperSrc = getWallpaperSrc(wallpaperPreference);
-		console.log('Layout wallpaper updated:', { wallpaperPreference, wallpaperSrc });
+		
+		console.log('Layout wallpaper updated:', { 
+			wallpaperPreference, 
+			wallpaperSrc,
+			reason: userChanged ? 'user changed' : 'preference changed'
+		});
+		
+		// Update tracking variables
+		previousWallpaperPreference = { ...currentPreference };
+		previousUserId = currentUserId;
 	}
+}
 	$: {
 		console.log('Current active section:', $navigationStore.activeSection);
 		console.log('Current page:', $page.url.pathname);
@@ -364,6 +384,8 @@
 		// if (browser) {
 		// 	window.addEventListener('avatarUpdated', handleAvatarUpdate);
 		// }
+		    $page.url && analytics.trackPageView($page.url.pathname);
+
 		let unsubscribe: (() => void) | undefined;
 		let themeUnsubscribe: (() => void) | undefined;
 		pageCleanup = pageHoverManager.initialize();
@@ -672,6 +694,7 @@
 		class:active={$showInput}
 		class:active-right={$showRightSidenav}
 		class:active-left={$showSidenav}
+		class:guest={!$currentUser}
 		class:welcome-page={$page.url.pathname === '/welcome'}
     class:webrtc-open={$page.url.pathname.startsWith('/webrtc')}
 		transition:slide={{ duration: 150, axis: 'x' }}
@@ -3289,9 +3312,10 @@
 		border: none;
 		box-shadow: none;
 	}
-	.sidenav.welcome-page {
+	.sidenav.welcome-page, .sidenav.guest {
 		display: none;
 	}
+
 	.sidenav {
 		display: flex;
 		flex-direction: row;

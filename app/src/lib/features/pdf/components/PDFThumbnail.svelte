@@ -79,6 +79,7 @@
 		overflow: hidden;
 		width: 100%;
 		height: 100%;
+
 		border: 1px solid var(--line-color);
 		transition: all 0.3s ease;
 		box-shadow: 0 10px 40px 10px rgba(255, 255, 255, 0.22);
@@ -105,6 +106,11 @@
 
 	.thumbnail-placeholder.loading {
 		background: #f3f4f6;
+	}
+
+	img {
+		width: 150px;
+		height: auto;
 	}
 
 	.thumbnail-placeholder.error {

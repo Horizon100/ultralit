@@ -1,4 +1,4 @@
-// src/routes/api/ai/analyze-pdf/+server.ts
+// src/routes/api/ai/local/analyze-pdf/+server.ts
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
@@ -10,15 +10,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			return json({ error: 'Invalid text content' }, { status: 400 });
 		}
 
-		// Always return fast basic analysis first
 		const basicAnalysis = generateBasicAnalysis(text, filename);
 
 		if (mode === 'fast') {
-			// Return immediate basic analysis
 			return json({ analysis: basicAnalysis });
 		}
 
-		// For AI mode, try AI analysis with fallback
 		try {
 			const aiAnalysis = await analyzeWithLocalAI(text, filename, request);
 			return json({
@@ -26,12 +23,11 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 				hasAI: true
 			});
 		} catch (aiError) {
-			console.error('AI analysis failed, returning basic:', aiError);
 			return json({
-				analysis:
-					basicAnalysis +
-					'\n\n⚠️ **AI Analysis Unavailable:** ' +
-					(aiError instanceof Error ? aiError.message : String(aiError)),
+				analysis: {
+					...basicAnalysis,
+					error: aiError instanceof Error ? aiError.message : String(aiError)
+				},
 				hasAI: false
 			});
 		}
@@ -41,30 +37,28 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	}
 };
 
-function generateBasicAnalysis(text: string, filename: string): string {
+function generateBasicAnalysis(text: string, filename: string) {
 	const wordCount = text.split(/\s+/).filter((word) => word.trim().length > 0).length;
 	const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 10).length;
 	const paragraphs = text.split(/\n\s*\n/).filter((p) => p.trim().length > 0).length;
 	const keywords = extractKeywords(text);
 	const docType = getDocumentType(text);
-	const readingTime = Math.ceil(wordCount / 200); // Average reading speed
+	const readingTime = Math.ceil(wordCount / 200);
 
-	return `📄 **${filename}**
-
-📊 **Quick Stats:**
-• **Words:** ${wordCount.toLocaleString()}
-• **Sentences:** ${sentences}
-• **Paragraphs:** ${paragraphs}
-• **Reading Time:** ~${readingTime} min
-
-📝 **Document Type:** ${docType}
-
-🏷️ **Key Terms:** ${keywords.slice(0, 8).join(' • ')}
-
-📋 **Summary:**
-${generateSmartSummary(text)}
-
-${getDocumentInsights(text)}`;
+	return {
+		type: 'basic',
+		filename,
+		stats: {
+			words: wordCount,
+			sentences,
+			paragraphs,
+			readingTime
+		},
+		docType,
+		keywords: keywords.slice(0, 8),
+		summary: generateSmartSummary(text),
+		insights: getDocumentInsights(text)
+	};
 }
 
 async function analyzeWithLocalAI(

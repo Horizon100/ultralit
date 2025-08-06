@@ -30,7 +30,6 @@ export const GET: RequestHandler = async ({ params, url }) => {
 			hasMorePosts = page < posts.totalPages;
 			page++;
 
-			// Add small delay to avoid rate limits
 			if (hasMorePosts) {
 				await new Promise((resolve) => setTimeout(resolve, 50));
 			}
@@ -60,13 +59,20 @@ export const GET: RequestHandler = async ({ params, url }) => {
 					sort: '-created'
 				});
 
-				allMediaItems = [...allMediaItems, ...media.items];
+				// Add thumbnail URLs for each media item
+				const mediaWithThumbnails = media.items.map(item => ({
+					...item,
+					// Generate thumbnail URL based on file type
+					thumbnail_url: item.file_type === 'video' 
+						? `${pb.baseUrl}/api/files/posts_attachments/${item.id}/${item.file_path}?thumb=300x300`
+						: `${pb.baseUrl}/api/files/posts_attachments/${item.id}/${item.file_path}?thumb=300x300`,
+					full_url: `${pb.baseUrl}/api/files/posts_attachments/${item.id}/${item.file_path}`
+				}));
 
-				// Small delay between chunks
+				allMediaItems = [...allMediaItems, ...mediaWithThumbnails];
 				await new Promise((resolve) => setTimeout(resolve, 100));
 			} catch (chunkError) {
 				console.error('Error fetching media chunk:', chunkError);
-				// Continue with other chunks
 			}
 		}
 

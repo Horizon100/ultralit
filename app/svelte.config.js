@@ -26,14 +26,46 @@ const config = {
 		// Add CSP to allow your server resources
 		csp: {
 			directives: {
-				'default-src': ['self'],
-				'script-src': ['self', 'unsafe-inline', 'unsafe-eval', 'http://100.77.36.61:3004'],
-				'style-src': ['self', 'unsafe-inline', 'https://fonts.googleapis.com'],
-				'font-src': ['self', 'https://fonts.gstatic.com'],
-				'img-src': ['self', 'data:', 'blob:', 'https:', 'http://100.77.36.61:8090'],
-				'media-src': ['self', 'blob:', 'data:', 'http://100.77.36.61:8090', 'http://100.77.36.61:3002'],
+				'default-src': [
+					"'self'"
+				],
+				'script-src': [
+					"'self'", 
+					"'unsafe-inline'", 
+					"'unsafe-eval'", 
+					'http://100.77.36.61:3005', 
+					'http://localhost:3005',
+				],
+				'worker-src': [
+					"'self'",
+					"blob:",
+				],
+				'style-src': [
+					"'self'", 
+					"'unsafe-inline'", 
+					'https://fonts.googleapis.com'
+				],
+				'font-src': [
+					"'self'", 
+					'https://fonts.gstatic.com'
+				],
+				'img-src': [
+					"'self'", 
+					'data:', 
+					'blob:', 
+					'https:', 
+					'http://100.77.36.61:8090'
+				],
+				'media-src': [
+					"'self'", 
+					'blob:', 
+					'data:', 
+					'http://100.77.36.61:8090', 
+					'http://100.77.36.61:3002'
+				],
 				'connect-src': [
-					'self', 
+					"'self'", 
+					'blob:',
 					'http://localhost:8090',     // PocketBase (localhost)
 					'http://100.77.36.61:8090',  // PocketBase (external access)
 					'http://localhost:11434',    // Ollama
@@ -42,7 +74,9 @@ const config = {
 					'http://localhost:3006',     // Whisper
 					'http://localhost:8000',     // CV Detection
 					'http://localhost:3011',     // WebRTC Media
-					'http://localhost:3025',     // WebRTC Signaling
+					'http://localhost:3025',     // WebRTC Signaling,
+					'http://localhost:3004',  // Umami
+					'ws://localhost:3004',     // Umami WebSocket
 					'ws://localhost:8082',       // WebRTC WebSocket,
 					'ws://100.77.36.61:8082',    // WebRTC WebSocket (external)
 					'ws://localhost:8000',       // CV Detection WebSocket

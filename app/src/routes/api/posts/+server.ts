@@ -273,8 +273,9 @@ export const POST: RequestHandler = async (event) =>
 			};
 
 			// FIXED: Only set parent if it exists and is not empty
-			if (parent && parent.trim()) {
-				postData.parent = parent.trim();
+				const normalizedParent = parent?.trim() || '';
+				if (normalizedParent) {				
+				postData.parent = normalizedParent;
 				console.log('✅ Setting parent:', parent.trim());
 			} else {
 				// Explicitly set empty parent for main posts

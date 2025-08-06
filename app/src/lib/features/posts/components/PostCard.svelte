@@ -32,6 +32,7 @@
 	import { toast } from '$lib/utils/toastUtils';
 	import { agentStore } from '$lib/stores/agentStore';
 	import LocalAIAnalysisButton from '$lib/features/ai/components/analysis/LocalAIAnalysisButton.svelte';
+import { isPDFReaderOpen, pdfReaderStore } from '$lib/stores/pdfReaderStore';
 
 	import PDFThumbnail from '$lib/features/pdf/components/PDFThumbnail.svelte';
 	import PDFReader from '$lib/features/pdf/components/PDFReader.svelte';
@@ -208,14 +209,12 @@
 
 	function openPDFReader(attachmentData: PostAttachment) {
 		currentPDFUrl = `${$pocketbaseUrl}/api/files/7xg05m7gr933ygt/${attachmentData.id}/${attachmentData.file_path}`;
-		showPDFReader = true;
+	isPDFReaderOpen.set(true);
 	}
 
 	function closePDFReader() {
-		showPDFReader = false;
-		currentPDFUrl = '';
+	isPDFReaderOpen.set(false);
 
-		document.body.style.overflow = '';
 	}
 
 	function getPDFUrl(attachmentData: PostAttachment) {
@@ -868,7 +867,10 @@
 	}
 </script>
 
-<article class="post-card" class:comment={isComment}>
+<article 
+	class="post-card" 
+	class:comment={isComment}
+	>
 	{#if isRepost}
 		<div class="repost-indicator">
 			<Icon name="Repeat" size={14} />
@@ -1048,6 +1050,7 @@
 										showPerformanceMonitor={true}
 										autoTagging={true}
 										attachmentId={attachment.id}
+										
 										postId={post.id}
 										minTaggingConfidence={0.7}
 										onTagsUpdated={(tags) => {
@@ -1426,7 +1429,7 @@
 			on:analyzed={handleAIAnalysis}
 		/>
 	</div>
-	{#if showActions}
+	{#if showActions && !$isPDFReaderOpen}
 		<div class="post-actions">
 			<button class="action-button comment" title="Comment" on:click={handleComment}>
 				<Icon name="MessageSquare" size={16} />
@@ -1537,9 +1540,11 @@
 		</div>
 	{/if}
 </article>
-{#if showPDFReader}
+<div class="pdf-reader">
+{#if $isPDFReaderOpen && currentPDFUrl && currentPDFUrl.trim() !== ''}
 	<PDFReader pdfUrl={currentPDFUrl} onClose={closePDFReader} enableAI={true} />
 {/if}
+</div>
 
 <ShareModal
 	bind:isOpen={showShareModal}
@@ -1566,6 +1571,7 @@
 	* {
 		font-family: var(--font-family);
 	}
+
 	.tags-list {
 		display: flex;
 		flex-wrap: wrap;
@@ -1879,7 +1885,7 @@
 		align-items: center;
 		gap: 0.25rem;
 		cursor: pointer;
-
+		z-index: 1;
 		transition: all 0.3s ease;
 		&:hover {
 			padding: 0 0.5rem;
@@ -1897,8 +1903,8 @@
 
 		& .action-button {
 			padding: 0.5rem;
-			margin-left: -1.75rem;
-			border: 1px solid var(--line-color);
+			margin-left: -1.85rem;
+			// border: 1px solid var(--line-color);
 			position: relative;
 			z-index: 1;
 			backdrop-filter: blur(20px);
@@ -1909,7 +1915,7 @@
 			&:hover {
 				z-index: 2;
 				color: var(--tertiary-color);
-				border: 1px solid var(--tertiary-color);
+				background: var(--primary-color);
 			}
 
 			& span {

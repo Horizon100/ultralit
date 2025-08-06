@@ -249,8 +249,21 @@
 			stopMLDetection();
 		}
 	}
+function toggleFullscreen() {
+		if (!videoContainer) return;
 
-// Original VideoPlayer functions
+		if (!document.fullscreenElement) {
+			// Enter fullscreen
+			videoContainer.requestFullscreen().catch(err => {
+				console.error('Error attempting to enable fullscreen:', err);
+			});
+		} else {
+			// Exit fullscreen
+			document.exitFullscreen().catch(err => {
+				console.error('Error attempting to exit fullscreen:', err);
+			});
+		}
+	}
 function setupAutoplay() {
 	if (!videoElement || !autoplay) return;
 
@@ -279,19 +292,25 @@ function setupAutoplay() {
 									const tryAutoplay = async () => {
 										try {
 											if (video.readyState >= 2) {
-												await video.play();
-												console.log('MP4 autoplay successful after waiting:', src);
+												// Abort any existing play promise before starting new one
+												const playPromise = video.play();
+												if (playPromise !== undefined) {
+													await playPromise;
+													console.log('MP4 autoplay successful after waiting:', src);
+												}
 											} else {
 												console.log('MP4 still not ready, showing play button:', src);
 												showPlayButton = true;
 											}
 										} catch (err) {
-											console.log('MP4 autoplay failed after waiting:', err);
+											if (err.name !== 'AbortError') {
+												console.log('MP4 autoplay failed after waiting:', err);
+											}
 											showPlayButton = true;
 										}
 									};
 
-									// Remove any existing listeners to prevent duplicates
+									// Clean up any existing listeners first
 									video.removeEventListener('loadeddata', tryAutoplay);
 									video.removeEventListener('canplay', tryAutoplay);
 									
@@ -299,7 +318,7 @@ function setupAutoplay() {
 									video.addEventListener('loadeddata', tryAutoplay, { once: true });
 									video.addEventListener('canplay', tryAutoplay, { once: true });
 
-									// Fallback timeout - reduced to 1 second for better UX
+									// Fallback timeout
 									setTimeout(() => {
 										if (video.paused && video.readyState < 2) {
 											console.log('MP4 loading timeout, showing play button:', src);
@@ -314,9 +333,18 @@ function setupAutoplay() {
 								}
 							}
 
-							await video.play();
-							console.log('Autoplay successful for:', src);
+							// Handle play promise properly to avoid AbortError
+							const playPromise = video.play();
+							if (playPromise !== undefined) {
+								await playPromise;
+								console.log('Autoplay successful for:', src);
+							}
 						} catch (err) {
+							if (err.name === 'AbortError') {
+								console.log('Play was aborted (likely due to new play request):', src);
+								return; // Don't show play button for abort errors
+							}
+							
 							console.log('Autoplay failed:', err);
 
 							if (mimeType === 'video/mp4') {
@@ -324,11 +352,16 @@ function setupAutoplay() {
 								video.load();
 								setTimeout(async () => {
 									try {
-										await video.play();
-										console.log('MP4 fallback autoplay successful:', src);
+										const fallbackPromise = video.play();
+										if (fallbackPromise !== undefined) {
+											await fallbackPromise;
+											console.log('MP4 fallback autoplay successful:', src);
+										}
 									} catch (fallbackErr) {
-										console.log('MP4 fallback autoplay also failed:', fallbackErr);
-										showPlayButton = true;
+										if (fallbackErr.name !== 'AbortError') {
+											console.log('MP4 fallback autoplay also failed:', fallbackErr);
+											showPlayButton = true;
+										}
 									}
 								}, 500);
 							} else {
@@ -352,15 +385,24 @@ function setupAutoplay() {
 	intersectionObserver.observe(videoElement);
 }
 
-	function togglePlay() {
-		if (!videoElement) return;
+async function togglePlay() {
+	if (!videoElement) return;
 
+	try {
 		if (videoElement.paused) {
-			videoElement.play();
+			const playPromise = videoElement.play();
+			if (playPromise !== undefined) {
+				await playPromise;
+			}
 		} else {
 			videoElement.pause();
 		}
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			console.error('Error toggling play state:', err);
+		}
 	}
+}
 
 	function toggleMute() {
 		if (!videoElement) return;
@@ -465,29 +507,37 @@ function setupAutoplay() {
 		console.log('Current video MIME type:', mimeType);
 		console.log('=== END VIDEO SUPPORT CHECK ===');
 	}
+function setupCompatibleVideo() {
+	if (!videoElement) return;
 
-	function setupCompatibleVideo() {
-		if (!videoElement) return;
-
-		videoElement.addEventListener('error', () => {
-			console.log('Video failed to load, showing manual controls');
-			showPlayButton = true;
-			isLoading = false;
-		});
-
-		videoElement.addEventListener('loadstart', () => {
-			if (mimeType === 'video/quicktime') {
-				showPlayButton = true;
-			}
-		});
+	// Remove existing error handler to prevent duplicates
+	const existingErrorHandler = videoElement.onerror;
+	if (existingErrorHandler) {
+		videoElement.removeEventListener('error', existingErrorHandler as EventListener);
 	}
+
+	videoElement.addEventListener('error', () => {
+		console.log('Video failed to load, showing manual controls');
+		showPlayButton = true;
+		isLoading = false;
+	}, { once: true }); // Use once: true to prevent duplicate handlers
+
+	videoElement.addEventListener('loadstart', () => {
+		if (mimeType === 'video/quicktime') {
+			showPlayButton = true;
+		}
+	}, { once: true });
+}
 	if (autoTagging && detectionAggregator && detections.length > 0) {
 		detectionAggregator.addDetections(detections);
 	}
-	onMount(() => {
-		checkVideoSupport();
-		setTimeout(setupAutoplay, 100);
-	});
+onMount(() => {
+	checkVideoSupport();
+	setTimeout(() => {
+		setupAutoplay();
+		setupCompatibleVideo();
+	}, 100);
+});
 
 	onDestroy(() => {
 		if (intersectionObserver) {
@@ -590,19 +640,28 @@ function setupAutoplay() {
 						/>
 					</div>
 				{/if}
+				<div class="right-controls">
+					<button
+						class="control-button fullscreen-button"
+						on:click|stopPropagation={toggleFullscreen}
+						aria-label="Toggle fullscreen"
+					>
+						<Icon name="Maximize" size={20} />
+					</button>
 
-				<!-- Mute button -->
-				<button
-					class="control-button mute-button"
-					on:click|stopPropagation={toggleMute}
-					aria-label={isMuted ? 'Unmute' : 'Mute'}
-				>
-					{#if isMuted}
-						<Icon name="VolumeX" size={20} />
-					{:else}
-						<Icon name="Volume2" size={20} />
-					{/if}
-				</button>
+					<!-- Mute button -->
+					<button
+						class="control-button mute-button"
+						on:click|stopPropagation={toggleMute}
+						aria-label={isMuted ? 'Unmute' : 'Mute'}
+					>
+						{#if isMuted}
+							<Icon name="VolumeX" size={20} />
+						{:else}
+							<Icon name="Volume2" size={20} />
+						{/if}
+					</button>
+				</div>
 			</div>
 		</div>
 	{/if}
@@ -707,42 +766,48 @@ function setupAutoplay() {
 
 	.bottom-controls {
 		position: absolute;
-		bottom: 12px;
-		right: 12px;
+		bottom: 0.5rem;
+		right: 0.5rem;
+		left: 0.5rem;
 		display: flex;
 		align-items: flex-end;
+		width: auto;
+	justify-content: space-between;
 		gap: 12px;
-		z-index: 2000;
-		width: 100%;
+		z-index: 100;
 	}
-
+.right-controls {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
 	.ml-controls-container {
 		display: flex;
-		width: 100%;
+		width: auto;
 		pointer-events: auto;
 	}
 
-	.mute-button {
-		width: 40px;
-		height: 40px;
+	.mute-button, .fullscreen-button {
+		width: 2rem;
+		height: 2rem;
 	}
 
 	/* Mobile adjustments */
 	@media (max-width: 480px) {
 		.play-button {
-			width: 50px;
-			height: 50px;
+			width: 2rem;
+			height: 2rem;
 		}
 
-		.mute-button {
-			width: 35px;
-			height: 35px;
+		.mute-button, .fullscreen-button {
+			width: 1.5rem;
+			height: 1.5rem;
 		}
 
 		.bottom-controls {
-			bottom: 8px;
-			right: 8px;
-			gap: 8px;
+			bottom: 0.5rem;
+			right: 0.5rem;
+			gap: 0.25rem;
 		}
 	}
 </style>

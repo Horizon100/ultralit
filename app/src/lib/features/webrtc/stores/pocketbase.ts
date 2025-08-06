@@ -1,7 +1,7 @@
 // lib/stores/pocketbase.ts
 import { writable, derived } from 'svelte/store';
 import { browser } from '$app/environment';
-import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
+import { PUBLIC_POCKETBASE_URL } from '$env/dynamic/public';
 import PocketBase from 'pocketbase';
 
 const initialUrl = PUBLIC_POCKETBASE_URL || 'http://localhost:8090';

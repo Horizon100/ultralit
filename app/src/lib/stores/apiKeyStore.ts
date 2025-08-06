@@ -1,4 +1,4 @@
-// lib/stores/apiKeyStore.ts - UPDATED VERSION
+// lib/stores/apiKeyStore.ts
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
 import { currentUser, ensureAuthenticated } from '$lib/pocketbase';

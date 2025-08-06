@@ -942,5 +942,8 @@ export default {
 		confirmPassword: 'Confirm New Password',
 		passwordsMatch: 'Passwords must match',
 		resetSuccess: 'Password reset successfully'
+	},
+	document: {
+		page: 'Page'
 	}
 };

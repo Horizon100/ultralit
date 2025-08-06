@@ -54,53 +54,45 @@ export const POST: RequestHandler = async ({ params, request, locals }) =>
 		});
 	}, 'Failed to upload attachments');
 
-export const GET: RequestHandler = async ({ params, url }) =>
-	apiTryCatch(async () => {
-		const postId = params.id;
-		const attachmentId = url.searchParams.get('attachmentId');
+export const GET: RequestHandler = async ({ params, url, locals }) =>
+  apiTryCatch(async () => {
+    const postId = params.id;
+    const attachmentId = url.searchParams.get('attachmentId');
+    const pb = locals.pb;
 
-		if (attachmentId) {
-			// Get specific attachment with tags
-			const attachment = unwrap(
-				await pbTryCatch(
-					pb.collection('posts_attachments').getOne(attachmentId),
-					'fetch specific attachment'
-				)
-			);
+    const enhanceAttachment = (attachment: any) => {
+      const collectionRef = '7xg05m7gr933ygt';
+      
+      return {
+        ...attachment,
+        tags: attachment.tags || [],
+        tagCount: attachment.tagCount || 0,
+        analysis: attachment.analysis || null,
+url: `${pb.baseUrl}/api/files/${collectionRef}/${attachment.id}/${attachment.file_path}`,
+        file_url: `${pb.baseUrl}/api/files/${collectionRef}/${attachment.id}/${attachment.file}`
+      };
+    };
 
-			// Verify the attachment belongs to this post
-			if (attachment.post !== postId) {
-				throw new Error('Attachment does not belong to this post');
-			}
-
-			return json({
-				success: true,
-				attachment: {
-					...attachment,
-					tags: attachment.tags || [],
-					tagCount: attachment.tagCount || 0,
-					analysis: attachment.analysis || null
-				}
-			});
-		} else {
-			// Get all attachments for the post
-			const attachments = await pb.collection('posts_attachments').getFullList({
-				filter: `post = "${postId}"`,
-				sort: 'created'
-			});
-
-			return json({
-				success: true,
-				attachments: attachments.map((attachment) => ({
-					...attachment,
-					tags: attachment.tags || [],
-					tagCount: attachment.tagCount || 0,
-					analysis: attachment.analysis || null
-				}))
-			});
-		}
-	}, 'Failed to fetch attachments');
-
+    if (attachmentId) {
+      const attachment = await pb.collection('posts_attachments').getOne(attachmentId);
+      if (attachment.post !== postId) {
+        throw new Error('Attachment does not belong to this post');
+      }
+      return json({ 
+        success: true, 
+        attachment: enhanceAttachment(attachment) 
+      });
+    } else {
+      const attachments = await pb.collection('posts_attachments').getFullList({
+        filter: `post = "${postId}"`,
+        sort: 'created'
+      });
+      return json({ 
+        success: true, 
+        attachments: attachments.map(enhanceAttachment) 
+      });
+    }
+  }, 'Failed to fetch attachments');
 export const PATCH: RequestHandler = async ({ params, request, url, locals }) =>
 	apiTryCatch(async () => {
 		if (!locals.user) throw new Error('Unauthorized');

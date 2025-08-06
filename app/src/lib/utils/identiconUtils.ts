@@ -132,7 +132,7 @@ export function generateUserIdenticon(userIdentifier: string, size = 64): string
 	return generateIdenticonDataUrl(normalized, {
 		size,
 		backgroundColor: 'transparent',
-		margin: 18
+		margin: 4
 	});
 }
 

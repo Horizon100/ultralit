@@ -222,14 +222,34 @@ function onTextareaFocus() {
 		const target = event.currentTarget as HTMLTextAreaElement;
 		userInput = target.value;
 	}
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter' && !event.shiftKey) {
-			event.preventDefault();
-			if (!isLoading) {
-				handleSendMessage();
-			}
+function handleKeydown(event: KeyboardEvent) {
+	// Handle space character insertion manually
+	if (event.key === ' ') {
+		event.preventDefault();
+		
+		const textarea = event.target as HTMLTextAreaElement;
+		const start = textarea.selectionStart || 0;
+		const end = textarea.selectionEnd || 0;
+		const value = textarea.value;
+		
+		// Insert space at cursor position
+		textarea.value = value.slice(0, start) + ' ' + value.slice(end);
+		textarea.setSelectionRange(start + 1, start + 1);
+		
+		// Update Svelte variable
+		userInput = textarea.value;
+		
+		return; // Exit early for space handling
+	}
+	
+	// Handle Enter key normally
+	if (event.key === 'Enter' && !event.shiftKey) {
+		event.preventDefault();
+		if (!isLoading) {
+			handleSendMessage();
 		}
 	}
+}
 function handleModelSelectorClick() {
     if (!hasInitializedModels && !isLoadingModels) {
         handleLazyModelLoading();
@@ -997,10 +1017,9 @@ function handleModelSelectorClick() {
 
 		& textarea {
 			// padding: 1rem;
-			width: calc(100% - 1rem) !important;
-			padding: 0.5rem;
+			width: calc(100% - 2rem) !important;
 			height: auto;
-			font-size: 1rem;
+			padding: 0 1rem;
 
 			&:focus {
 				height: auto;
@@ -1084,22 +1103,18 @@ function handleModelSelectorClick() {
 		&::placeholder {
 			color: var(--placeholder-color);
 			width: calc(100% - 2rem);
-			display: flex;
+			justify-content: center !important;
+			height: 100%;
+			padding-top: 1rem !important;
 			text-align: center;
 			user-select: none;
-			font-size: 1.1rem;
 			letter-spacing: 0.2rem;
 		}
 
 		&.quote-placeholder::placeholder {
 			font-style: italic;
 			opacity: 0.8;
-			padding: 1rem;
 			font-size: 0.8rem;
-			display: flex;
-			flex: 1;
-			justify-content: center;
-			align-items: flex-start;
 			height: auto;
 			user-select: none;
 		}

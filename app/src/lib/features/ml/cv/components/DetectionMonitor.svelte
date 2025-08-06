@@ -106,8 +106,8 @@
 {#if isVisible}
 	<div class="performance-monitor">
 		<div class="monitor-header">
-			<Icon name="Activity" size={14} />
-			<span>Performance</span>
+			<!-- <Icon name="Activity" size={14} /> -->
+			<!-- <span>Performance</span> -->
 			<!-- Performance Status -->
 			<div class="status-bar">
 				<div
@@ -126,7 +126,6 @@
 			</button>
 		</div>
 
-		<div class="metrics-grid">
 			<!-- FPS -->
 			<div class="metric">
 				<div class="metric-label">FPS</div>
@@ -162,7 +161,6 @@
 					<span class="metric-unit">all</span>
 				</div>
 			</div>
-		</div>
 	</div>
 {/if}
 
@@ -173,12 +171,11 @@
 	}
 
 	.performance-monitor {
-		background: rgba(0, 0, 0, 0.85);
+		background: rgba(0, 0, 0, 0.5);
 		border-radius: 6px;
-		padding: 8px;
+		padding: 0.5rem;
 		color: var(--text-color);
 		font-size: 11px;
-		min-width: 140px;
 		backdrop-filter: blur(4px);
 		border: 1px solid rgba(255, 255, 255, 0.1);
 	}
@@ -187,7 +184,7 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-		margin-bottom: 6px;
+		margin-bottom: 0.5rem;
 		font-weight: 500;
 	}
 
@@ -216,23 +213,31 @@
 
 	.metric {
 		text-align: center;
+		display: flex;
+		flex-direction: column;
+		width: auto;
+		border-top: 1px solid var(--line-color);
 	}
 
 	.metric-label {
-		color: rgba(255, 255, 255, 0.7);
-		font-size: 9px;
-		margin-bottom: 1px;
+		color: var(--placeholder-color);
+		font-size: 0.6rem;
 		text-transform: uppercase;
+		text-align: right;
+
 		letter-spacing: 0.5px;
 	}
 
 	.metric-value {
 		font-weight: 600;
-		font-size: 12px;
+		font-size: 1rem;
 		display: flex;
 		align-items: baseline;
-		justify-content: center;
+		justify-content: flex-end;
 		gap: 2px;
+		width: auto !important;
+		color: var(--tertiary-color);
+
 	}
 
 	.metric-unit {
@@ -243,10 +248,8 @@
 
 	.status-bar {
 		display: flex;
-		align-items: center;
+		align-items: center;		
 		gap: 4px;
-		padding-top: 4px;
-		border-top: 1px solid rgba(255, 255, 255, 0.1);
 	}
 
 	.status-indicator {
@@ -265,6 +268,9 @@
 		width: 4px;
 		height: 4px;
 		background: #22c55e;
+		position: absolute;
+		top: 0.25rem;
+		right: 0.25rem;
 		border-radius: 50%;
 		margin-left: auto;
 		animation: pulse 1s infinite;

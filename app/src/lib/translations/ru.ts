@@ -864,5 +864,8 @@ export default {
 		confirmPassword: 'Подтвердите пароль',
 		passwordsMatch: 'Пароли должны совпадать',
 		resetSuccess: 'Пароль успешно сброшен'
+	},
+	document: {
+		page: 'Страница'
 	}
 };

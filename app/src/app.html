@@ -8,14 +8,21 @@
 			rel="stylesheet"
 		/> -->
 		<meta 
-			http-equiv="Content-Security-Policy" 
-			content="default-src 'self'; img-src 'self' data: blob: http://localhost:8090 http://100.77.36.61:8090 https:; media-src 'self' http://localhost:8090 http://100.77.36.61:8090 https:; connect-src 'self' http://localhost:8090 http://100.77.36.61:8090 https://api.openai.com https://api.anthropic.com https://api.deepseek.com https://api.x.ai https://generativelanguage.googleapis.com https: wss: ws:; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data: https:;"
+		http-equiv="Content-Security-Policy" 
+		content="default-src 'self'; 
+				img-src 'self' data: blob: http://localhost:8090 http://100.77.36.61:8090 https:; 
+				media-src 'self' http://localhost:8090 http://100.77.36.61:8090 https:; 
+				connect-src 'self' http://localhost:8090 http://100.77.36.61:8090 https://api.openai.com https://api.anthropic.com https://api.deepseek.com https://api.x.ai https://generativelanguage.googleapis.com https: wss: ws:; 
+				script-src 'self' 'unsafe-inline' 'unsafe-eval' http://100.77.36.61:3005; 
+				style-src 'self' 'unsafe-inline'; 
+				font-src 'self' data: https:;"
 		/>
 		<meta
 			name="viewport"
 			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
 		/>
 		%sveltekit.head%
+		<script defer src="http://100.77.36.61:3005/script.js" data-website-id="511fde64-d93a-4668-91d1-374abaf2ecb4"></script>
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>

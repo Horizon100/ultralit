@@ -75,7 +75,7 @@
 </script>
 
 <div
-	class="detection-controls"
+	class="detection-controls {settings.enabled ? 'active' : ''}"
 	in:fly={{ y: 200, duration: 300 }}
 	out:fly={{ y: 200, duration: 300 }}
 >
@@ -87,11 +87,14 @@
 			disabled={serviceHealth === 'unhealthy'}
 			title={serviceHealth === 'unhealthy' ? 'ML service unavailable' : ''}
 		>
+							<div class="status-indicator {serviceHealth}"></div>
+
 			<Icon name={settings.enabled ? 'Eye' : 'EyeOff'} size={16} />
 			<span>AI Detection</span>
 			{#if isProcessing}
 				<div class="processing-indicator"></div>
 			{/if}
+
 		</button>
 
 		{#if settings.enabled && detectionCount > 0}
@@ -100,8 +103,6 @@
 			</span>
 		{/if}
 
-		<!-- Service status indicator -->
-		<div class="status-indicator {serviceHealth}"></div>
 	</div>
 
 	{#if settings.enabled}
@@ -193,15 +194,17 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		background: rgba(0, 0, 0, 0.8);
+		background: rgba(0, 0, 0, 0.1);
 		border-radius: 0.5rem;
-		padding: 0.5rem;
+		padding: 0;
 		color: var(--text-color);
 		font-size: 0.8rem;
 		backdrop-filter: blur(20px);
-		width: 100%;
-		flex: 1;
+		width: auto;
 		transition: all 0.3s ease;
+		&.active {
+			padding: 0.5rem;
+		}
 	}
 
 	.main-controls {

@@ -4,7 +4,6 @@
 	import { goto } from '$app/navigation';
 	import { fly } from 'svelte/transition';
 	import { currentUser } from '$lib/pocketbase';
-	import { isPDFReaderOpen } from '$lib/stores/pdfReaderStore';
 	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import PostCard from '$lib/features/posts/components/PostCard.svelte';
 	import PostQuoteCard from '$lib/features/posts/components/PostQuoteCard.svelte';
@@ -14,6 +13,7 @@
 	import { showSidenav, showRightSidenav, showSettings, showInput } from '$lib/stores/sidenavStore';
 	import { t } from '$lib/stores/translationStore';
 	import BackButton from '$lib/components/buttons/BackButton.svelte';
+	import Icon from '$lib/components/ui/Icon.svelte';
 	import { postStore } from '$lib/stores/postStore';
 	import { clientTryCatch, fetchTryCatch, isFailure } from '$lib/utils/errorUtils';
 	import { getIcon, type IconName } from '$lib/utils/lucideIcons';
@@ -32,6 +32,9 @@
 	import { pocketbaseUrl } from '$lib/stores/pocketbase';
 	import { toast } from '$lib/utils/toastUtils';
 	import Toast from '$lib/components/modals/Toast.svelte';
+	import { sidenavStore } from '$lib/stores/sidenavStore';
+	import { isPDFReaderOpen, pdfReaderStore } from '$lib/stores/pdfReaderStore';
+
 	// State
 	let loading = true;
 	let error = '';
@@ -199,7 +202,6 @@
 	}
 
 	// Handle scroll detection
-	let showPDFReader = false;
 	let currentPDFUrl = '';
 
 	function handleScroll() {
@@ -990,10 +992,27 @@
 				</button>
 			</div>
 		{:else if post}
-			<main class="post-detail-main">
+			<main 
+				class="post-detail-main"
+				class:pdf-open={$isPDFReaderOpen}
+				>
 				<div class="comments-header">
-					<BackButton />
-					<h3 class="comments-title">
+						{#if $isPDFReaderOpen}
+						<button 
+							class="back-button" 
+							on:click={(event) => {
+								event.preventDefault();
+								isPDFReaderOpen.set(false);
+							}}							
+							type="button" 
+							aria-label="Go back">
+							<Icon name="ArrowLeft" />
+						</button>
+						{:else}
+						<BackButton/>
+						{/if}
+											
+						<h3 class="comments-title">
 						{comments.length > 0
 							? `${comments.length} ${comments.length === 1 ? $t('posts.reply') : $t('posts.replies')}`
 							: $t('posts.noReplies')}
@@ -1002,6 +1021,7 @@
 				<div
 					bind:this={postCardElement}
 					class="post-card-container"
+
 					in:fly={{ y: -50, duration: 300 }}
 					out:fly={{ y: -50, duration: 200 }}
 				>
@@ -1034,6 +1054,7 @@
 							parentId={post.id}
 							placeholder={replyPlaceholder}
 							on:submit={handleCommentSubmit}
+							onClose={() => sidenavStore.hideInput()}
 						/>
 					</div>
 				{/if}
@@ -1043,6 +1064,7 @@
 					<section
 						class="comments-section"
 						class:scrolled={isScrolled}
+						class:pdf-open={$isPDFReaderOpen}
 						bind:this={commentsElement}
 						in:fly={{ y: 200, duration: 300 }}
 						out:fly={{ y: 200, duration: 200 }}
@@ -1122,12 +1144,12 @@
 	.post-detail-container {
 		display: flex;
 		justify-content: center;
-		min-height: 100vh;
+		// min-height: 100vh;
 		width: 100% !important;
-		margin-top: 2rem;
+		margin-top: 1rem;
 		flex: 1;
 		transition: all 0.3s ease;
-		padding: 1rem;
+
 	}
 	// .post-detail-container.nav-visible .post-content-wrapper {
 	// 	left: 3rem;
@@ -1280,12 +1302,18 @@
 	.post-detail-main {
 		width: 100%;
 		max-width: 800px;
-		height: calc(100% - 2rem);
+		height: calc(100%);
 		display: flex;
 		flex-direction: column;
 		justify-content: flex-start;
 		align-items: stretch;
 		gap: 0;
+		&.pdf-open {
+			max-width: 1600px;
+			& .comment-section {
+				display: none;
+			}
+		}
 	}
 
 	.main-post {
@@ -1388,7 +1416,6 @@
 		background: var(--bg-gradient);
 		padding: 0.5rem 1rem;
 		border-radius: 2rem;
-		margin-bottom: 2rem;
 		scroll-behavior: smooth;
 		overflow-y: auto !important;
 		box-shadow: 0 30px 140px 50px rgba(255, 255, 255, 0.22);
@@ -1645,6 +1672,7 @@
 		transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 		will-change: transform;
 		background: none;
+		
 	}
 	/* Dark mode adjustments */
 	:global([data-theme='dark']) .skeleton-shimmer {

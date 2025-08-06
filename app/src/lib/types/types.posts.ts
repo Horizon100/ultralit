@@ -1,26 +1,26 @@
 import type { User } from './types';
+import type { RecordModel } from 'pocketbase';
+
 export interface PostAttachment {
-	id: string;
-	post: string;
-	file_path: string;
-	file_type:
-		| 'image'
-		| 'video'
-		| 'document'
-		| 'audio'
-		| 'archive'
-		| 'spreadsheet'
-		| 'presentation'
-		| 'code'
-		| 'ebook';
-	file_size: number;
-	original_name: string;
-	mime_type: string;
-	tags: string[];
-	tagCount?: number;
-	analysis?: string;
-	created: string;
-	updated: string;
+  id: string;
+  post: string;
+  collectionId: string;
+  collectionName: string; 
+  file: string;         
+  file_path?: string;  
+  file_type: 
+    | 'image' | 'video' | 'document' | 'audio' 
+    | 'archive' | 'spreadsheet' | 'presentation' | 'code' | 'ebook';
+  file_size: number;
+  original_name: string;
+  mime_type: string;
+  tags: string[];
+  tagCount?: number;
+  analysis?: string;
+  created: string;
+  updated: string;
+  url?: string;
+  file_url?: string;
 }
 export interface AttachmentTagInfo {
 	attachmentId: string;
@@ -28,8 +28,7 @@ export interface AttachmentTagInfo {
 	analysis?: string;
 	fileName: string;
 }
-export interface Post {
-	id: string;
+export interface Post extends RecordModel {
 	content: string;
 	user: string;
 	attachments?: PostAttachment[];
@@ -53,8 +52,6 @@ export interface Post {
 	children: string[];
 	tags: string[];
 	quotedPost: string;
-	created: string;
-	updated: string;
 	analyzed?: boolean;
 	analyzed_at?: string;
 	type?: 'post' | 'comment' | 'agent_reply';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
+	import { onMount, onDestroy, tick } from 'svelte';
 	import { page } from '$app/stores';
 	import { t } from '$lib/stores/translationStore';
 	import { fade } from 'svelte/transition';
@@ -51,13 +51,14 @@
 		attachmentFilterStore
 	} from '$lib/stores/attachmentFilterStore';
 	import Icon from '$lib/components/ui/Icon.svelte';
+	import { sidenavStore } from '$lib/stores/sidenavStore';
 
 	let infiniteScrollManager: InfiniteScrollManager | null = null;
-	let homeHasMore = true;
-	let homeLoadingMore = false;
-	let homeLoading = false;
-	let homeCurrentOffset = 0;
-	let homePosts: PostWithInteractions[] = [];
+	// let homeHasMore = true;
+	// let homeLoadingMore = false;
+	// let homeLoading = false;
+	// let homeCurrentOffset = 0;
+	// let homePosts: PostWithInteractions[] = [];
 	let postComposerRef: PostComposer | null = null;
 	let enableAutoTagging = true;
 	let taggingModel: string = 'qwen2.5:0.5b';
@@ -76,6 +77,7 @@
 	let pageHasScrollableContent = false;
 
 	export let selectedLocalModel = 'qwen2.5:0.5b';
+export let onClose: (() => void) | undefined = undefined;
 
 	const HOME_POSTS_PER_PAGE = 10;
 
@@ -256,36 +258,27 @@
 	}
 
 	// Helper function to update local state (if you're using homePosts)
-	function updateLocalPostState(
-		realPostId: string,
-		action: string,
-		result: {
-			upvoted?: boolean;
-			upvoteCount?: number;
-			downvoteCount?: number;
-			reposted?: boolean;
-			repostCount?: number;
-		}
-	) {
-		if (action === 'upvote' && homePosts.length > 0) {
-			homePosts = homePosts.map((post) => {
-				// Update both original posts and reposts of the same post
-				const shouldUpdate =
-					post.id === realPostId || (post.isRepost && post.originalPostId === realPostId);
-
-				if (shouldUpdate) {
-					return {
-						...post,
-						upvote: result.upvoted || false,
-						upvoteCount: result.upvoteCount || post.upvoteCount,
-						downvote: result.upvoted ? false : post.downvote,
-						downvoteCount: result.downvoteCount || post.downvoteCount
-					};
-				}
-				return post;
-			});
-		}
+function updateLocalPostState(
+	realPostId: string,
+	action: string,
+	result: {
+		upvoted?: boolean;
+		upvoteCount?: number;
+		downvoteCount?: number;
+		reposted?: boolean;
+		repostCount?: number;
 	}
+) {
+	if (action === 'upvote' && $postStore.posts.length > 0) {
+		// Update the store instead of local homePosts
+		postStore.updatePost(realPostId, {
+			upvote: result.upvoted || false,
+			upvoteCount: result.upvoteCount,
+			downvote: result.upvoted ? false : undefined, // Only update if upvoted
+			downvoteCount: result.downvoteCount
+		});
+	}
+}
 
 	// Handle opening comment modal (from PostCard)
 	function handleComment(event: CustomEvent<{ postId: string }>) {
@@ -448,94 +441,94 @@
 		const userProfile = await getPublicUserData(userId);
 		console.log('Following user profile:', userProfile);
 	}
-	$: if ($showSidenav && homePosts.length > 0) {
-		console.log('🔄 Sidenav opened, syncing posts for tags...', homePosts.length);
-		syncPostsForTags(homePosts);
-	}
+$: if ($showSidenav && $postStore.posts.length > 0) {
+	console.log('🔄 Sidenav opened, syncing posts for tags...', $postStore.posts.length);
+	syncPostsForTags($postStore.posts);
+}
 	$: shouldDisableInfiniteScroll = currentFilterStatus.hasAnyFilter;
 
 	$: effectiveHasMore = shouldDisableInfiniteScroll ? false : $postStore.hasMore;
 
-	$: {
-		homeHasMore = $postStore.hasMore;
-		homeLoadingMore = $postStore.loadingMore;
-		homeLoading = $postStore.loading;
+	// $: {
+	// 	homeHasMore = $postStore.hasMore;
+	// 	homeLoadingMore = $postStore.loadingMore;
+	// 	homeLoading = $postStore.loading;
 
-		// DEBUG: Let's see what's happening
-		console.log('🔍 HOME STATE SYNC:', {
-			'Store hasMore': $postStore.hasMore,
-			'Store loadingMore': $postStore.loadingMore,
-			'Store posts.length': $postStore.posts.length,
-			'Local homeHasMore': homeHasMore,
-			'Local homeLoadingMore': homeLoadingMore,
-			'Filters active': currentFilterStatus.hasAnyFilter,
-			'Should disable scroll': shouldDisableInfiniteScroll,
-			'Effective hasMore': effectiveHasMore
-		});
-	}
+	// 	// DEBUG: Let's see what's happening
+	// 	console.log('🔍 HOME STATE SYNC:', {
+	// 		'Store hasMore': $postStore.hasMore,
+	// 		'Store loadingMore': $postStore.loadingMore,
+	// 		'Store posts.length': $postStore.posts.length,
+	// 		'Local homeHasMore': homeHasMore,
+	// 		'Local homeLoadingMore': homeLoadingMore,
+	// 		'Filters active': currentFilterStatus.hasAnyFilter,
+	// 		'Should disable scroll': shouldDisableInfiniteScroll,
+	// 		'Effective hasMore': effectiveHasMore
+	// 	});
+	// }
 
-	async function fetchHomePosts(offset = 0, append = false) {
-		if (!browser) return;
+	// async function fetchHomePosts(offset = 0, append = false) {
+	// 	if (!browser) return;
 
-		if (!append) {
-			homeLoading = true;
-			homeCurrentOffset = 0;
-			homeHasMore = true;
-			homePosts = [];
-		} else {
-			homeLoadingMore = true;
-		}
+	// 	if (!append) {
+	// 		homeLoading = true;
+	// 		homeCurrentOffset = 0;
+	// 		homeHasMore = true;
+	// 		homePosts = [];
+	// 	} else {
+	// 		homeLoadingMore = true;
+	// 	}
 
-		try {
-			console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
+	// 	try {
+	// 		console.log(`🔍 Fetching home posts with offset: ${offset}, append: ${append}`);
 
-			const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
-			const data = await response.json();
+	// 		const response = await fetch(`/api/posts?offset=${offset}&limit=${HOME_POSTS_PER_PAGE}`);
+	// 		const data = await response.json();
 
-			if (!response.ok) {
-				throw new Error(data.error || 'Failed to load posts');
-			}
-			const actualData = data.data || data;
-			const newPosts = actualData.posts || [];
+	// 		if (!response.ok) {
+	// 			throw new Error(data.error || 'Failed to load posts');
+	// 		}
+	// 		const actualData = data.data || data;
+	// 		const newPosts = actualData.posts || [];
 
-			if (!append) {
-				homePosts = newPosts;
-			} else {
-				const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
-				const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
-				homePosts = [...homePosts, ...uniqueNewPosts];
-				console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
-			}
+	// 		if (!append) {
+	// 			homePosts = newPosts;
+	// 		} else {
+	// 			const existingIds = new Set(homePosts.map((p: PostWithInteractions) => p.id));
+	// 			const uniqueNewPosts = newPosts.filter((p: PostWithInteractions) => !existingIds.has(p.id));
+	// 			homePosts = [...homePosts, ...uniqueNewPosts];
+	// 			console.log(`📊 Added ${uniqueNewPosts.length} new unique posts`);
+	// 		}
 
-			const newPostsCount = newPosts.length;
+	// 		const newPostsCount = newPosts.length;
 
-			if (actualData.hasMore !== undefined) {
-				homeHasMore = actualData.hasMore;
-			} else {
-				homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
-			}
+	// 		if (actualData.hasMore !== undefined) {
+	// 			homeHasMore = actualData.hasMore;
+	// 		} else {
+	// 			homeHasMore = newPostsCount === HOME_POSTS_PER_PAGE;
+	// 		}
 
-			// Update offset for next request
-			homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
+	// 		// Update offset for next request
+	// 		homeCurrentOffset = append ? homeCurrentOffset + newPostsCount : newPostsCount;
 
-			console.log('📊 Home posts updated:', {
-				postsCount: homePosts.length,
-				newPostsCount,
-				hasMore: homeHasMore,
-				currentOffset: homeCurrentOffset
-			});
+	// 		console.log('📊 Home posts updated:', {
+	// 			postsCount: homePosts.length,
+	// 			newPostsCount,
+	// 			hasMore: homeHasMore,
+	// 			currentOffset: homeCurrentOffset
+	// 		});
 
-			// ADD THIS: Sync with postStore for tags after successful fetch
-			if (homePosts && homePosts.length > 0) {
-				syncPostsForTags(homePosts);
-			}
-		} catch (err) {
-			console.error('Error fetching home posts:', err);
-		} finally {
-			homeLoading = false;
-			homeLoadingMore = false;
-		}
-	}
+	// 		// ADD THIS: Sync with postStore for tags after successful fetch
+	// 		if (homePosts && homePosts.length > 0) {
+	// 			syncPostsForTags(homePosts);
+	// 		}
+	// 	} catch (err) {
+	// 		console.error('Error fetching home posts:', err);
+	// 	} finally {
+	// 		homeLoading = false;
+	// 		homeLoadingMore = false;
+	// 	}
+	// }
 
 	// Load more function like username page
 	// async function loadMoreHomePosts() {
@@ -553,23 +546,15 @@
 	// 	console.log('🚀 Loading more home posts from offset:', homeCurrentOffset);
 	// 	await fetchHomePosts(homeCurrentOffset, true);
 	// }
-	async function loadMoreHomePosts() {
-		if (shouldDisableInfiniteScroll) {
-			console.log('⛔ Load more disabled due to active filters');
-			return;
-		}
-
-		if ($postStore.loadingMore || !$postStore.hasMore) {
-			console.log('⛔ Load more skipped:', {
-				loadingMore: $postStore.loadingMore,
-				hasMore: $postStore.hasMore
-			});
-			return;
-		}
-
-		console.log('🚀 Loading more posts via postStore');
-		await postStore.loadMorePosts(HOME_POSTS_PER_PAGE);
+async function loadMoreHomePosts() {
+	if (shouldDisableInfiniteScroll) {
+		console.log('⛔ Load more disabled due to active filters');
+		return;
 	}
+
+	console.log('🚀 Loading more posts via postStore');
+	await postStore.loadMorePosts(HOME_POSTS_PER_PAGE);
+}
 	function handlePostCreated(
 		event: CustomEvent<{ postId: string; post: string; success: boolean }>
 	) {
@@ -603,34 +588,32 @@
 	$: error = $postStore.error;
 
 	// Get filtered posts from the store (this will be homePosts after sync)
-	$: filteredHomePosts = $postStore.posts;
+	// $: filteredHomePosts = $postStore.posts;
 	$: currentFilterStatus = $filterStatus;
 	$: currentAttachmentFilter = $selectedAttachmentFilter;
 
 	// Use filteredHomePosts for deduplication instead of posts
-	$: uniquePosts = filteredHomePosts.reduce(
-		(acc: TimelinePost[], post: TimelinePost, index: number) => {
-			const postKey = post.isRepost
-				? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
-				: post.id;
+$: uniquePosts = posts.reduce(
+	(acc: TimelinePost[], post: TimelinePost, index: number) => {
+		const postKey = post.isRepost
+			? `repost_${post.originalPostId}_${post.repostedBy_id}_${post.created}`
+			: post.id;
 
-			const existingIndex = acc.findIndex((p: TimelinePost) => {
-				const existingKey = p.isRepost
-					? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
-					: p.id;
-				return existingKey === postKey;
-			});
+		const existingIndex = acc.findIndex((p: TimelinePost) => {
+			const existingKey = p.isRepost
+				? `repost_${p.originalPostId}_${p.repostedBy_id}_${p.created}`
+				: p.id;
+			return existingKey === postKey;
+		});
 
-			if (existingIndex === -1) {
-				acc.push(post);
-			} else {
-				console.log(`🔄 Removing duplicate post key: ${postKey} at index ${index}`);
-			}
+		if (existingIndex === -1) {
+			acc.push(post);
+		}
 
-			return acc;
-		},
-		[]
-	);
+		return acc;
+	},
+	[]
+);
 
 	$: userIds = [
 		...new Set(
@@ -694,7 +677,7 @@
 	$: {
 		console.log('🏠 Filtering chain debug:', {
 			postStoreLength: $postStore.posts.length,
-			filteredHomePostsLength: filteredHomePosts.length,
+			filteredHomePostsLength: $postStore.posts.length,
 			uniquePostsLength: uniquePosts.length,
 			enhancedPostsLength: enhancedPosts.length,
 			selectedTags: $selectedTags,
@@ -728,8 +711,8 @@
 		{ label: 'Observer', value: infiniteScrollManager ? '✅' : '❌' },
 		{ label: 'Attached', value: infiniteScrollManager?.isObserverAttached ? '✅' : '❌' },
 		{ label: 'Trigger', value: document?.getElementById('home-loading-trigger') ? '✅' : '❌' },
-		{ label: 'Has More (local)', value: homeHasMore ? '✅' : '❌' },
-		{ label: 'Loading (local)', value: homeLoadingMore ? '⏳' : '💤' },
+		// { label: 'Has More (local)', value: homeHasMore ? '✅' : '❌' },
+		// { label: 'Loading (local)', value: homeLoadingMore ? '⏳' : '💤' },
 		{ label: 'Has More (store)', value: $postStore.hasMore ? '✅' : '❌' },
 		{ label: 'Posts', value: $postStore.posts.length }
 	];
@@ -754,93 +737,44 @@
 			color: '#28a745'
 		}
 	];
-	onMount(() => {
-		console.log('🔄 Home page mounted - setting up...');
 
-		// Setup async initialization - DISABLE infinite scroll during initial load
-		(async () => {
-			// Step 1: Load initial posts WITHOUT infinite scroll
-			console.log('📥 Loading initial posts...');
-			await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
+function checkContentScrollability(): boolean {
+	if (typeof window === 'undefined' || !browser) return false;
 
-			// Step 2: Wait a bit for DOM to settle and posts to render
-			await new Promise((resolve) => setTimeout(resolve, 500));
+	setTimeout(() => {
+		try {
+			const body = document.body;
+			const html = document.documentElement;
 
-			// Step 3: Check if posts were actually loaded
-			const currentPosts = get(postStore);
-			console.log('🔍 After initial load - Posts in store:', currentPosts.posts.length);
+			contentHeight = Math.max(
+				body.scrollHeight,
+				body.offsetHeight,
+				html.clientHeight,
+				html.scrollHeight,
+				html.offsetHeight
+			);
 
-			if (currentPosts.posts.length === 0) {
-				console.log('⚠️ No posts loaded initially, trying again...');
-				await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
-			}
+			viewportHeight = window.innerHeight;
+			const scrollBuffer = 50; // Reduced from 100 to 50
+			const isScrollable = contentHeight >= viewportHeight; // Changed from > to >=
 
-			// Step 4: Only setup infinite scroll AFTER initial posts are loaded and rendered
-			console.log('🔧 Setting up infinite scroll...');
-			setupInfiniteScroll();
+			console.log('📏 Scrollability check:', {
+				contentHeight,
+				viewportHeight,
+				scrollBuffer,
+				isScrollable,
+				calculation: `${contentHeight} >= ${viewportHeight}`,
+				postsCount: enhancedPosts.length
+			});
 
-			// Step 5: Try to attach with retries
-			if (infiniteScrollManager) {
-				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-					if (success) {
-						console.log('✅ Infinite scroll ready!');
-					} else {
-						console.error('❌ Failed to setup infinite scroll');
-					}
-				});
-			}
+			pageHasScrollableContent = isScrollable;
+		} catch (error) {
+			console.error('Error checking content scrollability:', error);
+		}
+	}, 100);
 
-			console.log('✅ Home page setup complete');
-		})();
-
-		// Cleanup function
-		return () => {
-			console.log('🧹 Cleaning up infinite scroll...');
-			if (infiniteScrollManager) {
-				infiniteScrollManager.destroy();
-				infiniteScrollManager = null;
-			}
-		};
-	});
-	function checkContentScrollability(): boolean {
-		if (typeof window === 'undefined' || !browser) return false;
-
-		// Wait a bit for DOM to settle
-		setTimeout(() => {
-			try {
-				const body = document.body;
-				const html = document.documentElement;
-
-				contentHeight = Math.max(
-					body.scrollHeight,
-					body.offsetHeight,
-					html.clientHeight,
-					html.scrollHeight,
-					html.offsetHeight
-				);
-
-				viewportHeight = window.innerHeight;
-				const scrollBuffer = 100; // Increased buffer
-				const isScrollable = contentHeight > viewportHeight + scrollBuffer;
-
-				console.log('📏 Scrollability check:', {
-					contentHeight,
-					viewportHeight,
-					scrollBuffer,
-					isScrollable,
-					calculation: `${contentHeight} > ${viewportHeight + scrollBuffer}`,
-					postsCount: enhancedPosts.length
-				});
-
-				// Update the reactive variable
-				pageHasScrollableContent = isScrollable;
-			} catch (error) {
-				console.error('Error checking content scrollability:', error);
-			}
-		}, 100);
-
-		return pageHasScrollableContent;
-	}
+	return pageHasScrollableContent;
+}
 	$: {
 		// Always allow trigger if we have very few posts to enable initial loading
 		const hasFewPosts = enhancedPosts.length < 5; // Increased threshold
@@ -865,105 +799,113 @@
 		});
 	}
 
-	onMount(() => {
-		console.log('🔄 Home page mounted - setting up...');
+onMount(() => {
+	console.log('🔄 Home page mounted - setting up...');
 
-		// Setup async initialization - DISABLE infinite scroll during initial load
-		(async () => {
-			// Step 1: Load initial posts WITHOUT infinite scroll
-			console.log('📥 Loading initial posts...');
-			await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
+	(async () => {
+		// Load initial posts using store
+		console.log('📥 Loading initial posts...');
+		await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
 
-			// Step 2: Wait a bit for DOM to settle and posts to render
-			await new Promise((resolve) => setTimeout(resolve, 500));
+		// Wait for Svelte reactivity to complete
+		await tick();
+		
+		// Additional wait for DOM to settle
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
-			// Step 3: Check if posts were actually loaded
-			const currentPosts = get(postStore);
-			console.log('🔍 After initial load - Posts in store:', currentPosts.posts.length);
-
-			if (currentPosts.posts.length === 0) {
-				console.log('⚠️ No posts loaded initially, trying again...');
-				await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
-			}
-
-			// Step 4: Only setup infinite scroll AFTER initial posts are loaded and rendered
-			console.log('🔧 Setting up infinite scroll...');
-			setupInfiniteScroll();
-
-			// Step 5: Try to attach with retries
-			if (infiniteScrollManager) {
-				infiniteScrollManager.attachWithRetry(10, 100).then((success) => {
-					if (success) {
-						console.log('✅ Infinite scroll ready!');
-					} else {
-						console.error('❌ Failed to setup infinite scroll');
-					}
-				});
-			}
-
-			console.log('✅ Home page setup complete');
-		})();
-
-		// Cleanup function
-		return () => {
-			console.log('🧹 Cleaning up infinite scroll...');
-			if (infiniteScrollManager) {
-				infiniteScrollManager.destroy();
-				infiniteScrollManager = null;
-			}
-		};
-	});
-
-	// Also update your setupInfiniteScroll function to be more defensive:
-
-	function setupInfiniteScroll() {
-		// Don't setup if we don't have any posts yet
+		// Check if posts were actually loaded and rendered
 		const currentPosts = get(postStore);
+		console.log('🔍 After initial load - Posts in store:', currentPosts.posts.length);
+
+		// If no posts, try once more
 		if (currentPosts.posts.length === 0) {
-			console.log('⏳ Skipping infinite scroll setup - no posts loaded yet');
-			return null;
+			console.log('⚠️ No posts loaded initially, trying again...');
+			await postStore.fetchPosts(HOME_POSTS_PER_PAGE, 0);
+			await tick();
+			await new Promise((resolve) => setTimeout(resolve, 300));
 		}
 
+		// Check if trigger element exists before setup
+		const triggerElement = document.getElementById('home-loading-trigger');
+		console.log('🎯 Trigger element before setup:', triggerElement);
+
+		if (!triggerElement) {
+			console.log('⚠️ Trigger element not found, waiting longer...');
+			await new Promise((resolve) => setTimeout(resolve, 500));
+		}
+
+		// Setup infinite scroll
+		console.log('🔧 Setting up infinite scroll...');
+		setupInfiniteScroll();
+
+		// Attach with retry using the same pattern as username page
+		if (infiniteScrollManager) {
+			const success = await infiniteScrollManager.attachWithRetry(10, 100);
+			if (success) {
+				console.log('✅ Infinite scroll ready!');
+			} else {
+				console.error('❌ Failed to setup infinite scroll');
+				// Debug final state
+				const finalTrigger = document.getElementById('home-loading-trigger');
+				console.log('🔍 Final trigger check:', finalTrigger);
+				console.log('🔍 Enhanced posts length:', enhancedPosts.length);
+				console.log('🔍 Should show trigger:', shouldShowLoadingTrigger);
+			}
+		}
+
+		console.log('✅ Home page setup complete');
+	})();
+
+	return () => {
+		console.log('🧹 Cleaning up infinite scroll...');
 		if (infiniteScrollManager) {
 			infiniteScrollManager.destroy();
+			infiniteScrollManager = null;
 		}
+	};
+});
 
-		infiniteScrollManager = new InfiniteScrollManager({
-			loadMore: async () => {
-				try {
-					// Add extra safety checks
-					const storeState = get(postStore);
-					if (!storeState.hasMore || shouldDisableInfiniteScroll || storeState.loadingMore) {
-						console.log('⛔ Load more cancelled:', {
-							hasMore: storeState.hasMore,
-							filtersDisabled: shouldDisableInfiniteScroll,
-							alreadyLoading: storeState.loadingMore
-						});
-						return;
-					}
 
-					console.log('🔄 Infinite scroll triggering loadMore...');
-					await loadMoreHomePosts();
-				} catch (error) {
-					console.error('Error loading more home posts:', error);
-				}
-			},
-			hasMore: () => {
-				const state = get(postStore);
-				return state.hasMore && !shouldDisableInfiniteScroll;
-			},
-			isLoading: () => {
-				const state = get(postStore);
-				return homeLoadingMore || state.loading || state.loadingMore;
-			},
-			triggerId: 'home-loading-trigger',
-			debug: true
-		});
-
-		infiniteScrollManager.setup();
-		console.log('🔧 Infinite scroll manager created');
-		return infiniteScrollManager;
+function setupInfiniteScroll() {
+	const currentPosts = get(postStore);
+	if (currentPosts.posts.length === 0) {
+		console.log('⏳ Skipping infinite scroll setup - no posts loaded yet');
+		return null;
 	}
+
+	if (infiniteScrollManager) {
+		infiniteScrollManager.destroy();
+	}
+
+	infiniteScrollManager = new InfiniteScrollManager({
+		loadMore: async () => {
+			try {
+				if (shouldDisableInfiniteScroll) {
+					console.log('⛔ Load more disabled due to active filters');
+					return;
+				}
+				console.log('🚀 Loading more posts via postStore');
+				await postStore.loadMorePosts(HOME_POSTS_PER_PAGE);
+			} catch (error) {
+				console.error('Error loading more home posts:', error);
+			}
+		},
+		hasMore: () => {
+			const state = get(postStore);
+			return state.hasMore && !shouldDisableInfiniteScroll;
+		},
+		isLoading: () => {
+			const state = get(postStore);
+			return state.loadingMore;
+		},
+		triggerId: 'home-loading-trigger',
+		debug: true
+	});
+
+	infiniteScrollManager.setup();
+	console.log('🔧 Infinite scroll manager created');
+	return infiniteScrollManager;
+}
 
 	// Add this reactive statement to handle filter changes:
 	$: {
@@ -979,20 +921,20 @@
 	}
 
 	// Update your loadMore function in the InfiniteScrollManager:
-	const loadMore = async (): Promise<void> => {
-		// Skip if filters are active
-		if (shouldDisableInfiniteScroll) {
-			console.log('⛔ Load more skipped due to active filters');
-			return;
-		}
+	// const loadMore = async (): Promise<void> => {
+	// 	// Skip if filters are active
+	// 	if (shouldDisableInfiniteScroll) {
+	// 		console.log('⛔ Load more skipped due to active filters');
+	// 		return;
+	// 	}
 
-		try {
-			await fetchHomePosts(homeCurrentOffset, true);
-			console.log('✅ Loaded more posts');
-		} catch (error) {
-			console.error('❌ Error loading more posts:', error);
-		}
-	};
+	// 	try {
+	// 		await fetchHomePosts(homeCurrentOffset, true);
+	// 		console.log('✅ Loaded more posts');
+	// 	} catch (error) {
+	// 		console.error('❌ Error loading more posts:', error);
+	// 	}
+	// };
 
 	// Optional: Add a visual indicator when infinite scroll is disabled
 	$: infiniteScrollStatus = {
@@ -1173,7 +1115,7 @@
 					<!-- Use effectiveHasMore instead of homeHasMore -->
 					{#if shouldShowLoadingTrigger || (enhancedPosts.length < 3 && $postStore.hasMore && !shouldDisableInfiniteScroll)}
 						<div id="home-loading-trigger" class="loading-trigger">
-							{#if homeLoadingMore}
+	{#if shouldShowLoadingTrigger || (enhancedPosts.length < 3 && $postStore.hasMore && !shouldDisableInfiniteScroll)}
 								<div class="loading-indicator">
 									<div
 										class="trigger-loader"
@@ -1229,6 +1171,7 @@
 							bind:this={postComposerRef}
 							{enableAutoTagging}
 							{taggingModel}
+							onClose={() => sidenavStore.hideInput()}
 							on:submit={handlePostSubmit}
 							on:taggingComplete={handleTaggingComplete}
 						/>
@@ -1258,12 +1201,12 @@
 			<div>Observer: {infiniteScrollManager ? '✅' : '❌'}</div>
 			<div>Attached: {infiniteScrollManager?.isObserverAttached ? '✅' : '❌'}</div>
 			<div>Trigger: {document?.getElementById('home-loading-trigger') ? '✅' : '❌'}</div>
-			<div>Has More (local): {homeHasMore ? '✅' : '❌'}</div>
-			<div>Loading (local): {homeLoadingMore ? '⏳' : '💤'}</div>
+			<!-- <div>Has More (local): {homeHasMore ? '✅' : '❌'}</div>
+			<div>Loading (local): {homeLoadingMore ? '⏳' : '💤'}</div> -->
 			<div>Has More (store): {$postStore.hasMore ? '✅' : '❌'}</div>
 			<div>Posts: {$postStore.posts.length}</div>
 			<div style="margin-top: 10px;">
-				<button
+				<!-- <button
 					style="background: #007bff; color: var(--text-color); border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer;"
 					on:click={() => {
 						console.log('🚀 Manual trigger loadMorePosts from local function');
@@ -1271,7 +1214,7 @@
 					}}
 				>
 					Manual Load More
-				</button>
+				</button> -->
 			</div>
 			<div style="margin-top: 5px;">
 				<button

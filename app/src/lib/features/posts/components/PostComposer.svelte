@@ -26,6 +26,7 @@
 	} from '$lib/features/posts/utils/attachmentTagging';
 	import { extractPdfKeywords } from '$lib/utils/pdfKeywordExtractor';
 	import Avatar from '$lib/features/users/components/Avatar.svelte';
+import { onMount } from 'svelte';
 
 	export let initialContent: string = '';
 	export let disabled: boolean = false;
@@ -48,6 +49,9 @@
 	export let buttonText: string = '';
 	export let isQuote: boolean = false;
 	export let isComment: boolean = false;
+	export let onClose: (() => void) | undefined = undefined;
+
+let composerElement: HTMLDivElement;
 
 	let content = initialContent;
 	let attachments: File[] = [];
@@ -113,14 +117,55 @@
 	function handleRecordingComplete(event: CustomEvent<{ audioFile: File }>) {
 		attachments = [...attachments, event.detail.audioFile];
 	}
-	function handleInput(event: Event) {
-		const target = event.target as HTMLTextAreaElement;
-		autoResize(target);
+	function handleClickOutside(event: MouseEvent) {
+	if (composerElement && !composerElement.contains(event.target as Node)) {
+		closeComposer();
 	}
+}
 
-	$: if (textareaElement && content !== undefined) {
-		autoResize(textareaElement);
+function closeComposer() {
+	if (onClose) {
+		onClose();
 	}
+}
+function handleInput(event: Event) {
+	const target = event.target as HTMLTextAreaElement;
+	content = target.value; // Manual one-way sync
+	autoResize(target);
+}
+function handleKeydown(event: KeyboardEvent) {
+	// Handle space character insertion manually
+	if (event.key === ' ') {
+		event.preventDefault();
+		
+		const textarea = event.target as HTMLTextAreaElement;
+		const start = textarea.selectionStart || 0;
+		const end = textarea.selectionEnd || 0;
+		const value = textarea.value;
+		
+		// Insert space at cursor position
+		textarea.value = value.slice(0, start) + ' ' + value.slice(end);
+		textarea.setSelectionRange(start + 1, start + 1);
+		
+		// Update Svelte content variable and trigger input event
+		content = textarea.value;
+		autoResize(textarea);
+		
+		return; // Exit early for space handling
+	}
+	
+	// Handle other keys normally
+	if (event.key === 'Escape') {
+		closeComposer();
+	}
+	if (event.key === 'Enter' && !event.shiftKey && content.trim()) {
+		event.preventDefault();
+		handleSubmit();
+	}
+}
+	// $: if (textareaElement && content !== undefined) {
+	// 	autoResize(textareaElement);
+	// }
 	function handleFileSelect(event: Event) {
 		const target = event.target as HTMLInputElement;
 		if (target.files) {
@@ -182,6 +227,7 @@
 				if (textareaElement) {
 					textareaElement.style.height = 'auto';
 				}
+				closeComposer();
 			} catch (error) {
 				console.error('❌ POST COMPOSER: Error dispatching submit event:', error);
 			}
@@ -254,13 +300,10 @@
 			const result = await response.json();
 			console.log('📡 API Response:', result);
 
-			// Handle the response - check if it's wrapped in apiTryCatch structure
 			let newPost;
 			if (result.success && result.data) {
-				// Response is wrapped in apiTryCatch structure
 				newPost = result.data;
 			} else if (result.id) {
-				// Direct post object
 				newPost = result;
 			} else {
 				throw new Error('Invalid response format from server');
@@ -377,6 +420,8 @@
 			if (textareaElement) {
 				textareaElement.style.height = 'auto';
 			}
+			closeComposer();
+
 		} catch (err) {
 			console.error('❌ Error submitting post:', err);
 			alert('Failed to create post: ' + (err instanceof Error ? err.message : 'Unknown error'));
@@ -398,9 +443,9 @@
 		return '';
 	}
 
-	$: if (initialContent && !content) {
-		content = initialContent;
-	}
+	// $: if (initialContent && !content) {
+	// 	content = initialContent;
+	// }
 
 	$: extractableFiles = attachments.filter(supportsTextExtraction).length;
 
@@ -415,17 +460,24 @@
 			attachmentsWithTaggingSupport = [];
 		}
 	}
+	onMount(() => {
+	document.addEventListener('mousedown', handleClickOutside);
+	
+	return () => {
+		document.removeEventListener('mousedown', handleClickOutside);
+	};
+});
 </script>
 
-<div class="post-composer">
+<div class="post-composer" bind:this={composerElement}>
 	<div class="composer-header">
 		<Avatar user={$currentUser} size={30} className="user-avatar" />
 		<textarea
 			bind:this={textareaElement}
 			class="composer-textarea"
 			placeholder={finalPlaceholder}
-			bind:value={content}
 			on:input={handleInput}
+			on:keydown={handleKeydown}
 			on:paste={() => {
 				setTimeout(() => {
 					if (textareaElement) autoResize(textareaElement);
@@ -583,10 +635,10 @@
 		max-height: 50vh;
 		width: 100%;
 		box-sizing: border-box;
-		display: flex;
 		scroll-behavior: smooth;
 		overflow-x: hidden;
 		overflow-y: scroll;
+		z-index: 1000;
 		&::-webkit-scrollbar {
 			width: 0.5rem;
 			background-color: transparent;
@@ -743,7 +795,8 @@
 		height: 80px;
 		object-fit: cover;
 		border-radius: 8px;
-		border: 1px solid var(--line-color);
+
+		box-shadow: var(--line-color) 0 0 10px 2px;
 	}
 
 	.tagging-status {
@@ -875,13 +928,12 @@
 			font-family: var(--font-family);
 			line-height: 1.5;
 			outline: none;
-			min-height: 2.5rem; /* Start with smaller min-height */
+			min-height: 2.5rem;
 			max-height: 50vh;
 			width: 100%;
 			margin-right: 0;
 			margin-left: 1rem;
 			box-sizing: border-box;
-			display: flex;
 			scroll-behavior: smooth;
 		}
 		.post-button {

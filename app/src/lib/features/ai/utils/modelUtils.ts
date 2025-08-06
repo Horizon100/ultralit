@@ -1,3 +1,4 @@
+//src/lib/features/ai/utils/modelUtils.ts
 import type { AIModel } from '$lib/types/types';
 
 export interface ModelData {

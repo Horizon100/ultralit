@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
 	export let user: any = null;
 	export let size: number = 40;
 	export let className: string = '';
@@ -53,12 +54,17 @@
 			imageError: imageError
 		});
 	}
-	// Handle image load error
+
 	let imageError = false;
-	function handleImageError() {
-		console.log('Avatar image load error for:', user);
-		imageError = true;
-	}
+	let showIdenticon = false;
+
+function handleImageError() {
+	console.log('Avatar image load error for:', user);
+	imageError = true;
+	showIdenticon = true;
+}
+$: identiconUrl = user?.id ? generateUserIdenticon(getUserIdentifier(user), size) : null;
+
 </script>
 
 {#if avatarUrl && !imageError}
@@ -69,8 +75,17 @@
 		style="width: {size}px; height: {size}px; border-radius: 50%;"
 		on:error={handleImageError}
 	/>
+{:else if showIdenticon && identiconUrl}
+	<!-- Show identicon when server avatar fails -->
+	<img
+		src={identiconUrl}
+		alt="{displayName}'s avatar"
+		class="avatar {className}"
+		style="width: {size}px; height: {size}px; border-radius: 50%;"
+		on:error={() => showIdenticon = false}
+	/>
 {:else}
-	<!-- Show initials fallback (only if server completely fails) -->
+	<!-- Show initials fallback only as last resort -->
 	<div
 		class="avatar-placeholder {className}"
 		style="width: {size}px; height: {size}px; background-color: {backgroundColor}; border-radius: 50%; font-size: {size * 0.4}px;"
@@ -82,7 +97,7 @@
 <style>
 	.avatar {
 		object-fit: cover;
-		background-color: #f1f5f9;
+		background-color: #c3c3c3;
 	}
 
 	.avatar-placeholder {

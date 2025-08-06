@@ -6,6 +6,7 @@
 	import { env } from '$env/dynamic/public';
 
 	let scriptLoaded = false;
+let umamiAvailable = false;
 
 	onMount(() => {
 		if (!browser) return;

@@ -44,11 +44,10 @@
 	import DMModule from '$lib/features/dm/components/DMModule.svelte';
 	import Debugger from '$lib/components/modals/Debugger.svelte';
 	import UsersList from '$lib/features/users/components/UsersList.svelte';
-	import { getAvatarUrl } from '$lib/features/users/utils/avatarHandling';
 	import MediaGrid from '$lib/features/posts/components/MediaGrid.svelte';
-	import { getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
+	import { getAvatarUrl, getAvatarUrlWithFallback } from '$lib/features/users/utils/avatarHandling';
 	import { generateUserIdenticon, getUserIdentifier } from '$lib/utils/identiconUtils';
-
+	import Avatar from '$lib/features/users/components/Avatar.svelte'
 	// export let data;
 
 	let activeTab: 'posts' | 'media' | 'likes' = 'posts';
@@ -95,10 +94,14 @@
 
 		if ($showInput) {
 			sidenavStore.hideInput();
+			scrollY = 0;
+			isScrolled = false;
 		}
 		if ($showOverlay) {
 			sidenavStore.hideOverlay();
 			activeOverlay = 'followers';
+			scrollY = 0;
+			isScrolled = false;			
 		}
 	}
 	function switchOverlay(overlay: 'followers' | 'following') {
@@ -107,11 +110,15 @@
 
 		if ($showInput) {
 			sidenavStore.hideInput();
+			scrollY = 0;
+			isScrolled = false;
 		}
 
 		if ($showOverlay && activeOverlay === overlay) {
 			// If same overlay is open, close it
 			sidenavStore.hideOverlay();
+			scrollY = 0;
+			isScrolled = false;
 		} else {
 			// Open the overlay
 			activeOverlay = overlay;
@@ -853,6 +860,9 @@
 		isScrolled = scrollY > SCROLL_THRESHOLD;
 		// console.log('Scroll update:', { scrollY, isScrolled, threshold: SCROLL_THRESHOLD });
 	}
+// 	$: if (!$showInput && !$showOverlay) {
+//     window.scrollTo({ top: 0, behavior: 'smooth' });
+// }
 	$: isCurrentUser = !!($currentUser && user && $currentUser.id === user.id);
 	$: if (user && user.id) {
 		console.log(
@@ -1017,7 +1027,7 @@
 			</div>
 			<!-- {:else if !user} -->
 		{:else if user}
-			{#if isScrolled || $showInput || $showOverlay}
+{#if isScrolled || $showInput || $showOverlay}
 				<div
 					class="profile-sticky-header"
 					class:input-open={$showInput}
@@ -1027,10 +1037,15 @@
 					<div class="avatar-header">
 						<div class="status-indicator" class:online={userStatus === 'online'}></div>
 
-						<img
-							src={finalAvatarUrl || '/api/placeholder/120/120'}
-							alt="{user?.name || user?.username || 'User'}'s avatar"
-							class="profile-avatar"
+						<Avatar
+							user={{
+								id: user?.id,
+								name: user?.name,
+								username: user?.username,
+								avatar: user?.avatar
+							}}
+							size={40}
+							className="profile-avatar"
 						/>
 					</div>
 					<div class="header-username">
@@ -1041,42 +1056,7 @@
 					</div>
 					<div class="content-nav">
 						<nav class="tab-nav">
-							{#if $currentUser}
-								{#if !isCurrentUser}
-									<button
-										class="tab"
-										class:active={$showInput}
-										on:click={(event) => {
-											event.preventDefault();
-											if (innerWidth <= 450) {
-												sidenavStore.hideLeft();
-												sidenavStore.hideRight();
-											}
-
-											// Close overlay if open
-											if ($showOverlay) {
-												sidenavStore.hideOverlay();
-											}
-
-											// Toggle input
-											if ($showInput) {
-												sidenavStore.hideInput();
-											} else {
-												sidenavStore.showInput();
-											}
-										}}
-									>
-										<Icon name="MessageCircleMore" size={16} />
-										<!-- {$t('chat.message')} -->
-									</button>
-								{/if}
-							{:else}
-								<!-- <button class="btn btn-primary" on:click={() => goto('/login')}>
-									<Icon name="UserIcon" size={16} />
-									{$t('generic.signin')}
-								</button> -->
-							{/if}
-
+	
 							<button
 								class="tab"
 								class:active={activeTab === 'posts' && !$showOverlay && !$showInput}
@@ -1097,9 +1077,49 @@
 								<span>{totalPosts}</span>
 								<!-- <span>{$t('posts.posts')}</span> -->
 							</button>
+						{#if $currentUser}
+								{#if !isCurrentUser}
+									<button
+										class="tab"
+										class:active={$showInput}
+										on:click={(event) => {
+											event.preventDefault();
+											if (innerWidth <= 450) {
+												sidenavStore.hideLeft();
+												sidenavStore.hideRight();
+											}
+
+											// Close overlay if open
+											if ($showOverlay) {
+												sidenavStore.hideOverlay();
+											}
+
+											// Toggle input
+											if ($showInput) {
+												sidenavStore.hideInput();
+											scrollY = 0;
+												isScrolled = false;
+
+											} else {
+												sidenavStore.showInput();
+											}
+										}}
+										
+									>
+										<Icon name="MessageCircleMore" size={16} />
+										<!-- {$t('chat.message')} -->
+									</button>
+								{/if}
+							{:else}
+								<!-- <button class="btn btn-primary" on:click={() => goto('/login')}>
+									<Icon name="UserIcon" size={16} />
+									{$t('generic.signin')}
+								</button> -->
+							{/if}
 
 							<button
 								class="tab"
+								class:hidden={totalMediaCount === 0}
 								class:active={activeTab === 'media' && !$showOverlay && !$showInput}
 								on:click={(event) => {
 									event.preventDefault();
@@ -1173,11 +1193,8 @@
 						</nav>
 					</div>
 				</div>
-			{/if}
-
-			<div class="main-wrapper" class:with-sticky-header={isScrolled} class:input-open={$showInput}>
-				{#if !isScrolled && !$showInput && !$showOverlay}
-					<header class="profile-header" transition:fly={{ y: -50, duration: 200 }}>
+			{:else}
+								<header class="profile-header" transition:fly={{ y: -50, duration: 200 }}>
 						<div
 							class="profile-background"
 							class:interactive={isCurrentUser}
@@ -1221,11 +1238,16 @@
 
 						<div class="profile-info">
 							<div class="avatar-section">
-								<img
-									src="/api/users/{user?.id}/avatar"
-									alt="{user?.name || user?.username || 'User'}'s avatar"
-									class="profile-avatar"
-								/>
+						<Avatar
+							user={{
+								id: user?.id,
+								name: user?.name,
+								username: user?.username,
+								avatar: user?.avatar
+							}}
+							size={120}
+							className="profile-avatar"
+						/>
 							</div>
 
 							<div class="user-details">
@@ -1333,25 +1355,28 @@
 											<span class="capitalize">{$t('posts.posts')}</span>
 											({totalPosts})
 										</button>
-										<button
-											class="tab"
-											class:active={activeTab === 'media' && !$showOverlay}
-											on:click={(event) => {
-												event.preventDefault();
-												switchTab('media');
-												if ($showInput) {
-													sidenavStore.hideInput();
-												}
-												if ($showOverlay) {
-													sidenavStore.hideOverlay();
-												}
-											}}
-										>
-											<span class="capitalize">{$t('posts.media')}</span>
-											{#if totalMediaCount > 0}
-												<span> ({totalMediaCount})</span>
-											{/if}
-										</button>
+										{#if totalMediaCount > 0}
+											<button
+												class="tab"
+												
+												class:active={activeTab === 'media' && !$showOverlay}
+												on:click={(event) => {
+													event.preventDefault();
+													switchTab('media');
+													if ($showInput) {
+														sidenavStore.hideInput();
+													}
+													if ($showOverlay) {
+														sidenavStore.hideOverlay();
+													}
+												}}
+											>
+												<span class="capitalize">{$t('posts.media')}</span>
+												{#if totalMediaCount > 0}
+													<span> ({totalMediaCount})</span>
+												{/if}
+											</button>
+										{/if}
 										<!-- <button
 											class="tab"
 											class:active={activeTab === 'likes'}
@@ -1461,6 +1486,8 @@
 						</div>
 					</header>
 				{/if}
+
+			<div class="main-wrapper" class:with-sticky-header={isScrolled} class:input-open={$showInput}>
 				<!-- Profile Content -->
 				<main class="profile-content">
 					{#if activeTab === 'posts'}
@@ -1844,6 +1871,9 @@
 			&:hover {
 				color: var(--tertiary-color);
 			}
+			&.hidden {
+				display: none;
+			}
 			&.active {
 				color: var(--text-color);
 				font-weight: 800;
@@ -1930,7 +1960,9 @@
 		}
 	}
 	.profile-header {
-		overflow: hidden;
+		width: 100%;
+		max-width: 800px;
+		// overflow: hidden;
 		position: relative;
 		z-index: 999;
 	}
